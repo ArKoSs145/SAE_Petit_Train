@@ -1,62 +1,110 @@
 #!/usr/bin/env python3
 """
-sender.py - Lit les scanners branchés sur des ports série (/dev/ttyUSB* ou /dev/ttyACM*)
-et envoie chaque scan avec un ID unique au serveur.
+sender.py - Multi-scanner sender (numérotation simple 1, 2, 3)
+ - Détecte les zapettes USB-COM (et HID si dispo)
+ - Attribue un ID simple : 1, 2, 3... selon l’ordre détecté
+ - Envoie "id:barcode" au receiver
 """
 
+import threading
+import time
+import socket
 import serial
 import serial.tools.list_ports
-import socket
-import threading
+import traceback
 
-SERVER_HOST = "127.0.0.1"
+# HID support (optionnel)
+try:
+    import hid
+    HID_AVAILABLE = True
+except ImportError:
+    HID_AVAILABLE = False
+
+SERVER_HOST = "127.0.0.1"  # à modifier si receiver sur une autre machine
 SERVER_PORT = 5555
+READ_TIMEOUT = 1.0
+RECONNECT_DELAY = 2.0
+
 
 def send_scan(barcode, device_id):
-    """Envoie le code-barres et l'ID au serveur"""
+    """Envoie un code scanné au serveur"""
+    payload = f"{device_id}:{barcode}"
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(5)
             s.connect((SERVER_HOST, SERVER_PORT))
-            message = f"{device_id}:{barcode}"
-            s.sendall(message.encode("utf-8"))
-        print(f"[SEND] {message}")
+            s.sendall(payload.encode("utf-8"))
+        print(f"[SEND] {payload}")
     except Exception as e:
-        print(f"[ERREUR] Impossible d'envoyer au serveur : {e}")
+        print(f"[ERROR] Échec d’envoi au serveur: {e}")
 
-def listen_port(port):
-    """Écoute un port série et envoie chaque scan au serveur"""
-    device_id = port.device  # On prend le nom du port comme ID unique
-    print(f"[INFO] Écoute sur {device_id}")
-    try:
-        with serial.Serial(port.device, baudrate=9600, timeout=1) as ser:
-            buffer = ""
-            while True:
-                line = ser.readline().decode('utf-8', errors='ignore').strip()
-                if line:
-                    buffer = line  # chaque ligne correspond à un scan
-                    send_scan(buffer, device_id)
-    except Exception as e:
-        print(f"[ERREUR] Port {device_id} : {e}")
 
-def main():
-    # Détection automatique de tous les ports USB série
-    ports = serial.tools.list_ports.comports()
-    if not ports:
-        print("[INFO] Aucun scanner détecté sur les ports série.")
-        return
+def serial_reader_thread(port_info, device_id):
+    """Lit les scans sur un port série donné et envoie au receiver"""
+    port_name = port_info.device
+    print(f"[INFO] Thread zapette {device_id} démarré sur {port_name}")
+    while True:
+        try:
+            with serial.Serial(port_name, baudrate=9600, timeout=READ_TIMEOUT) as ser:
+                print(f"[OPEN] {port_name} ouvert (zapette {device_id})")
+                while True:
+                    line = ser.readline()
+                    if not line:
+                        continue
+                    try:
+                        text = line.decode("utf-8", errors="ignore").strip()
+                    except Exception:
+                        text = repr(line)
+                    if text:
+                        send_scan(text, device_id)
+        except serial.SerialException as e:
+            if "permission" in str(e).lower():
+                print(f"[PERM] Accès refusé à {port_name}. Ajoutez l’utilisateur au groupe dialout. ({e})")
+                time.sleep(RECONNECT_DELAY)
+            else:
+                print(f"[ERROR] Port {port_name} indisponible: {e}")
+                time.sleep(RECONNECT_DELAY)
+        except Exception as e:
+            print(f"[EXC] Erreur inattendue sur {port_name}: {e}")
+            traceback.print_exc()
+            time.sleep(RECONNECT_DELAY)
 
+
+def discover_and_start_listeners():
+    """Découvre les zapettes et lance un thread par port"""
     threads = []
-    for port in ports:
-        t = threading.Thread(target=listen_port, args=(port,), daemon=True)
+    ports = serial.tools.list_ports.comports()
+
+    if not ports:
+        print("[INFO] Aucune zapette détectée.")
+        return []
+
+    print(f"[INFO] {len(ports)} zapette(s) détectée(s).")
+
+    # Attribuer les ID : 1, 2, 3...
+    for idx, p in enumerate(ports, start=1):
+        t = threading.Thread(target=serial_reader_thread, args=(p, idx), daemon=True)
         t.start()
         threads.append(t)
+        print(f"[INFO] Zapette {idx} assignée au port {p.device}")
 
-    print("[INFO] Écouteurs lancés. Ctrl+C pour arrêter.")
+    return threads
+
+
+def main():
+    print("[INFO] Sender démarré — détection des zapettes...")
+    threads = discover_and_start_listeners()
+    if not threads:
+        print("[INFO] Aucune zapette connectée. Fin du programme.")
+        return
+
+    print("[INFO] En écoute. Ctrl+C pour arrêter.")
     try:
         while True:
-            pass
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\n[INFO] Arrêt demandé.")
+        print("\n[INFO] Arrêt du sender.")
+
 
 if __name__ == "__main__":
     main()
