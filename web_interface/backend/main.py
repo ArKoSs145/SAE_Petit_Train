@@ -106,15 +106,9 @@ def recevoir_scan(poste: int, code_barre: str):
 
     # Si la pièce n'existe pas encore : on la crée automatiquement
     if not piece:
-        piece = Piece(code_barre=code_barre, nom="Inconnu", description="Non renseignée")
+        piece = Piece(nom="Inconnu", description="Non renseignée")
         db.add(piece)
         db.commit()
         db.refresh(piece)
-
-    # On enregistre le scan dans la table des scans
-    scan = Scan(piece_id=piece.id, poste=poste)
-    db.add(scan)
-    db.commit()
-    db.close()
 
     return {"status": "ok", "piece": piece.code_barre, "poste": poste}
