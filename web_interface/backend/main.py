@@ -8,11 +8,6 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def startup_event():
-    # Crée la base si elle n'existe pas
-    init_db()
-    print("Base de données initialisée ou déjà existante.")
 
 # ---------------- WebSocket Manager ----------------
 class ConnectionManager:
@@ -93,6 +88,22 @@ async def start_tcp_server(host="0.0.0.0", port=5555):
 async def startup_event():
     logging.info("Starting TCP → WebSocket bridge...")
     asyncio.create_task(start_tcp_server("0.0.0.0", 5555))
+    # Crée la base si elle n'existe pas
+    init_db()
+    print("Base de données initialisée ou déjà existante.")
+
+     # ---------------- Crée une pièce par défaut ----------------
+    db = SessionLocal()
+    # Vérifie si la pièce existe déjà pour éviter les doublons
+    piece_existante = db.query(Piece).filter_by(nomPiece="Pièce par défaut").first()
+    if not piece_existante:
+        nouvelle_piece = Piece(nomPiece="Pièce par défaut", description="Créée au démarrage")
+        db.add(nouvelle_piece)
+        db.commit()
+        print(f"Pièce créée avec id: {nouvelle_piece.idPiece}")
+    else:
+        print("La pièce par défaut existe déjà.")
+    db.close()
 
 @app.get("/")
 async def root():
@@ -102,13 +113,33 @@ async def root():
 @app.post("/scan")
 def recevoir_scan(poste: int, code_barre: str):
     db = SessionLocal()
-    piece = db.query(Piece).filter_by(code_barre=code_barre).first()
 
-    # Si la pièce n'existe pas encore : on la crée automatiquement
-    if not piece:
-        piece = Piece(nom="Inconnu", description="Non renseignée")
-        db.add(piece)
+    # Récupère la pièce "Pièce par défaut" créée au démarrage
+    piece_defaut = db.query(Piece).filter_by(nomPiece="Pièce par défaut").first()
+    if not piece_defaut:
+        # Au cas où elle n'existe pas (sécurité)
+        piece_defaut = Piece(nomPiece="Pièce par défaut", description="Créée au démarrage")
+        db.add(piece_defaut)
         db.commit()
-        db.refresh(piece)
+        db.refresh(piece_defaut)
 
-    return {"status": "ok", "piece": piece.code_barre, "poste": poste}
+    # Vérifie si la boîte existe déjà
+    boite_existante = db.query(Boite).filter_by(code_barre=code_barre).first()
+    if not boite_existante:
+        # Crée une nouvelle boîte associée à la pièce par défaut
+        nouvelle_boite = Boite(
+            code_barre=code_barre,
+            qteBoite=1,           # quantité par défaut, tu peux adapter
+            idPiece=piece_defaut.idPiece
+        )
+        db.add(nouvelle_boite)
+        db.commit()
+        db.refresh(nouvelle_boite)
+        result = nouvelle_boite
+    else:
+        result = boite_existante
+
+    db.close()
+
+    return {"status": "ok", "code_barre": result.code_barre, "poste": poste}
+

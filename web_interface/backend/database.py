@@ -34,26 +34,25 @@ class Boite(Base):
 # Table des emplacements
 class Emplacement(Base):
     __tablename__ = "emplacements"
-    idEmplacement = Column(Integer, primary_key=True, index=True)
+    idEmplacement = Column(Integer, primary_key=True)
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
-    ligne = Column(Integer) # numéro de la ligne dans la grille
-    colonne = Column(Integer) # numéro de la colonne dans la grille
+    ligne = Column(Integer)
+    colonne = Column(Integer)
 
     boite = relationship("Boite", back_populates="emplacements")
+    magasins = relationship("Magasin", back_populates="emplacement")
+
 
 
 # Table des magasins
 class Magasin(Base):
     __tablename__ = "magasins"
-    idMagasin = Column(Integer, index=True)
-    idEmplacement = Column(Integer, ForeignKey("emplacements.idEmplacement"))
+    idMagasin = Column(Integer, primary_key=True)  # clé primaire
+    idEmplacement = Column(Integer, ForeignKey("emplacements.idEmplacement"), primary_key=True)
     nomMagasin = Column(String)
 
     emplacement = relationship("Emplacement", back_populates="magasins")
 
-    __table_args__ = (
-        PrimaryKeyConstraint('idMagasin', 'idEmplacement'),   # clé primaire composite
-    )
 
 # Table des commandes
 class Commande(Base):
