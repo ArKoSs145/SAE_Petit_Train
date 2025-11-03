@@ -8,6 +8,12 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def startup_event():
+    # Crée la base si elle n'existe pas
+    init_db()
+    print("Base de données initialisée ou déjà existante.")
+
 # ---------------- WebSocket Manager ----------------
 class ConnectionManager:
     def __init__(self):
