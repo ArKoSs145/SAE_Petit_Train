@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from database import SessionLocal, init_db, Piece, Boite, Emplacement, Magasin, Commande
 import asyncio
 import logging
 from typing import List
@@ -90,3 +91,24 @@ async def startup_event():
 @app.get("/")
 async def root():
     return {"status": "ok"}
+
+# ---------------- Database Initialization ----------------
+@app.post("/scan")
+def recevoir_scan(poste: int, code_barre: str):
+    db = SessionLocal()
+    piece = db.query(Piece).filter_by(code_barre=code_barre).first()
+
+    # Si la pièce n'existe pas encore : on la crée automatiquement
+    if not piece:
+        piece = Piece(code_barre=code_barre, nom="Inconnu", description="Non renseignée")
+        db.add(piece)
+        db.commit()
+        db.refresh(piece)
+
+    # On enregistre le scan dans la table des scans
+    scan = Scan(piece_id=piece.id, poste=poste)
+    db.add(scan)
+    db.commit()
+    db.close()
+
+    return {"status": "ok", "piece": piece.code_barre, "poste": poste}

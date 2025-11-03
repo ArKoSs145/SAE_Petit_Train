@@ -1,6 +1,6 @@
 """replace by /web_interface/backend/main.py
 """
-
+import requests
 import threading
 import time
 import socket
@@ -131,6 +131,11 @@ def main():
     except KeyboardInterrupt:
         print("\n[INFO] Arrêt du sender.")
 
+def envoyer_scan(code, poste):
+    try:
+        requests.post("http://IP_DU_SERVEUR:8000/scan", params={"poste": poste, "code_barre": code})
+    except:
+        print("⚠ Impossible d'envoyer au serveur")
 
 if __name__ == "__main__":
     main()
