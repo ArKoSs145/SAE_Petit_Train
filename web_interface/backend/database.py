@@ -23,8 +23,8 @@ class Piece(Base):
 class Boite(Base):
     __tablename__ = "boites"
     idBoite = Column(Integer, primary_key=True, index=True)
-    idPiece = Column(Integer, ForeignKey("pieces.idPiece"), unique=True)
-    code_barre = Column(String, unique=True, index=True)
+    idPiece = Column(Integer, ForeignKey("pieces.idPiece"))
+    code_barre = Column(String, index=True)
     qteBoite = Column(Integer)
 
     piece = relationship("Piece", back_populates="boite")

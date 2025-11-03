@@ -114,10 +114,9 @@ async def root():
 def recevoir_scan(poste: int, code_barre: str):
     db = SessionLocal()
 
-    # Récupère la pièce "Pièce par défaut" créée au démarrage
+    # Récupère ou crée la pièce par défaut
     piece_defaut = db.query(Piece).filter_by(nomPiece="Pièce par défaut").first()
     if not piece_defaut:
-        # Au cas où elle n'existe pas (sécurité)
         piece_defaut = Piece(nomPiece="Pièce par défaut", description="Créée au démarrage")
         db.add(piece_defaut)
         db.commit()
@@ -126,10 +125,10 @@ def recevoir_scan(poste: int, code_barre: str):
     # Vérifie si la boîte existe déjà
     boite_existante = db.query(Boite).filter_by(code_barre=code_barre).first()
     if not boite_existante:
-        # Crée une nouvelle boîte associée à la pièce par défaut
+        # Crée une nouvelle boîte pour la pièce par défaut
         nouvelle_boite = Boite(
             code_barre=code_barre,
-            qteBoite=1,           # quantité par défaut, tu peux adapter
+            qteBoite=1,
             idPiece=piece_defaut.idPiece
         )
         db.add(nouvelle_boite)
@@ -140,6 +139,6 @@ def recevoir_scan(poste: int, code_barre: str):
         result = boite_existante
 
     db.close()
-
     return {"status": "ok", "code_barre": result.code_barre, "poste": poste}
+
 
