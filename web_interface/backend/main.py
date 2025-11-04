@@ -1,20 +1,33 @@
-import datetime
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
-from database import SessionLocal, init_db, Piece, Boite, drop_db, data_db, Emplacement, Magasin, Commande
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.middleware.cors import CORSMiddleware
+from database import SessionLocal, data_db, drop_db, init_db, Boite, Emplacement, Magasin
+from datetime import datetime
 import asyncio
-import logging
 import json
+import logging
 from typing import List
 
-# ---------------- CONFIGURATION ET LOGGING ----------------
 logging.basicConfig(level=logging.INFO)
+
 app = FastAPI()
 
+# --- Autoriser le front React ---
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
-# ==========================================================
-#                  WebSocket Manager
-# ==========================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Gestion WebSocket ---
 class ConnectionManager:
     def __init__(self):
         self.active: List[WebSocket] = []
@@ -24,13 +37,13 @@ class ConnectionManager:
         await websocket.accept()
         async with self.lock:
             self.active.append(websocket)
-        logging.info("✅ WebSocket client connected")
+        logging.info("WebSocket client connected")
 
     async def disconnect(self, websocket: WebSocket):
         async with self.lock:
             if websocket in self.active:
                 self.active.remove(websocket)
-        logging.info("❌ WebSocket client disconnected")
+        logging.info("WebSocket client disconnected")
 
     async def broadcast(self, message: str):
         async with self.lock:
@@ -44,139 +57,69 @@ class ConnectionManager:
                 if ws in self.active:
                     self.active.remove(ws)
 
-
 manager = ConnectionManager()
 
-
-# ==========================================================
-#                  WebSocket Endpoint
-# ==========================================================
+# --- Endpoint WebSocket ---
 @app.websocket("/ws/scans")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Reste en écoute, mais ignore les messages entrants
             await websocket.receive_text()
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
 
-
-# ==========================================================
-#                  TCP Bridge (optionnel)
-# ==========================================================
-async def handle_tcp(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-    addr = writer.get_extra_info("peername")
-    logging.info(f"🔌 TCP client connected: {addr}")
-    try:
-        while True:
-            data = await reader.read(4096)
-            if not data:
-                break
-            text = data.decode("utf-8", errors="ignore").strip()
-            if not text:
-                continue
-            logging.info(f"📦 Received TCP: {text}")
-            await manager.broadcast(text)
-    except Exception:
-        logging.exception("TCP handler error")
-    finally:
-        try:
-            writer.close()
-            await writer.wait_closed()
-        except Exception:
-            pass
-        logging.info(f"🔌 TCP client disconnected: {addr}")
-
-
-async def start_tcp_server(host="0.0.0.0", port=5555):
-    server = await asyncio.start_server(handle_tcp, host, port)
-    addr = ", ".join(str(sock.getsockname()) for sock in server.sockets)
-    logging.info(f"🟢 TCP server listening on {addr}")
-    async with server:
-        await server.serve_forever()
-
-
-# ==========================================================
-#                  Startup (init DB + TCP)
-# ==========================================================
-@app.on_event("startup")
-async def startup_event():
-    logging.info("🚀 Starting TCP → WebSocket bridge...")
-    asyncio.create_task(start_tcp_server("0.0.0.0", 5555))
-    # Commentez drop_db() si vous ne voulez pas réinitialiser la base à chaque démarrage
-    drop_db()
-    # Initialisation de la base
-    init_db()
-    data_db()
- 
-
-
-# ==========================================================
-#                  Root (simple check)
-# ==========================================================
-@app.get("/")
-async def root():
-    return {"status": "ok", "message": "Serveur FastAPI opérationnel"}
-
-
-# ==========================================================
-#                  Endpoint /scan
-# ==========================================================
-class ScanIn(BaseModel):
-    code_barre: str
-    poste: int
-
-
+# --- Endpoint HTTP /scan (pour sender.py) ---
 @app.post("/scan")
-async def recevoir_scan(scan: ScanIn):
-    """Reçoit un scan d'une zapette, l’enregistre et le diffuse en direct."""
+async def recevoir_scan(request: Request):
+    """Réception d’un scan depuis sender.py (HTTP POST)"""
+    data = await request.json()
+    poste = data.get("poste")
+    code_barre = data.get("code_barre")
+
     db = SessionLocal()
     try:
-        # 1️⃣ Récupère ou crée la pièce par défaut
-        piece_defaut = db.query(Piece).filter_by(nomPiece="Pièce par défaut").first()
-        if not piece_defaut:
-            piece_defaut = Piece(nomPiece="Pièce par défaut", description="Créée au démarrage")
-            db.add(piece_defaut)
-            db.commit()
-            db.refresh(piece_defaut)
-
-        # 2️⃣ Vérifie si la boîte existe déjà
-        boite_existante = db.query(Boite).filter_by(code_barre=scan.code_barre).first()
-        if not boite_existante:
-            # ➕ Crée une nouvelle boîte (premier scan)
-            nouvelle_boite = Boite(
-                code_barre=scan.code_barre,
-                nbBoite=1,
-                idPiece=piece_defaut.idPiece
-            )
-            db.add(nouvelle_boite)
-            db.commit()
-            db.refresh(nouvelle_boite)
-            result = nouvelle_boite
-            status_msg = "nouvelle"
+        # Recherche du code-barres dans la base
+        boite = db.query(Boite).filter_by(code_barre=code_barre).first()
+        if boite:
+            emplacement = db.query(Emplacement).filter_by(idBoite=boite.idBoite).first()
+            if emplacement:
+                magasin = db.query(Magasin).filter_by(idMagasin=emplacement.idMagasin).first()
+                magasin_nom = magasin.nomMagasin if magasin else "Inconnu"
+                ligne = emplacement.ligne
+                colonne = emplacement.colonne
+            else:
+                magasin_nom, ligne, colonne = "Non défini", "-", "-"
         else:
-            # 🔁 Déjà existante → incrémente la quantité
-            boite_existante.nbBoite += 1
-            db.commit()
-            result = boite_existante
-            status_msg = f"quantité mise à jour ({boite_existante.nbBoite})"
+            magasin_nom, ligne, colonne = "Inconnu", "-", "-"
 
-        # 3️⃣ Diffuse le scan via WebSocket
+        # Préparer le message pour le front
         message = {
-            "poste": scan.poste,
-            "code_barre": scan.code_barre,
-            "status": status_msg,
-            "qte": result.nbBoite,
+            "poste": poste,
+            "code_barre": code_barre,
+            "magasin": magasin_nom,
+            "ligne": ligne,
+            "colonne": colonne,
+            "timestamp": datetime.now().isoformat()
         }
+
+        # Diffuser via WebSocket
         await manager.broadcast(json.dumps(message))
 
-        logging.info(f"📥 Scan reçu : {scan.code_barre} (poste {scan.poste}) [{status_msg}]")
-        return {"status": "ok", "code_barre": result.code_barre, "poste": scan.poste, "qte": result.nbBoite}
-
-    except Exception as e:
-        logging.exception("Erreur lors du traitement du scan")
-        return {"status": "error", "error": str(e)}
-
+        print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
+        return {"status": "ok", "detail": "scan enregistré"}
     finally:
         db.close()
+
+# --- Démarrage serveur ---
+@app.on_event("startup")
+async def startup_event():
+    logging.info("Initialisation de la base de données...")
+    drop_db()
+    init_db()
+    data_db()
+    logging.info("Base prête ✅")
+
+@app.get("/")
+async def root():
+    return {"status": "ok"}

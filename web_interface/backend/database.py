@@ -79,6 +79,7 @@ def data_db():
 
     # Liste des pièces du excel
     pieces_a_creer = [
+        {"idPiece": 4141, "nomPiece": "Pièce Test (Cahier)", "description": "Objet de test"},
         {"idPiece": 1, "nomPiece": "Phare Bas de Gamme", "description": ""},
         {"idPiece": 2, "nomPiece": "Phare Moyenne Gamme", "description": ""},
         {"idPiece": 3, "nomPiece": "Phare Haut de Gamme", "description": ""},
@@ -137,6 +138,7 @@ def data_db():
         print("Toutes les pièces existent déjà.")
 
     boites_a_creer = [
+        {"idBoite": 6767, "idPiece": 4141, "code_barre": "3601020016223", "nbBoite": 10},
         {"idBoite": 1, "idPiece": 1, "code_barre": "TEST1", "nbBoite": 10},
         {"idBoite": 2, "idPiece": 2, "code_barre": "TEST2", "nbBoite": 10},
         {"idBoite": 3, "idPiece": 3, "code_barre": "TEST3", "nbBoite": 10},
@@ -183,6 +185,7 @@ def data_db():
     for b in boites_a_creer:
         if not db.query(Boite).filter_by(idPiece=b["idPiece"]).first():
             nouvelles_boites.append(Boite(
+                idBoite=b["idBoite"],
                 code_barre=b["code_barre"],
                 nbBoite=b["nbBoite"],
                 idPiece=b["idPiece"]
@@ -225,6 +228,7 @@ def data_db():
     
     # Création des emplacements dans chaque magasin
     emplacement_a_creer = [
+        {"idEmplacement": 6969, "idMagasin": 3, "idBoite": 6767, "ligne": 2, "colonne": 2},
         {"idEmplacement": 1, "idMagasin": 1, "idBoite": 1, "ligne": 1, "colonne": 1},
         {"idEmplacement": 2, "idMagasin": 1, "idBoite": 2, "ligne": 1, "colonne": 2},
         {"idEmplacement": 3, "idMagasin": 1, "idBoite": 3, "ligne": 2, "colonne": 1},
