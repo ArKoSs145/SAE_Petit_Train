@@ -88,7 +88,8 @@ async def start_tcp_server(host="0.0.0.0", port=5555):
 async def startup_event():
     logging.info("Starting TCP → WebSocket bridge...")
     asyncio.create_task(start_tcp_server("0.0.0.0", 5555))
-    
+    # Décommentez drop_bd() pour réinitialiser la base de données à chaque démarrage
+    # drop_db()
     init_db()
     data_db()
 

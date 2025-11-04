@@ -197,3 +197,88 @@ def data_db():
     db.commit()
     db.close()
 
+    magasin_a_creer =[
+        {"idMagasin": 1, "nomMagasin": "Magasin A"},
+        {"idMagasin": 2, "nomMagasin": "Magasin B"},
+        {"idMagasin": 3, "nomMagasin": "Magasin C"},
+        {"idMagasin": 4, "nomMagasin": "Magasin D"},
+        {"idMagasin": 5, "nomMagasin": "Magasin E"},
+    ]
+
+    # Création des boîtes
+    nouveaux_magasins = []
+    for m in magasin_a_creer:
+        if not db.query(Magasin).filter_by(idMagasin=m["idMagasin"]).first():
+            nouveaux_magasins.append(Magasin(
+                idMagasin=m["idMagasin"],
+                nomMagasin=m["nomMagasin"]
+            ))
+
+    if nouveaux_magasins:
+        db.bulk_save_objects(nouveaux_magasins)
+        print(f"{len(nouveaux_magasins)} magasins créés.")
+    else:
+        print("Toutes les magasins existent déjà.")
+
+    db.commit()
+    db.close()
+    
+    # Création des emplacements dans chaque magasin
+    emplacement_a_creer = [
+        {"idEmplacement": 1, "idMagasin": 1, "idBoite": 1, "ligne": 1, "colonne": 1},
+        {"idEmplacement": 2, "idMagasin": 1, "idBoite": 2, "ligne": 1, "colonne": 2},
+        {"idEmplacement": 3, "idMagasin": 1, "idBoite": 3, "ligne": 2, "colonne": 1},
+        {"idEmplacement": 4, "idMagasin": 2, "idBoite": 4, "ligne": 1, "colonne": 1},
+        {"idEmplacement": 5, "idMagasin": 2, "idBoite": 5, "ligne": 1, "colonne": 2}
+    ]
+
+    # Création des emplacements
+    nouveaux_emplacements = []
+    for e in emplacement_a_creer:
+        if not db.query(Emplacement).filter_by(idEmplacement=e["idEmplacement"]).first():
+            nouveaux_emplacements.append(Emplacement(
+                idEmplacement=e["idEmplacement"],
+                idMagasin=e["idMagasin"],
+                idBoite=e["idBoite"],
+                ligne=e["ligne"],
+                colonne=e["colonne"]
+            ))
+
+    if nouveaux_emplacements:
+        db.bulk_save_objects(nouveaux_emplacements)
+        print(f"{len(nouveaux_emplacements)} emplacements créés.")
+    else:
+        print("Toutes les emplacements existent déjà.")
+
+    db.commit()
+    db.close()
+
+    # # Création de commandes exemples
+    # commandes_a_creer = [
+    #     {"idCommande": 1, "idBoite": 1, "idMagasin": 1},
+    #     {"idCommande": 2, "idBoite": 2, "idMagasin": 1},
+    #     {"idCommande": 3, "idBoite": 3, "idMagasin": 2},
+    #     {"idCommande": 4, "idBoite": 4, "idMagasin": 3},
+    #     {"idCommande": 5, "idBoite": 5, "idMagasin": 3},
+    # ]
+
+    # nouvelle_commandes = []
+
+    # for c in commandes_a_creer:
+    #     exist = db.query(Commande).filter_by(idCommande=c["idCommande"]).first()
+    #     if not exist:
+    #         nouvelle_commandes.append(Commande(
+    #             idCommande=c["idCommande"],
+    #             idBoite=c["idBoite"],
+    #             idMagasin=c["idMagasin"]
+
+    #         ))
+
+    # if nouvelle_commandes:
+    #     db.bulk_save_objects(nouvelle_commandes)
+    #     print(f"{len(nouvelle_commandes)} commandes créées.")
+    # else:
+    #     print("Toutes les commandes existent déjà.")
+
+    # db.commit()
+    # db.close()
