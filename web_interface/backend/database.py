@@ -31,28 +31,29 @@ class Boite(Base):
     emplacements = relationship("Emplacement", back_populates="boite")
 
 
+# Table des magasins
+class Magasin(Base):
+    __tablename__ = "magasins"
+    idMagasin = Column(Integer, primary_key=True)
+    nomMagasin = Column(String)
+
+    emplacements = relationship("Emplacement", back_populates="magasin")
+
+
 # Table des emplacements
 class Emplacement(Base):
     __tablename__ = "emplacements"
     idEmplacement = Column(Integer, primary_key=True)
+    idMagasin = Column(Integer, ForeignKey("magasins.idMagasin"))
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
     ligne = Column(Integer)
     colonne = Column(Integer)
 
+    __table_args__ = (
+        UniqueConstraint('idMagasin', 'ligne', 'colonne', name="uq_case_par_magasin"))
+
     boite = relationship("Boite", back_populates="emplacements")
-    magasins = relationship("Magasin", back_populates="emplacement")
-
-
-
-# Table des magasins
-class Magasin(Base):
-    __tablename__ = "magasins"
-    idMagasin = Column(Integer, primary_key=True)  # clé primaire
-    idEmplacement = Column(Integer, ForeignKey("emplacements.idEmplacement"), primary_key=True)
-    nomMagasin = Column(String)
-
-    emplacement = relationship("Emplacement", back_populates="magasins")
-
+    magasin = relationship("Magasin", back_populates="emplacements")
 
 # Table des commandes
 class Commande(Base):
@@ -66,3 +67,4 @@ class Commande(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
