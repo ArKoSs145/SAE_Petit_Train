@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from database import SessionLocal, init_db, Piece, Boite, Emplacement, Magasin, Commande
+from database import SessionLocal, init_db, Piece, Boite, Emplacement, Magasin, Commande, drop_db, data_db
 import asyncio
 import logging
 from typing import List
@@ -88,22 +88,9 @@ async def start_tcp_server(host="0.0.0.0", port=5555):
 async def startup_event():
     logging.info("Starting TCP → WebSocket bridge...")
     asyncio.create_task(start_tcp_server("0.0.0.0", 5555))
-    # Crée la base si elle n'existe pas
+    
     init_db()
-    print("Base de données initialisée ou déjà existante.")
-
-     # ---------------- Crée une pièce par défaut ----------------
-    db = SessionLocal()
-    # Vérifie si la pièce existe déjà pour éviter les doublons
-    piece_existante = db.query(Piece).filter_by(nomPiece="Pièce par défaut").first()
-    if not piece_existante:
-        nouvelle_piece = Piece(nomPiece="Pièce par défaut", description="Créée au démarrage")
-        db.add(nouvelle_piece)
-        db.commit()
-        print(f"Pièce créée avec id: {nouvelle_piece.idPiece}")
-    else:
-        print("La pièce par défaut existe déjà.")
-    db.close()
+    data_db()
 
 @app.get("/")
 async def root():
@@ -128,7 +115,7 @@ def recevoir_scan(poste: int, code_barre: str):
         # Crée une nouvelle boîte pour la pièce par défaut
         nouvelle_boite = Boite(
             code_barre=code_barre,
-            qteBoite=1,
+            nbBoite=1,
             idPiece=piece_defaut.idPiece
         )
         db.add(nouvelle_boite)
