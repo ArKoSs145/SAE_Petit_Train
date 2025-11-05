@@ -64,6 +64,15 @@ class Commande(Base):
     idMagasin = Column(Integer, ForeignKey("magasins.idMagasin"))
     dateCommande = Column(DateTime, default=datetime.utcnow)
 
+# Table Login
+class Login(Base):
+    __tablename__ = "login"
+    idLogin = Column(Integer, primary_key=True, index=True)
+    username = Column(String)
+    password = Column(String)
+    email = Column(String)
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 
@@ -255,6 +264,23 @@ def data_db():
         print("Toutes les emplacements existent déjà.")
 
     db.commit()
+    db.close()
+    
+    # Création d'un utilisateur de test
+    existing_user = db.query(Login).filter_by(username="test_user").first()
+    if not existing_user:
+        new_user = Login(
+            username="test",
+            password="password123",
+            email="test@example.com"
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        print(f"Utilisateur créé avec id : {new_user.idLogin}")
+    else:
+        print("L'utilisateur existe déjà.")
+
     db.close()
 
     # # Création de commandes exemples
