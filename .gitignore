@@ -41,6 +41,16 @@ $RECYCLE.BIN/
 .idea/
 *.code-workspace
 
+# === Base de données ===
+# Fichiers SQLite locaux
+*.db
+*.sqlite
+*.sqlite3
+# Fichiers temporaires de migrations ou verrous
+*.db-shm
+*.db-wal
+*.db-journal
+
 # Fichiers du projet
 logs/
 tmp/

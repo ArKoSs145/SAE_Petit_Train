@@ -1,5 +1,9 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.middleware.cors import CORSMiddleware
+from database import SessionLocal, data_db, drop_db, init_db, Boite, Emplacement, Magasin
+from datetime import datetime
 import asyncio
+import json
 import logging
 from typing import List
 
@@ -7,7 +11,23 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
-# ---------------- WebSocket Manager ----------------
+# --- Autoriser le front React ---
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Gestion WebSocket ---
 class ConnectionManager:
     def __init__(self):
         self.active: List[WebSocket] = []
@@ -39,53 +59,66 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# ---------------- WebSocket Endpoint ----------------
+# --- Endpoint WebSocket ---
 @app.websocket("/ws/scans")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # keep connection alive (ignore incoming messages)
             await websocket.receive_text()
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
 
-# ---------------- TCP Receiver ----------------
-async def handle_tcp(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-    addr = writer.get_extra_info('peername')
-    logging.info(f"TCP client connected: {addr}")
+# --- Endpoint HTTP /scan (pour sender.py) ---
+@app.post("/scan")
+async def recevoir_scan(request: Request):
+    """Réception d’un scan depuis sender.py (HTTP POST)"""
+    data = await request.json()
+    poste = data.get("poste")
+    code_barre = data.get("code_barre")
+
+    db = SessionLocal()
     try:
-        while True:
-            data = await reader.read(4096)
-            if not data:
-                break
-            text = data.decode('utf-8', errors='ignore').strip()
-            if not text:
-                continue
-            logging.info(f"Received TCP: {text}")
-            await manager.broadcast(text)
-    except Exception:
-        logging.exception("TCP handler error")
+        # Recherche du code-barres dans la base
+        boite = db.query(Boite).filter_by(code_barre=code_barre).first()
+        if boite:
+            emplacement = db.query(Emplacement).filter_by(idBoite=boite.idBoite).first()
+            if emplacement:
+                magasin = db.query(Magasin).filter_by(idMagasin=emplacement.idMagasin).first()
+                magasin_nom = magasin.nomMagasin if magasin else "Inconnu"
+                ligne = emplacement.ligne
+                colonne = emplacement.colonne
+            else:
+                magasin_nom, ligne, colonne = "Non défini", "-", "-"
+        else:
+            magasin_nom, ligne, colonne = "Inconnu", "-", "-"
+
+        # Préparer le message pour le front
+        message = {
+            "poste": poste,
+            "code_barre": code_barre,
+            "magasin": magasin_nom,
+            "ligne": ligne,
+            "colonne": colonne,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # Diffuser via WebSocket
+        await manager.broadcast(json.dumps(message))
+
+        print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
+        return {"status": "ok", "detail": "scan enregistré"}
     finally:
-        try:
-            writer.close()
-            await writer.wait_closed()
-        except Exception:
-            pass
-        logging.info(f"TCP client disconnected: {addr}")
+        db.close()
 
-# ---------------- Startup ----------------
-async def start_tcp_server(host="0.0.0.0", port=5555):
-    server = await asyncio.start_server(handle_tcp, host, port)
-    addr = ", ".join(str(sock.getsockname()) for sock in server.sockets)
-    logging.info(f"TCP server listening on {addr}")
-    async with server:
-        await server.serve_forever()
-
+# --- Démarrage serveur ---
 @app.on_event("startup")
 async def startup_event():
-    logging.info("Starting TCP → WebSocket bridge...")
-    asyncio.create_task(start_tcp_server("0.0.0.0", 5555))
+    logging.info("Initialisation de la base de données...")
+    drop_db()
+    init_db()
+    data_db()
+    logging.info("Base prête ✅")
 
 @app.get("/")
 async def root():
