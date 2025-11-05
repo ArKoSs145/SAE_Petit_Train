@@ -237,12 +237,50 @@ def data_db():
     
     # Création des emplacements dans chaque magasin
     emplacement_a_creer = [
-        {"idEmplacement": 6969, "idMagasin": 3, "idBoite": 6767, "ligne": 2, "colonne": 2},
+        # -------- Magasin 1 --------
         {"idEmplacement": 1, "idMagasin": 1, "idBoite": 1, "ligne": 1, "colonne": 1},
         {"idEmplacement": 2, "idMagasin": 1, "idBoite": 2, "ligne": 1, "colonne": 2},
         {"idEmplacement": 3, "idMagasin": 1, "idBoite": 3, "ligne": 2, "colonne": 1},
-        {"idEmplacement": 4, "idMagasin": 2, "idBoite": 4, "ligne": 1, "colonne": 1},
-        {"idEmplacement": 5, "idMagasin": 2, "idBoite": 5, "ligne": 1, "colonne": 2}
+        {"idEmplacement": 4, "idMagasin": 1, "idBoite": 4, "ligne": 2, "colonne": 2},
+        {"idEmplacement": 5, "idMagasin": 1, "idBoite": 5, "ligne": 3, "colonne": 1},
+        {"idEmplacement": 6, "idMagasin": 1, "idBoite": 6, "ligne": 3, "colonne": 2},
+        {"idEmplacement": 7, "idMagasin": 1, "idBoite": 7, "ligne": 4, "colonne": 1},
+        {"idEmplacement": 8, "idMagasin": 1, "idBoite": 8, "ligne": 4, "colonne": 2},
+        {"idEmplacement": 9, "idMagasin": 1, "idBoite": 9, "ligne": 5, "colonne": 1},
+        {"idEmplacement": 10, "idMagasin": 1, "idBoite": 10, "ligne": 5, "colonne": 2},
+        {"idEmplacement": 11, "idMagasin": 1, "idBoite": 11, "ligne": 6, "colonne": 1},
+        {"idEmplacement": 12, "idMagasin": 1, "idBoite": 12, "ligne": 6, "colonne": 2},
+        {"idEmplacement": 13, "idMagasin": 1, "idBoite": 13, "ligne": 7, "colonne": 1},
+        {"idEmplacement": 14, "idMagasin": 1, "idBoite": 14, "ligne": 7, "colonne": 2},
+        {"idEmplacement": 15, "idMagasin": 1, "idBoite": 15, "ligne": 8, "colonne": 1},
+        {"idEmplacement": 16, "idMagasin": 1, "idBoite": 16, "ligne": 8, "colonne": 2},
+        {"idEmplacement": 17, "idMagasin": 1, "idBoite": 17, "ligne": 9, "colonne": 1},
+        {"idEmplacement": 18, "idMagasin": 1, "idBoite": 18, "ligne": 9, "colonne": 2},
+
+        # -------- Magasin 2 --------
+        {"idEmplacement": 19, "idMagasin": 2, "idBoite": 19, "ligne": 1, "colonne": 1},
+        {"idEmplacement": 20, "idMagasin": 2, "idBoite": 20, "ligne": 1, "colonne": 2},
+        {"idEmplacement": 21, "idMagasin": 2, "idBoite": 21, "ligne": 2, "colonne": 1},
+        {"idEmplacement": 22, "idMagasin": 2, "idBoite": 22, "ligne": 2, "colonne": 2},
+        {"idEmplacement": 23, "idMagasin": 2, "idBoite": 23, "ligne": 3, "colonne": 1},
+        {"idEmplacement": 24, "idMagasin": 2, "idBoite": 24, "ligne": 3, "colonne": 2},
+        {"idEmplacement": 25, "idMagasin": 2, "idBoite": 25, "ligne": 4, "colonne": 1},
+        {"idEmplacement": 26, "idMagasin": 2, "idBoite": 26, "ligne": 4, "colonne": 2},
+        {"idEmplacement": 27, "idMagasin": 2, "idBoite": 27, "ligne": 5, "colonne": 1},
+        {"idEmplacement": 28, "idMagasin": 2, "idBoite": 28, "ligne": 5, "colonne": 2},
+        {"idEmplacement": 29, "idMagasin": 2, "idBoite": 29, "ligne": 6, "colonne": 1},
+        {"idEmplacement": 30, "idMagasin": 2, "idBoite": 30, "ligne": 6, "colonne": 2},
+        {"idEmplacement": 31, "idMagasin": 2, "idBoite": 31, "ligne": 7, "colonne": 1},
+        {"idEmplacement": 32, "idMagasin": 2, "idBoite": 32, "ligne": 7, "colonne": 2},
+        {"idEmplacement": 33, "idMagasin": 2, "idBoite": 33, "ligne": 8, "colonne": 1},
+        {"idEmplacement": 34, "idMagasin": 2, "idBoite": 34, "ligne": 8, "colonne": 2},
+        {"idEmplacement": 35, "idMagasin": 2, "idBoite": 35, "ligne": 9, "colonne": 1},
+        {"idEmplacement": 36, "idMagasin": 2, "idBoite": 36, "ligne": 9, "colonne": 2},
+
+        # -------- Magasin 3 --------
+        {"idEmplacement": 37, "idMagasin": 3, "idBoite": 37, "ligne": 1, "colonne": 1},
+        {"idEmplacement": 38, "idMagasin": 3, "idBoite": 38, "ligne": 1, "colonne": 2},
+        {"idEmplacement": 39, "idMagasin": 3, "idBoite": 39, "ligne": 2, "colonne": 1},
     ]
 
     # Création des emplacements
@@ -265,7 +303,7 @@ def data_db():
 
     db.commit()
     db.close()
-    
+
     # Création d'un utilisateur de test
     existing_user = db.query(Login).filter_by(username="test_user").first()
     if not existing_user:
