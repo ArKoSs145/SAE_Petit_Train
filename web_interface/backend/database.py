@@ -63,6 +63,7 @@ class Commande(Base):
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
     idMagasin = Column(Integer, ForeignKey("magasins.idMagasin"))
     dateCommande = Column(DateTime, default=datetime.utcnow)
+    statutCommande = Column(String, default="A récupérer")
 
 # Table Login
 class Login(Base):
