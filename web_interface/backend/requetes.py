@@ -1,4 +1,4 @@
-from database import SessionLocal, Magasin, Piece, Boite, Emplacement, Commande, Login
+from database import SessionLocal, Magasin, Piece, Boite, Emplacement, Commande, Login, Train
 from sqlalchemy.orm import Session
 
 def get_db():
@@ -12,6 +12,20 @@ def get_db():
     finally:
         db.close()
 
+def get_position_train(db: Session):
+    """
+    Récupère la position actuelle du train.
+
+    Args:
+        db (Session): Session de base de données.
+
+    Returns:
+        int | None: Identifiant du magasin où se trouve le train, ou None si non défini.
+    """
+    train = db.query(Train).first()
+    if train:
+        return train.position
+    return None
 
 def create_magasin(nom: str):
     """
