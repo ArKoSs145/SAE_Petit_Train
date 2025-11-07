@@ -1,7 +1,24 @@
 import React from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.jsx'
+import App from './templates/App.jsx'
 import './styles.css'
+import ReactDOM from "react-dom/client";
+import Base from './templates/Base.jsx';
 
-const root = createRoot(document.getElementById('root'))
-root.render(<App />)
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
+
+const renderBase = () => {
+  root.render(
+    <React.StrictMode>
+      <Base />
+    </React.StrictMode>
+  );
+};
+
+
+root.render(
+  <React.StrictMode>
+    <App onContinue={renderBase} />
+  </React.StrictMode>
+);

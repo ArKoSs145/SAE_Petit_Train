@@ -1,0 +1,109 @@
+/* src/PopupLivraison.css */
+
+/* L'overlay qui prend tout l'écran */
+.popup-overlay {
+  position: fixed; /* Reste en place même si on scrolle (inutile ici mais bonne pratique) */
+  top: 0;
+  left: 0;
+  width: 100vw; /* 100% de la largeur de la vue */
+  height: 100vh; /* 100% de la hauteur de la vue */
+  background-color: #f0f0f0; /* Fond gris clair comme la maquette */
+  padding: 24px;
+  box-sizing: border-box; /* Pour que le padding n'augmente pas la taille */
+  display: flex; /* Pour centrer le conteneur */
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Pour s'assurer qu'il est au-dessus de tout */
+}
+
+/* Le conteneur principal avec les 3 colonnes */
+.popup-container {
+  display: grid;
+  /* On définit 3 colonnes : Grille | Boutons | Tâches */
+  /* J'ajuste les ratios pour ressembler à la maquette (environ 40% / 15% / 25%) */
+  grid-template-columns: 3fr 1fr 2fr;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  max-width: 1400px; /* Limite la largeur max sur grands écrans */
+}
+
+/* --- 1. La grille Magasin --- */
+.storage-grid {
+  display: grid;
+  grid-template-rows: repeat(8, 1fr); /* 8 lignes de hauteur égale */
+  grid-template-columns: repeat(2, 1fr); /* 2 colonnes de largeur égale */
+  gap: 4px; /* Espace entre les cellules */
+  border: 3px solid #666; /* Bordure extérieure de la grille */
+  background-color: #666; /* Fond pour voir les gaps */
+}
+
+.grid-cell {
+  background-color: #d9d9d9; /* Gris par défaut des cellules */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+  /* Couleur de texte par défaut (sera écrasée si cellule active) */
+  color: #333; 
+}
+
+/* --- 2. La colonne des boutons --- */
+.button-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* "Retour" en haut, "Valider" en bas */
+  padding: 40px 0; /* Un peu d'aération en haut et en bas */
+}
+
+.btn-popup {
+  padding: 25px 20px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  background-color: #d9d9d9;
+  border: 2px solid #aaa;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.btn-popup:hover {
+  background-color: #c9c9c9;
+  border-color: #888;
+}
+
+/* --- 3. La colonne des commandes --- */
+.task-list-column {
+  background-color: #d9d9d9; /* Fond gris */
+  border: 2px solid #aaa;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-list-column h2 {
+  margin: 0;
+  font-size: 2rem;
+}
+.task-list-column h3 {
+  margin: 8px 0 20px 0;
+  font-size: 1.5rem;
+}
+
+.task-list-box {
+  padding: 15px 20px;
+  border-radius: 8px;
+  color: white; /* Texte en blanc sur fond coloré */
+}
+
+.task-list-box ul {
+  margin: 0;
+  padding-left: 25px; /* Pour aligner avec le "•" */
+  font-size: 1.2rem;
+  list-style: none;
+}
+
+.task-list-box li {
+  margin-bottom: 10px;
+}
