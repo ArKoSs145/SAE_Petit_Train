@@ -220,11 +220,13 @@ def data_db():
     db.close()
 
     magasin_a_creer =[
-        {"idMagasin": 1, "nomMagasin": "Magasin A"},
-        {"idMagasin": 2, "nomMagasin": "Magasin B"},
-        {"idMagasin": 3, "nomMagasin": "Magasin C"},
-        {"idMagasin": 4, "nomMagasin": "Magasin D"},
-        {"idMagasin": 5, "nomMagasin": "Magasin E"},
+        {"idMagasin": 1, "nomMagasin": "Magasin 1"},
+        {"idMagasin": 2, "nomMagasin": "Magasin 2"},
+        {"idMagasin": 3, "nomMagasin": "Magasin 3"},
+        {"idMagasin": 4, "nomMagasin": "Magasin 4"},
+        {"idMagasin": 5, "nomMagasin": "Poste 1"},
+        {"idMagasin": 6, "nomMagasin": "Poste 2"},
+        {"idMagasin": 7, "nomMagasin": "Poste 3"},
     ]
 
     # Création des boîtes
