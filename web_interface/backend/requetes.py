@@ -12,20 +12,19 @@ def get_db():
     finally:
         db.close()
 
-def get_position_train(db: Session):
+def get_position_train():
     """
     Récupère la position actuelle du train.
-
-    Args:
-        db (Session): Session de base de données.
 
     Returns:
         int | None: Identifiant du magasin où se trouve le train, ou None si non défini.
     """
-    train = db.query(Train).first()
-    if train:
-        return train.position
-    return None
+    db = SessionLocal()
+    try:
+        train = db.query(Train).first()
+        return train.position if train else None
+    finally:
+        db.close()
 
 def create_magasin(nom: str):
     """
