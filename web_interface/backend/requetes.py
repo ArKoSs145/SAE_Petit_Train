@@ -297,3 +297,19 @@ def changer_statut_commande(id_commande: int):
 
     finally:
         db.close()
+
+def save_train_position(position: int):
+    """
+    Sauvegarde ou met à jour la position actuelle du train.
+    """
+    db = SessionLocal()
+    try:
+        train = db.query(Train).first()
+        if not train:
+            train = Train(position=position)
+            db.add(train)
+        else:
+            train.position = position
+        db.commit()
+    finally:
+        db.close()

@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # --- Gestion WebSocket ---
 class ConnectionManager:
     def __init__(self):
@@ -72,47 +73,44 @@ async def websocket_endpoint(websocket: WebSocket):
 # --- Endpoint HTTP /scan (pour sender.py) ---
 @app.post("/scan")
 async def recevoir_scan(request: Request):
+    """Réception d’un scan depuis sender.py (HTTP POST)"""
     data = await request.json()
     poste = data.get("poste")
     code_barre = data.get("code_barre")
 
     db = SessionLocal()
     try:
+        # Recherche du code-barres dans la base
         boite = db.query(Boite).filter_by(code_barre=code_barre).first()
-
         if boite:
             emplacement = db.query(Emplacement).filter_by(idBoite=boite.idBoite).first()
             if emplacement:
                 magasin = db.query(Magasin).filter_by(idMagasin=emplacement.idMagasin).first()
                 magasin_nom = magasin.nomMagasin if magasin else "Inconnu"
-
-                commande = Commande(
-                    idBoite=boite.idBoite,
-                    idMagasin=emplacement.idMagasin,
-                    statutCommande="A récupérer"
-                )
-                db.add(commande)
-                db.commit()
+                ligne = emplacement.ligne
+                colonne = emplacement.colonne
             else:
-                magasin_nom = "Non défini"
+                magasin_nom, ligne, colonne = "Non défini", "-", "-"
         else:
-            magasin_nom = "Inconnu"
+            magasin_nom, ligne, colonne = "Inconnu", "-", "-"
 
+        # Préparer le message pour le front
         message = {
             "poste": poste,
             "code_barre": code_barre,
             "magasin": magasin_nom,
-            "statutCommande": "A récupérer",
+            "ligne": ligne,
+            "colonne": colonne,
             "timestamp": datetime.now().isoformat()
         }
 
+        # Diffuser via WebSocket
         await manager.broadcast(json.dumps(message))
-        print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom})")
 
+        print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
         return {"status": "ok", "detail": "scan enregistré"}
     finally:
         db.close()
-
 
 # --- Démarrage serveur ---
 @app.on_event("startup")

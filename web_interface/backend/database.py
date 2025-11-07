@@ -38,7 +38,6 @@ class Magasin(Base):
     nomMagasin = Column(String)
 
     emplacements = relationship("Emplacement", back_populates="magasin")
-    trains = relationship("Train", back_populates="magasin")
 
 
 # Table des emplacements
@@ -79,8 +78,29 @@ class Train(Base):
     __tablename__ = "train"
     idTrain = Column(Integer, primary_key=True)
     position = Column(Integer, ForeignKey("magasins.idMagasin"))
+    
+    def __init__(self, position):
+        db = SessionLocal()
+        try:
+            magasins = db.query(Magasin).order_by(Magasin.idMagasin).all()
+            self.postes = [m.idMagasin for m in magasins]
+            if position in self.postes:
+                self.index = self.postes.index(position)
+            else:
+                self.index = 0
+            self.position = self.postes[self.index]
+        finally:
+            db.close()
 
-    magasin = relationship("Magasin", back_populates="trains")
+    def get_position(self):
+        """Retourne la position actuelle du train (idMagasin)."""
+        return self.position
+    
+    def move_forward(self):
+        """Déplace le train vers le magasin suivant."""
+        self.index = (self.index + 1) % len(self.postes)
+        self.position = self.postes[self.index]
+        return self.position
 
 
 def init_db():
@@ -243,6 +263,8 @@ def data_db():
         print(f"{len(nouveaux_magasins)} magasins créés.")
     else:
         print("Toutes les magasins existent déjà.")
+
+    db.commit()
     
     # Création du train au magasin 1 s'il n'existe pas déja
     train_existant = db.query(Train).first()
