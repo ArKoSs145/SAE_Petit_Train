@@ -38,6 +38,7 @@ class Magasin(Base):
     nomMagasin = Column(String)
 
     emplacements = relationship("Emplacement", back_populates="magasin")
+    trains = relationship("Train", back_populates="magasin")
 
 
 # Table des emplacements
@@ -72,6 +73,14 @@ class Login(Base):
     username = Column(String)
     password = Column(String)
     email = Column(String)
+
+# Table Train
+class Train(Base):
+    __tablename__ = "train"
+    idTrain = Column(Integer, primary_key=True)
+    position = Column(Integer, ForeignKey("magasins.idMagasin"))
+
+    magasin = relationship("Magasin", back_populates="trains")
 
 
 def init_db():
@@ -232,10 +241,21 @@ def data_db():
         print(f"{len(nouveaux_magasins)} magasins créés.")
     else:
         print("Toutes les magasins existent déjà.")
+    
+    # Création du train au magasin 1 s'il n'existe pas déja
+    train_existant = db.query(Train).first()
+    if not train_existant:
+        train = Train(position=1)
+        db.add(train)
+        db.commit()
+        db.refresh(train)
+        print(f"Train créé au magasin {train.position}")
+    else:
+        print("Un train existe déjà dans la base de données.")
 
     db.commit()
     db.close()
-    
+
     # Création des emplacements dans chaque magasin
     emplacement_a_creer = [
         # -------- Magasin 1 --------
