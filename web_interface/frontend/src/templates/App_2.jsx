@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 
-export default function App() {
+export default function App_2() {
   const [scans, setScans] = useState([])
   const wsRef = useRef(null)
   const [connected, setConnected] = useState(false)
