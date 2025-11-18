@@ -1,5 +1,6 @@
 from database import SessionLocal, Magasin, Piece, Boite, Emplacement, Commande, Login, Train
 from sqlalchemy.orm import Session
+from security import sha256_hash
 
 def get_db():
     """
@@ -294,6 +295,130 @@ def changer_statut_commande(id_commande: int):
                 "status": "no_change",
                 "message": f"Commande {id_commande} non modifiée (statut actuel : {commande.statutCommande})"
             }
+
+    finally:
+        db.close()
+
+def get_commandes_depuis_magasin(id_prochain: int):
+    """
+    Retourne les commandes en commençant directement par le magasin donné,
+    puis en parcourant tous les magasins en boucle jusqu'à revenir au magasin
+    juste avant celui de départ.
+
+    Exemple :
+        Magasins = 1, 2, 3, 4, 5
+        id_prochain = 4
+        Ordre = [4, 5, 1, 2, 3]
+
+    Args:
+        id_prochain (int): Identifiant du magasin qui doit apparaître en premier.
+
+    Returns:
+        list[Commande]: Commandes triées selon l'ordre circulaire.
+    """
+    db = SessionLocal()
+    try:
+        # Tous les magasins triés
+        magasins = db.query(Magasin).order_by(Magasin.idMagasin.asc()).all()
+        if not magasins:
+            return []
+
+        ids = [m.idMagasin for m in magasins]
+
+        # Vérifier si l'ID donné existe
+        if id_prochain not in ids:
+            return []
+
+        # Position du magasin donné
+        index = ids.index(id_prochain)
+
+        # Ordre circulaire direct
+        ordre_ids = ids[index:] + ids[:index]
+
+        # Récupérer commandes dans cet ordre
+        resultat = []
+        for mid in ordre_ids:
+            commandes = (
+                db.query(Commande)
+                .filter(Commande.idMagasin == mid)
+                .order_by(Commande.idCommande.asc())
+                .all()
+            )
+            resultat.extend(commandes)
+
+        return resultat
+
+    finally:
+        db.close()
+
+
+def get_commandes_magasin(id_magasin: int):
+    """
+    Retourne toutes les commandes d'un magasin spécifique.
+
+    Args:
+        id_magasin (int): Identifiant du magasin.
+
+    Returns:
+        list[Commande]: Liste des commandes associées au magasin.
+    """
+    db = SessionLocal()
+    try:
+        commandes = (
+            db.query(Commande)
+            .filter(Commande.idMagasin == id_magasin)
+            .order_by(Commande.idCommande.asc())
+            .all()
+        )
+        return commandes
+
+    finally:
+        db.close()
+
+def verifier_identifiants(username: str, password: str):
+    """
+    Vérifie si un couple (username, password) est valide en utilisant SHA-256.
+
+    Args:
+        username (str): Nom d'utilisateur.
+        password (str): Mot de passe en clair (non hashé).
+
+    Returns:
+        dict: Contient le statut de la vérification et les informations de l'utilisateur si valide.
+    """
+    db = SessionLocal()
+    try:
+        utilisateur = (
+            db.query(Login)
+            .filter(Login.username == username)
+            .first()
+        )
+
+        if utilisateur is None:
+            return {
+                "status": "error",
+                "message": "Nom d'utilisateur incorrect"
+            }
+
+        # Hash du mot de passe envoyé par l'utilisateur
+        hashed_input = sha256_hash(password)
+
+        # Comparaison avec le hash stocké
+        if utilisateur.password != hashed_input:
+            return {
+                "status": "error",
+                "message": "Mot de passe incorrect"
+            }
+
+        return {
+            "status": "ok",
+            "message": "Connexion réussie",
+            "user": {
+                "idLogin": utilisateur.idLogin,
+                "username": utilisateur.username,
+                "email": utilisateur.email
+            }
+        }
 
     finally:
         db.close()
