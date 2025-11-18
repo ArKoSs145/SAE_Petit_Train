@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
-from database import SessionLocal, data_db, drop_db, init_db, Boite, Emplacement, Magasin
+from database import Commande, SessionLocal, data_db, drop_db, init_db, Boite, Emplacement, Magasin
 from datetime import datetime
 import asyncio
 import json
@@ -92,6 +92,15 @@ async def recevoir_scan(request: Request):
                 magasin_nom, ligne, colonne = "Non défini", "-", "-"
         else:
             magasin_nom, ligne, colonne = "Inconnu", "-", "-"
+
+        nouvelle_commande = Commande(
+            idBoite=boite.idBoite,
+            idMagasin=magasin.idMagasin
+            # dateCommande est ajouté automatiquement par défaut (datetime.utcnow)
+        )
+        db.add(nouvelle_commande)
+        db.commit()
+        print(f"[DB] Commande créée : Boite {boite.idBoite} (Magasin {magasin.idMagasin})")
 
         # Préparer le message pour le front
         message = {

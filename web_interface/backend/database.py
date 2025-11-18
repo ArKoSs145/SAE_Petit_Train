@@ -281,6 +281,7 @@ def data_db():
         {"idEmplacement": 37, "idMagasin": 3, "idBoite": 37, "ligne": 1, "colonne": 1},
         {"idEmplacement": 38, "idMagasin": 3, "idBoite": 38, "ligne": 1, "colonne": 2},
         {"idEmplacement": 39, "idMagasin": 3, "idBoite": 39, "ligne": 2, "colonne": 1},
+        {"idEmplacement": 40, "idMagasin": 3, "idBoite": 6767, "ligne": 2, "colonne": 2},
     ]
 
     # Création des emplacements
