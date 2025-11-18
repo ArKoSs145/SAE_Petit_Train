@@ -28,14 +28,11 @@ const getPosteColor = (id) => {
   else if (id === "6") return '#B6A9FF'; 
   else if (id === "7") return '#ffb1e5'; 
   else return '#5e5e5eff'
-  
 };
-
 
 export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, posteColor }) {
   
   const [clickedTasks, setClickedTasks] = useState(new Set());
-
   const color = posteColor || getPosteColor(posteId);
 
   useEffect(() => {
@@ -48,19 +45,29 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     (task) => task.posteId === posteId && task.status === 'pending'
   )
 
-  const getTaskAt = (r, c) => {
-    return tasksForPoste.find(task => {
+  // --- 1. Gestion des Multiples : Récupérer toutes les tâches d'une case ---
+  const getTasksAt = (r, c) => {
+    return tasksForPoste.filter(task => {
       const location = itemLocations[task.item];
       return location && location[0] === r && location[1] === c;
     });
   };
 
-  const handleCellClick = (task) => {
-    if (!task || clickedTasks.has(task.id)) return;
+  // --- Gestion du clic groupé ---
+  const handleCellClick = (cellTasks) => {
+    if (!cellTasks || cellTasks.length === 0) return;
 
     setClickedTasks(prevClickedTasks => {
       const newSet = new Set(prevClickedTasks);
-      newSet.add(task.id);
+      const allSelected = cellTasks.every(t => newSet.has(t.id));
+
+      if (allSelected) {
+        // Tout désélectionner
+        cellTasks.forEach(t => newSet.delete(t.id));
+      } else {
+        // Tout sélectionner
+        cellTasks.forEach(t => newSet.add(t.id));
+      }
       return newSet;
     });
   };
@@ -68,15 +75,20 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
   const gridCells = [];
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
-      const task = getTaskAt(r, c);
+      const cellTasks = getTasksAt(r, c);
+      const hasTask = cellTasks.length > 0;
       
-      const isClicked = task && clickedTasks.has(task.id);
+      // La case est validée si TOUTES ses tâches sont cochées
+      const isFullyChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
+      
+      // Nom de l'item (identique pour toutes les tâches de la case)
+      const itemName = hasTask ? cellTasks[0].item : '';
 
       gridCells.push(
         <Box
           key={`${r}-${c}`}
           className="grid-cell"
-          onClick={() => handleCellClick(task)}
+          onClick={() => handleCellClick(cellTasks)}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -84,18 +96,40 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             fontWeight: 'bold',
             fontSize: '1.1rem',
             border: '2px solid #666',
-            backgroundColor: task ? color : '#d9d9d9',
-            color: task ? 'white' : '#333',
+            backgroundColor: hasTask ? color : '#d9d9d9',
+            color: hasTask ? 'white' : '#333',
             
             position: 'relative',
-            cursor: task ? 'pointer' : 'default',
+            cursor: hasTask ? 'pointer' : 'default',
             transition: 'opacity 0.2s ease',
-            opacity: task && isClicked ? 0.6 : 1.0, 
+            opacity: isFullyChecked ? 0.5 : 1.0, 
           }}
         >
-          {task ? task.item : ''}
+          {/* Badge pour les multiples (ex: x2) */}
+          {hasTask && cellTasks.length > 1 && (
+            <Box sx={{
+              position: 'absolute',
+              top: 5,
+              right: 5,
+              backgroundColor: 'red',
+              color: 'white',
+              borderRadius: '50%',
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.8rem',
+              boxShadow: 2,
+              zIndex: 10
+            }}>
+              x{cellTasks.length}
+            </Box>
+          )}
+
+          {itemName}
           
-          {isClicked && (
+          {isFullyChecked && (
             <CheckCircleIcon sx={{
               position: 'absolute',
               color: 'white',
@@ -109,8 +143,8 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
   }
   
   const handleValidate = () => {
-    tasksForPoste.forEach(task => {
-      onDeliver(task.id);
+    clickedTasks.forEach(taskId => {
+      onDeliver(taskId);
     });
     onClose();
   };
@@ -135,6 +169,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           backgroundColor: '#f0f0f0',
         }}
       >
+        {/* GRILLE */}
         <Box
           sx={{
             display: 'grid',
@@ -148,6 +183,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           {gridCells}
         </Box>
 
+        {/* BOUTONS */}
         <Box
           sx={{
             display: 'flex',
@@ -180,6 +216,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           </Button>
         </Box>
 
+        {/* --- 2. Colonne de droite avec SCROLL --- */}
         <Box
           sx={{
             display: 'flex',
@@ -187,6 +224,9 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             backgroundColor: '#d9d9d9',
             border: '2px solid #aaa',
             padding: '20px',
+            height: '100%',      // Prend toute la hauteur de la colonne
+            boxSizing: 'border-box',
+            overflow: 'hidden'   // Empêche le conteneur gris de scroller
           }}
         >
           <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold' }}>
@@ -196,12 +236,16 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             Poste {posteId}
           </Typography>
           
+          {/* Liste défilante */}
           <Box
             sx={{
               backgroundColor: color,
               color: 'white',
               borderRadius: '8px',
               padding: '15px 20px',
+              flexGrow: 1,         // Force la liste à prendre l'espace restant
+              overflowY: 'auto',   // Active le scroll vertical
+              minHeight: 0         // Important pour le scroll flexbox
             }}
           >
             {tasksForPoste.length > 0 ? (
@@ -235,4 +279,3 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     </Dialog>
   )
 }
-
