@@ -108,31 +108,47 @@ export default function Base() {
 
   // --- Connexion WebSocket ---
   useEffect(() => {
-    // ... (Logique WebSocket inchangée) ...
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
+
     ws.addEventListener('open', () => setConnected(true))
     ws.addEventListener('close', () => setConnected(false))
+
+    // Réception du message du backend
     ws.addEventListener('message', (ev) => {
-      const text = ev.data
-      let device = 'UNKNOWN', barcode = text
-      if (text.includes(':')) {
-        const [d, ...rest] = text.split(':')
-        device = d 
-        barcode = rest.join(':')
-      }
-      if (POSTE_NAMES[device]) {
-        const newTask = {
-          id: Date.now(), posteId: device, action: 'Récupérer',
-          item: barcode, origin: 'Scan', status: 'pending',
-          ts: new Date().toLocaleString()
+      try {
+        // 1. On décode le JSON envoyé par main.py
+        const data = JSON.parse(ev.data)
+        
+        // 2. On récupère les infos utiles
+        const device = String(data.poste) // ex: "1"
+        const barcode = data.code_barre   // ex: "Vis ABCD"
+
+        // 3. Si le poste est connu, on ajoute la tâche
+        if (POSTE_NAMES[device]) {
+          const newTask = {
+            id: Date.now(),
+            posteId: device, 
+            action: 'Récupérer', 
+            item: barcode, 
+            origin: 'Scan', 
+            status: 'pending',
+            ts: new Date().toLocaleString()
+          }
+          
+          // Mise à jour de l'état React pour afficher la tâche
+          setTasks((currentTasks) => [newTask, ...currentTasks].slice(0, 100))
+          console.log(`[Front] Scan reçu : ${barcode} pour ${device}`)
+        } else {
+          console.warn(`Scan reçu d'un poste inconnu : ${device}`)
         }
-        setTasks((currentTasks) => [newTask, ...currentTasks].slice(0, 100));
-      } else {
-        console.warn(`Scan reçu d'un appareil inconnu: ${device}`);
+
+      } catch (err) {
+        console.error("Erreur de lecture du message WebSocket :", err)
       }
     })
+
     return () => ws.close()
   }, [])
 
