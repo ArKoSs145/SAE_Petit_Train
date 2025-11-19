@@ -1,25 +1,8 @@
-from database import SessionLocal, Magasin, Piece, Boite, Emplacement, Commande, Login, Train
-from sqlalchemy.orm import Session
-from security import sha256_hash
+from database import SessionLocal, Stand, Piece, Boite, Case, Commande, Login, Train
+from datetime import datetime
 
-def get_db():
-    """
-    Génère une session de base de données utilisable dans les dépendances FastAPI.
-    Ferme automatiquement la session après utilisation.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+# ---------- TRAIN ----------
 def get_position_train():
-    """
-    Récupère la position actuelle du train.
-
-    Returns:
-        int | None: Identifiant du magasin où se trouve le train, ou None si non défini.
-    """
     db = SessionLocal()
     try:
         train = db.query(Train).first()
@@ -27,398 +10,192 @@ def get_position_train():
     finally:
         db.close()
 
-def create_magasin(nom: str):
-    """
-    Crée un nouveau magasin dans la base de données.
-
-    Args:
-        nom (str): Nom du magasin à ajouter.
-
-    Returns:
-        Magasin: L'objet Magasin créé.
-    """
+# ---------- STAND ----------
+def create_stand(nom):
     db = SessionLocal()
-    magasin = Magasin(nomMagasin=nom)
-    db.add(magasin)
-    db.commit()
-    db.refresh(magasin)
-    db.close()
-    return magasin
+    try:
+        stand = Stand(nomStand=nom)
+        db.add(stand)
+        db.commit()
+        db.refresh(stand)
+        return stand
+    finally:
+        db.close()
 
-
-def get_all_magasins():
-    """
-    Récupère la liste complète des magasins dans la base de données.
-
-    Returns:
-        list[Magasin]: Liste des magasins existants.
-    """
+def get_all_stands():
     db = SessionLocal()
-    data = db.query(Magasin).all()
-    db.close()
-    return data
+    try:
+        return db.query(Stand).all()
+    finally:
+        db.close()
 
-
-def get_magasin_by_id(id_magasin: int):
-    """
-    Récupère un magasin spécifique à partir de son identifiant.
-
-    Args:
-        id_magasin (int): Identifiant du magasin.
-
-    Returns:
-        Magasin | None: L'objet Magasin trouvé ou None s'il n'existe pas.
-    """
+def get_stand_by_id(id_stand):
     db = SessionLocal()
-    magasin = db.query(Magasin).filter(Magasin.idMagasin == id_magasin).first()
-    db.close()
-    return magasin
+    try:
+        return db.query(Stand).filter(Stand.idStand == id_stand).first()
+    finally:
+        db.close()
 
-
-def create_piece(code_barre: str, nom: str, description: str = ""):
-    """
-    Crée une nouvelle pièce dans la base de données.
-
-    Args:
-        code_barre (str): Code-barres unique de la pièce.
-        nom (str): Nom de la pièce.
-        description (str, optional): Description optionnelle de la pièce.
-
-    Returns:
-        Piece: L'objet Piece créé.
-    """
+# ---------- PIECES ----------
+def create_piece(nom, description=""):
     db = SessionLocal()
-    piece = Piece(code_barre=code_barre, nomPiece=nom, description=description)
-    db.add(piece)
-    db.commit()
-    db.refresh(piece)
-    db.close()
-    return piece
-
+    try:
+        piece = Piece(nomPiece=nom, description=description)
+        db.add(piece)
+        db.commit()
+        db.refresh(piece)
+        return piece
+    finally:
+        db.close()
 
 def get_all_pieces():
-    """
-    Récupère toutes les pièces enregistrées dans la base de données.
-
-    Returns:
-        list[Piece]: Liste des pièces existantes.
-    """
     db = SessionLocal()
-    data = db.query(Piece).all()
-    db.close()
-    return data
+    try:
+        return db.query(Piece).all()
+    finally:
+        db.close()
 
-
-def get_piece_by_code(code: str):
-    """
-    Recherche une pièce à partir de son code-barres.
-
-    Args:
-        code (str): Code-barres de la pièce.
-
-    Returns:
-        Piece | None: L'objet Piece trouvé ou None si non existant.
-    """
+def get_piece_by_id(id_piece):
     db = SessionLocal()
-    piece = db.query(Piece).filter(Piece.code_barre == code).first()
-    db.close()
-    return piece
+    try:
+        return db.query(Piece).filter(Piece.idPiece == id_piece).first()
+    finally:
+        db.close()
 
-
-def create_boite(code_barre: str, id_piece: int, qte: int):
-    """
-    Crée une nouvelle boîte associée à une pièce existante.
-
-    Args:
-        code_barre (str): Code-barres unique de la boîte.
-        id_piece (int): Identifiant de la pièce liée.
-        qte (int): Quantité de boîtes.
-
-    Returns:
-        Boite: L'objet Boite créé.
-    """
+# ---------- BOITES ----------
+def create_boite(id_piece, code_barre, nbBoite, idMagasin=None):
     db = SessionLocal()
-    boite = Boite(code_barre=code_barre, idPiece=id_piece, qteBoite=qte)
-    db.add(boite)
-    db.commit()
-    db.refresh(boite)
-    db.close()
-    return boite
+    try:
+        boite = Boite(idPiece=id_piece, code_barre=code_barre, nbBoite=nbBoite, idMagasin=idMagasin)
+        db.add(boite)
+        db.commit()
+        db.refresh(boite)
+        return boite
+    finally:
+        db.close()
 
-
-def get_boite_by_code(code: str):
-    """
-    Recherche une boîte dans la base via son code-barres.
-
-    Args:
-        code (str): Code-barres de la boîte.
-
-    Returns:
-        Boite | None: L'objet Boite trouvé ou None si non existant.
-    """
+def get_boite_by_id(id_boite):
     db = SessionLocal()
-    boite = db.query(Boite).filter(Boite.code_barre == code).first()
-    db.close()
-    return boite
-
+    try:
+        return db.query(Boite).filter(Boite.idBoite == id_boite).first()
+    finally:
+        db.close()
 
 def get_all_boites():
-    """
-    Récupère la liste de toutes les boîtes dans la base de données.
-
-    Returns:
-        list[Boite]: Liste des boîtes existantes.
-    """
     db = SessionLocal()
-    data = db.query(Boite).all()
-    db.close()
-    return data
+    try:
+        return db.query(Boite).all()
+    finally:
+        db.close()
 
-
-def assigner_emplacement(id_boite: int, id_magasin: int, ligne: int, colonne: int):
-    """
-    Associe une boîte à un emplacement spécifique dans un magasin.
-
-    Args:
-        id_boite (int): Identifiant de la boîte.
-        id_magasin (int): Identifiant du magasin.
-        ligne (int): Ligne de l’emplacement.
-        colonne (int): Colonne de l’emplacement.
-
-    Returns:
-        Emplacement: L'objet Emplacement créé.
-    """
+# ---------- CASES ----------
+def assigner_case(id_boite, id_stand, ligne, colonne):
     db = SessionLocal()
-    emplacement = Emplacement(idBoite=id_boite, idMagasin=id_magasin, ligne=ligne, colonne=colonne)
-    db.add(emplacement)
-    db.commit()
-    db.refresh(emplacement)
-    db.close()
-    return emplacement
-
-
-def get_emplacements_dun_magasin(id_magasin: int):
-    """
-    Récupère tous les emplacements associés à un magasin donné.
-
-    Args:
-        id_magasin (int): Identifiant du magasin.
-
-    Returns:
-        list[Emplacement]: Liste des emplacements du magasin.
-    """
-    db = SessionLocal()
-    emplacements = db.query(Emplacement).filter(Emplacement.idMagasin == id_magasin).all()
-    db.close()
-    return emplacements
-
-
-def get_emplacements_dune_boite(id_boite: int):
-    """
-    Récupère tous les emplacements où se trouve une boîte spécifique.
-
-    Args:
-        id_boite (int): Identifiant de la boîte.
-
-    Returns:
-        list[Emplacement]: Liste des emplacements liés à cette boîte.
-    """
-    db = SessionLocal()
-    emplacements = db.query(Emplacement).filter(Emplacement.idBoite == id_boite).all()
-    db.close()
-    return emplacements
-
-
-def supprimer_emplacement(id_emplacement: int):
-    """
-    Supprime un emplacement existant à partir de son identifiant.
-
-    Args:
-        id_emplacement (int): Identifiant de l’emplacement à supprimer.
-    """
-    db = SessionLocal()
-    emp = db.query(Emplacement).filter(Emplacement.idEmplacement == id_emplacement).first()
-    if emp:
-        db.delete(emp)
+    try:
+        case = Case(idBoite=id_boite, idStand=id_stand, ligne=ligne, colonne=colonne)
+        db.add(case)
         db.commit()
-    db.close()
+        db.refresh(case)
+        return case
+    finally:
+        db.close()
 
+def get_cases_dun_stand(id_stand):
+    db = SessionLocal()
+    try:
+        return db.query(Case).filter(Case.idStand == id_stand).all()
+    finally:
+        db.close()
 
-def changer_statut_commande(id_commande: int):
-    """
-    Change le statut d'une commande selon sa progression :
-    - Si 'A récupérer' → devient 'A déposer'
-    - Si 'A déposer' → devient 'Commande finie'
-    - Sinon → statut inchangé
+def get_cases_dune_boite(id_boite):
+    db = SessionLocal()
+    try:
+        return db.query(Case).filter(Case.idBoite == id_boite).all()
+    finally:
+        db.close()
 
-    Args:
-        id_commande (int): Identifiant de la commande à modifier.
+def supprimer_case(id_case):
+    db = SessionLocal()
+    try:
+        case = db.query(Case).filter(Case.idCase == id_case).first()
+        if case:
+            db.delete(case)
+            db.commit()
+    finally:
+        db.close()
 
-    Returns:
-        dict: Résultat contenant le statut de l’opération et le nouveau statut.
-    """
+# ---------- COMMANDES ----------
+def changer_statut_commande(id_commande):
     db = SessionLocal()
     try:
         commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
-
         if not commande:
             return {"status": "error", "message": "Commande introuvable"}
 
         if commande.statutCommande == "A récupérer":
             commande.statutCommande = "A déposer"
-            db.commit()
-            db.refresh(commande)
-            return {
-                "status": "ok",
-                "message": f"Commande {id_commande} mise à jour : A déposer",
-                "commande": {
-                    "idCommande": commande.idCommande,
-                    "nouveau_statut": commande.statutCommande
-                }
-            }
-
         elif commande.statutCommande == "A déposer":
             commande.statutCommande = "Commande finie"
-            db.commit()
-            db.refresh(commande)
-            return {
-                "status": "ok",
-                "message": f"Commande {id_commande} mise à jour : Commande finie",
-                "commande": {
-                    "idCommande": commande.idCommande,
-                    "nouveau_statut": commande.statutCommande
-                }
-            }
-
         else:
-            return {
-                "status": "no_change",
-                "message": f"Commande {id_commande} non modifiée (statut actuel : {commande.statutCommande})"
-            }
+            return {"status": "no_change", "message": f"Commande {id_commande} non modifiée (statut actuel : {commande.statutCommande})"}
 
+        db.commit()
+        db.refresh(commande)
+        return {"status": "ok", "message": f"Commande {id_commande} mise à jour : {commande.statutCommande}", "commande": {"idCommande": commande.idCommande, "nouveau_statut": commande.statutCommande}}
     finally:
         db.close()
 
-def get_commandes_depuis_magasin(id_prochain: int):
-    """
-    Retourne les commandes en commençant directement par le magasin donné,
-    puis en parcourant tous les magasins en boucle jusqu'à revenir au magasin
-    juste avant celui de départ.
-
-    Exemple :
-        Magasins = 1, 2, 3, 4, 5
-        id_prochain = 4
-        Ordre = [4, 5, 1, 2, 3]
-
-    Args:
-        id_prochain (int): Identifiant du magasin qui doit apparaître en premier.
-
-    Returns:
-        list[Commande]: Commandes triées selon l'ordre circulaire.
-    """
+def get_commandes_depuis_stand(id_prochain):
     db = SessionLocal()
     try:
-        # Tous les magasins triés
-        magasins = db.query(Magasin).order_by(Magasin.idMagasin.asc()).all()
-        if not magasins:
+        stands = db.query(Stand).order_by(Stand.idStand.asc()).all()
+        if not stands:
             return []
 
-        ids = [m.idMagasin for m in magasins]
-
-        # Vérifier si l'ID donné existe
+        ids = [s.idStand for s in stands]
         if id_prochain not in ids:
             return []
 
-        # Position du magasin donné
         index = ids.index(id_prochain)
-
-        # Ordre circulaire direct
         ordre_ids = ids[index:] + ids[:index]
 
-        # Récupérer commandes dans cet ordre
-        resultat = []
+        commandes = []
         for mid in ordre_ids:
-            commandes = (
-                db.query(Commande)
-                .filter(Commande.idMagasin == mid)
-                .order_by(Commande.idCommande.asc())
-                .all()
-            )
-            resultat.extend(commandes)
+            commandes.extend(db.query(Commande).filter(Commande.idPoste == mid).order_by(Commande.idCommande.asc()).all())
 
-        return resultat
-
-    finally:
-        db.close()
-
-
-def get_commandes_magasin(id_magasin: int):
-    """
-    Retourne toutes les commandes d'un magasin spécifique.
-
-    Args:
-        id_magasin (int): Identifiant du magasin.
-
-    Returns:
-        list[Commande]: Liste des commandes associées au magasin.
-    """
-    db = SessionLocal()
-    try:
-        commandes = (
-            db.query(Commande)
-            .filter(Commande.idMagasin == id_magasin)
-            .order_by(Commande.idCommande.asc())
-            .all()
-        )
         return commandes
-
     finally:
         db.close()
 
-def verifier_identifiants(username: str, password: str):
-    """
-    Vérifie si un couple (username, password) est valide en utilisant SHA-256.
-
-    Args:
-        username (str): Nom d'utilisateur.
-        password (str): Mot de passe en clair (non hashé).
-
-    Returns:
-        dict: Contient le statut de la vérification et les informations de l'utilisateur si valide.
-    """
+def get_commandes_stand(id_poste):
     db = SessionLocal()
     try:
-        utilisateur = (
-            db.query(Login)
-            .filter(Login.username == username)
-            .first()
-        )
+        return db.query(Commande).filter(Commande.idPoste == id_poste).order_by(Commande.idCommande.asc()).all()
+    finally:
+        db.close()
 
-        if utilisateur is None:
-            return {
-                "status": "error",
-                "message": "Nom d'utilisateur incorrect"
-            }
+# ---------- LOGIN ----------
+def create_user(username, password, email):
+    db = SessionLocal()
+    try:
+        user = Login(username=username, password=password, email=email)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
 
-        # Hash du mot de passe envoyé par l'utilisateur
-        hashed_input = sha256_hash(password)
+def get_user_by_username(username):
+    db = SessionLocal()
+    try:
+        return db.query(Login).filter(Login.username == username).first()
+    finally:
+        db.close()
 
-        # Comparaison avec le hash stocké
-        if utilisateur.password != hashed_input:
-            return {
-                "status": "error",
-                "message": "Mot de passe incorrect"
-            }
-
-        return {
-            "status": "ok",
-            "message": "Connexion réussie",
-            "user": {
-                "idLogin": utilisateur.idLogin,
-                "username": utilisateur.username,
-                "email": utilisateur.email
-            }
-        }
-
+def get_all_users():
+    db = SessionLocal()
+    try:
+        return db.query(Login).all()
     finally:
         db.close()
