@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
-from database import Commande, SessionLocal, data_db, drop_db, init_db, Boite, Emplacement, Magasin
+from database import Commande, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand
 from datetime import datetime
 import asyncio
 import json
@@ -83,12 +83,12 @@ async def recevoir_scan(request: Request):
         # Recherche du code-barres dans la base
         boite = db.query(Boite).filter_by(code_barre=code_barre).first()
         if boite:
-            emplacement = db.query(Emplacement).filter_by(idBoite=boite.idBoite).first()
-            if emplacement:
-                magasin = db.query(Magasin).filter_by(idMagasin=emplacement.idMagasin).first()
-                magasin_nom = magasin.nomMagasin if magasin else "Inconnu"
-                ligne = emplacement.ligne
-                colonne = emplacement.colonne
+            case = db.query(Case).filter_by(idBoite=boite.idBoite).first()
+            if case:
+                magasin = db.query(Stand).filter_by(idStand=case.idStand).first()
+                magasin_nom = magasin.nomStand if magasin else "Inconnu"
+                ligne = case.ligne
+                colonne = case.colonne
             else:
                 magasin_nom, ligne, colonne = "Non défini", "-", "-"
         else:
@@ -96,12 +96,12 @@ async def recevoir_scan(request: Request):
 
         nouvelle_commande = Commande(
             idBoite=boite.idBoite,
-            idMagasin=magasin.idMagasin
-            # dateCommande est ajouté automatiquement par défaut (datetime.utcnow)
-        )
+            idMagasin=magasin.idStand,
+            idPoste=poste,
+            )
         db.add(nouvelle_commande)
         db.commit()
-        print(f"[DB] Commande créée : Boite {boite.idBoite} (Magasin {magasin.idMagasin})")
+        print(f"[DB] Commande créée : Boite {boite.idBoite} (Magasin {magasin_nom}) pour Poste {poste}")
 
         # Préparer le message pour le front
         message = {

@@ -96,7 +96,7 @@ class Login(Base):
 class Train(Base):
     __tablename__ = "train"
     idTrain = Column(Integer, primary_key=True)
-    position = Column(Integer, ForeignKey("Stands.idStand"))
+    position = Column(Integer, ForeignKey("stands.idStand"))
     
     def __init__(self, position):
         db = SessionLocal()
@@ -213,13 +213,14 @@ def data_db():
     db.commit()
 
     Stand_a_creer = [
-        {"idStand": 1, "nomStand": "Stand 1"},
-        {"idStand": 2, "nomStand": "Stand 2"},
-        {"idStand": 3, "nomStand": "Stand 3"},
-        {"idStand": 4, "nomStand": "Stand 4"},
-        {"idStand": 5, "nomStand": "Poste 1"},
-        {"idStand": 6, "nomStand": "Poste 2"},
-        {"idStand": 7, "nomStand": "Poste 3"},
+        {"idStand": 1, "nomStand": "Poste 1"},
+        {"idStand": 2, "nomStand": "Poste 2"},
+        {"idStand": 3, "nomStand": "Poste 3"},
+        {"idStand": 4, "nomStand": "Magasin 1"},
+        {"idStand": 5, "nomStand": "Magasin 2"},
+        {"idStand": 6, "nomStand": "Magasin 3"},
+        {"idStand": 7, "nomStand": "Magasin 4"},
+        
     ]
 
     nouveaux = [
@@ -251,53 +252,53 @@ def data_db():
 
     # Création des Cases dans chaque Stand
     Case_a_creer = [
-        # -------- Stand 1 --------
-        {"idCase": 1, "idStand": 1, "idBoite": 6767, "ligne": 1, "colonne": 1},
-        {"idCase": 2, "idStand": 1, "idBoite": 2, "ligne": 1, "colonne": 2},
-        {"idCase": 3, "idStand": 1, "idBoite": 3, "ligne": 2, "colonne": 1},
-        {"idCase": 4, "idStand": 1, "idBoite": 4, "ligne": 2, "colonne": 2},
-        {"idCase": 5, "idStand": 1, "idBoite": 5, "ligne": 3, "colonne": 1},
-        {"idCase": 6, "idStand": 1, "idBoite": 6, "ligne": 3, "colonne": 2},
-        {"idCase": 7, "idStand": 1, "idBoite": 7, "ligne": 4, "colonne": 1},
-        {"idCase": 8, "idStand": 1, "idBoite": 8, "ligne": 4, "colonne": 2},
-        {"idCase": 9, "idStand": 1, "idBoite": 9, "ligne": 5, "colonne": 1},
-        {"idCase": 10, "idStand": 1, "idBoite": 10, "ligne": 5, "colonne": 2},
-        {"idCase": 11, "idStand": 1, "idBoite": 11, "ligne": 6, "colonne": 1},
-        {"idCase": 12, "idStand": 1, "idBoite": 12, "ligne": 6, "colonne": 2},
-        {"idCase": 13, "idStand": 1, "idBoite": 13, "ligne": 7, "colonne": 1},
-        {"idCase": 14, "idStand": 1, "idBoite": 14, "ligne": 7, "colonne": 2},
-        {"idCase": 15, "idStand": 1, "idBoite": 15, "ligne": 8, "colonne": 1},
-        {"idCase": 16, "idStand": 1, "idBoite": 16, "ligne": 8, "colonne": 2},
-        {"idCase": 17, "idStand": 1, "idBoite": 17, "ligne": 9, "colonne": 1},
-        {"idCase": 18, "idStand": 1, "idBoite": 18, "ligne": 9, "colonne": 2},
+        # -------- Magasin 1 --------
+        {"idCase": 1, "idStand": 4, "idBoite": 6767, "ligne": 1, "colonne": 1},
+        {"idCase": 2, "idStand": 4, "idBoite": 2, "ligne": 1, "colonne": 2},
+        {"idCase": 3, "idStand": 4, "idBoite": 3, "ligne": 2, "colonne": 1},
+        {"idCase": 4, "idStand": 4, "idBoite": 4, "ligne": 2, "colonne": 2},
+        {"idCase": 5, "idStand": 4, "idBoite": 5, "ligne": 3, "colonne": 1},
+        {"idCase": 6, "idStand": 4, "idBoite": 6, "ligne": 3, "colonne": 2},
+        {"idCase": 7, "idStand": 4, "idBoite": 7, "ligne": 4, "colonne": 1},
+        {"idCase": 8, "idStand": 4, "idBoite": 8, "ligne": 4, "colonne": 2},
+        {"idCase": 9, "idStand": 4, "idBoite": 9, "ligne": 5, "colonne": 1},
+        {"idCase": 10, "idStand": 4, "idBoite": 10, "ligne": 5, "colonne": 2},
+        {"idCase": 11, "idStand": 4, "idBoite": 11, "ligne": 6, "colonne": 1},
+        {"idCase": 12, "idStand": 4, "idBoite": 12, "ligne": 6, "colonne": 2},
+        {"idCase": 13, "idStand": 4, "idBoite": 13, "ligne": 7, "colonne": 1},
+        {"idCase": 14, "idStand": 4, "idBoite": 14, "ligne": 7, "colonne": 2},
+        {"idCase": 15, "idStand": 4, "idBoite": 15, "ligne": 8, "colonne": 1},
+        {"idCase": 16, "idStand": 4, "idBoite": 16, "ligne": 8, "colonne": 2},
+        {"idCase": 17, "idStand": 4, "idBoite": 17, "ligne": 9, "colonne": 1},
+        {"idCase": 18, "idStand": 4, "idBoite": 18, "ligne": 9, "colonne": 2},
 
-        # -------- Stand 2 --------
-        {"idCase": 19, "idStand": 2, "idBoite": 19, "ligne": 1, "colonne": 1},
-        {"idCase": 20, "idStand": 2, "idBoite": 20, "ligne": 1, "colonne": 2},
-        {"idCase": 21, "idStand": 2, "idBoite": 21, "ligne": 2, "colonne": 1},
-        {"idCase": 22, "idStand": 2, "idBoite": 22, "ligne": 2, "colonne": 2},
-        {"idCase": 23, "idStand": 2, "idBoite": 23, "ligne": 3, "colonne": 1},
-        {"idCase": 24, "idStand": 2, "idBoite": 24, "ligne": 3, "colonne": 2},
-        {"idCase": 25, "idStand": 2, "idBoite": 25, "ligne": 4, "colonne": 1},
-        {"idCase": 26, "idStand": 2, "idBoite": 26, "ligne": 4, "colonne": 2},
-        {"idCase": 27, "idStand": 2, "idBoite": 27, "ligne": 5, "colonne": 1},
-        {"idCase": 28, "idStand": 2, "idBoite": 28, "ligne": 5, "colonne": 2},
-        {"idCase": 29, "idStand": 2, "idBoite": 29, "ligne": 6, "colonne": 1},
-        {"idCase": 30, "idStand": 2, "idBoite": 30, "ligne": 6, "colonne": 2},
-        {"idCase": 31, "idStand": 2, "idBoite": 31, "ligne": 7, "colonne": 1},
-        {"idCase": 32, "idStand": 2, "idBoite": 32, "ligne": 7, "colonne": 2},
-        {"idCase": 33, "idStand": 2, "idBoite": 33, "ligne": 8, "colonne": 1},
-        {"idCase": 34, "idStand": 2, "idBoite": 34, "ligne": 8, "colonne": 2},
-        {"idCase": 35, "idStand": 2, "idBoite": 35, "ligne": 9, "colonne": 1},
-        {"idCase": 36, "idStand": 2, "idBoite": 36, "ligne": 9, "colonne": 2},
+        # -------- Magasin 2 --------
+        {"idCase": 19, "idStand": 5, "idBoite": 19, "ligne": 1, "colonne": 1},
+        {"idCase": 20, "idStand": 5, "idBoite": 20, "ligne": 1, "colonne": 2},
+        {"idCase": 21, "idStand": 5, "idBoite": 21, "ligne": 2, "colonne": 1},
+        {"idCase": 22, "idStand": 5, "idBoite": 22, "ligne": 2, "colonne": 2},
+        {"idCase": 23, "idStand": 5, "idBoite": 23, "ligne": 3, "colonne": 1},
+        {"idCase": 24, "idStand": 5, "idBoite": 24, "ligne": 3, "colonne": 2},
+        {"idCase": 25, "idStand": 5, "idBoite": 25, "ligne": 4, "colonne": 1},
+        {"idCase": 26, "idStand": 5, "idBoite": 26, "ligne": 4, "colonne": 2},
+        {"idCase": 27, "idStand": 5, "idBoite": 27, "ligne": 5, "colonne": 1},
+        {"idCase": 28, "idStand": 5, "idBoite": 28, "ligne": 5, "colonne": 2},
+        {"idCase": 29, "idStand": 5, "idBoite": 29, "ligne": 6, "colonne": 1},
+        {"idCase": 30, "idStand": 5, "idBoite": 30, "ligne": 6, "colonne": 2},
+        {"idCase": 31, "idStand": 5, "idBoite": 31, "ligne": 7, "colonne": 1},
+        {"idCase": 32, "idStand": 5, "idBoite": 32, "ligne": 7, "colonne": 2},
+        {"idCase": 33, "idStand": 5, "idBoite": 33, "ligne": 8, "colonne": 1},
+        {"idCase": 34, "idStand": 5, "idBoite": 34, "ligne": 8, "colonne": 2},
+        {"idCase": 35, "idStand": 5, "idBoite": 35, "ligne": 9, "colonne": 1},
+        {"idCase": 36, "idStand": 5, "idBoite": 36, "ligne": 9, "colonne": 2},
 
-        # -------- Stand 3 --------
-        {"idCase": 37, "idStand": 3, "idBoite": 37, "ligne": 1, "colonne": 1},
-        {"idCase": 38, "idStand": 3, "idBoite": 38, "ligne": 1, "colonne": 2},
-        {"idCase": 39, "idStand": 3, "idBoite": 39, "ligne": 2, "colonne": 1},
+        # -------- Magasin 3 --------
+        {"idCase": 37, "idStand": 6, "idBoite": 37, "ligne": 1, "colonne": 1},
+        {"idCase": 38, "idStand": 6, "idBoite": 38, "ligne": 1, "colonne": 2},
+        {"idCase": 39, "idStand": 6, "idBoite": 39, "ligne": 2, "colonne": 1},
         
         # -------- Poste 1 --------
-        {"idCase": 40, "idStand": 5, "idBoite": 6767, "ligne": 1, "colonne": 1},
+        {"idCase": 40, "idStand": 1, "idBoite": 6767, "ligne": 1, "colonne": 1},
          
     ]
 
