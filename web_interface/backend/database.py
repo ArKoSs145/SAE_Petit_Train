@@ -29,40 +29,40 @@ class Boite(Base):
     nbBoite = Column(Integer)
 
     piece = relationship("Piece", back_populates="boite")
-    emplacements = relationship("Emplacement", back_populates="boite")
+    Cases = relationship("Case", back_populates="boite")
 
 
-# Table des magasins
-class Magasin(Base):
-    __tablename__ = "magasins"
-    idMagasin = Column(Integer, primary_key=True)
-    nomMagasin = Column(String)
+# Table des Stand (Stands/Postes)
+class Stand(Base):
+    __tablename__ = "Stand"
+    idStand = Column(Integer, primary_key=True)
+    nomStand = Column(String)
 
-    emplacements = relationship("Emplacement", back_populates="magasin")
+    Cases = relationship("Case", back_populates="Stand")
 
 
-# Table des emplacements
-class Emplacement(Base):
-    __tablename__ = "emplacements"
-    idEmplacement = Column(Integer, primary_key=True)
-    idMagasin = Column(Integer, ForeignKey("magasins.idMagasin"))
+# Table des cases
+class Case(Base):
+    __tablename__ = "case"
+    idCase = Column(Integer, primary_key=True)
+    idStand = Column(Integer, ForeignKey("Stands.idStand"))
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
     ligne = Column(Integer)
     colonne = Column(Integer)
 
     __table_args__ = (
-        UniqueConstraint('idMagasin', 'ligne', 'colonne', name="uq_case_par_magasin"),
+        UniqueConstraint('idStand', 'ligne', 'colonne', name="uq_case_par_Stand"),
     )
 
-    boite = relationship("Boite", back_populates="emplacements")
-    magasin = relationship("Magasin", back_populates="emplacements")
+    boite = relationship("Boite", back_populates="Cases")
+    Stand = relationship("Stand", back_populates="Cases")
 
 # Table des commandes
 class Commande(Base):
     __tablename__ = "commandes"
     idCommande = Column(Integer, primary_key=True, index=True)
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
-    idMagasin = Column(Integer, ForeignKey("magasins.idMagasin"))
+    idPoste = Column(Integer, ForeignKey("Stands.idStand"))
     dateCommande = Column(DateTime, default=datetime.utcnow)
     statutCommande = Column(String, default="A récupérer")
 
@@ -78,13 +78,13 @@ class Login(Base):
 class Train(Base):
     __tablename__ = "train"
     idTrain = Column(Integer, primary_key=True)
-    position = Column(Integer, ForeignKey("magasins.idMagasin"))
+    position = Column(Integer, ForeignKey("Stands.idStand"))
     
     def __init__(self, position):
         db = SessionLocal()
         try:
-            magasins = db.query(Magasin).order_by(Magasin.idMagasin).all()
-            self.postes = [m.idMagasin for m in magasins]
+            Stands = db.query(Stand).order_by(Stand.idStand).all()
+            self.postes = [m.idStand for m in Stands]
             if position in self.postes:
                 self.index = self.postes.index(position)
             else:
@@ -94,11 +94,11 @@ class Train(Base):
             db.close()
 
     def get_position(self):
-        """Retourne la position actuelle du train (idMagasin)."""
+        """Retourne la position actuelle du train (idStand)."""
         return self.position
     
     def move_forward(self):
-        """Déplace le train vers le magasin suivant."""
+        """Déplace le train vers le Stand suivant."""
         self.index = (self.index + 1) % len(self.postes)
         self.position = self.postes[self.index]
         return self.position
@@ -240,112 +240,116 @@ def data_db():
     db.commit()
     db.close()
 
-    magasin_a_creer =[
-        {"idMagasin": 1, "nomMagasin": "Magasin 1"},
-        {"idMagasin": 2, "nomMagasin": "Magasin 2"},
-        {"idMagasin": 3, "nomMagasin": "Magasin 3"},
-        {"idMagasin": 4, "nomMagasin": "Magasin 4"},
-        {"idMagasin": 5, "nomMagasin": "Poste 1"},
-        {"idMagasin": 6, "nomMagasin": "Poste 2"},
-        {"idMagasin": 7, "nomMagasin": "Poste 3"},
+    Stand_a_creer =[
+        {"idStand": 1, "nomStand": "Stand 1"},
+        {"idStand": 2, "nomStand": "Stand 2"},
+        {"idStand": 3, "nomStand": "Stand 3"},
+        {"idStand": 4, "nomStand": "Stand 4"},
+        {"idStand": 5, "nomStand": "Poste 1"},
+        {"idStand": 6, "nomStand": "Poste 2"},
+        {"idStand": 7, "nomStand": "Poste 3"},
     ]
 
     # Création des boîtes
-    nouveaux_magasins = []
-    for m in magasin_a_creer:
-        if not db.query(Magasin).filter_by(idMagasin=m["idMagasin"]).first():
-            nouveaux_magasins.append(Magasin(
-                idMagasin=m["idMagasin"],
-                nomMagasin=m["nomMagasin"]
+    nouveaux_Stands = []
+    for m in Stand_a_creer:
+        if not db.query(Stand).filter_by(idStand=m["idStand"]).first():
+            nouveaux_Stands.append(Stand(
+                idStand=m["idStand"],
+                nomStand=m["nomStand"]
             ))
 
-    if nouveaux_magasins:
-        db.bulk_save_objects(nouveaux_magasins)
-        print(f"{len(nouveaux_magasins)} magasins créés.")
+    if nouveaux_Stands:
+        db.bulk_save_objects(nouveaux_Stands)
+        print(f"{len(nouveaux_Stands)} Stands créés.")
     else:
-        print("Toutes les magasins existent déjà.")
+        print("Toutes les Stands existent déjà.")
 
     db.commit()
     
-    # Création du train au magasin 1 s'il n'existe pas déja
+    # Création du train au Stand 1 s'il n'existe pas déja
     train_existant = db.query(Train).first()
     if not train_existant:
         train = Train(position=1)
         db.add(train)
         db.commit()
         db.refresh(train)
-        print(f"Train créé au magasin {train.position}")
+        print(f"Train créé au Stand {train.position}")
     else:
         print("Un train existe déjà dans la base de données.")
 
     db.commit()
     db.close()
 
-    # Création des emplacements dans chaque magasin
-    emplacement_a_creer = [
-        # -------- Magasin 1 --------
-        {"idEmplacement": 1, "idMagasin": 1, "idBoite": 1, "ligne": 1, "colonne": 1},
-        {"idEmplacement": 2, "idMagasin": 1, "idBoite": 2, "ligne": 1, "colonne": 2},
-        {"idEmplacement": 3, "idMagasin": 1, "idBoite": 3, "ligne": 2, "colonne": 1},
-        {"idEmplacement": 4, "idMagasin": 1, "idBoite": 4, "ligne": 2, "colonne": 2},
-        {"idEmplacement": 5, "idMagasin": 1, "idBoite": 5, "ligne": 3, "colonne": 1},
-        {"idEmplacement": 6, "idMagasin": 1, "idBoite": 6, "ligne": 3, "colonne": 2},
-        {"idEmplacement": 7, "idMagasin": 1, "idBoite": 7, "ligne": 4, "colonne": 1},
-        {"idEmplacement": 8, "idMagasin": 1, "idBoite": 8, "ligne": 4, "colonne": 2},
-        {"idEmplacement": 9, "idMagasin": 1, "idBoite": 9, "ligne": 5, "colonne": 1},
-        {"idEmplacement": 10, "idMagasin": 1, "idBoite": 10, "ligne": 5, "colonne": 2},
-        {"idEmplacement": 11, "idMagasin": 1, "idBoite": 11, "ligne": 6, "colonne": 1},
-        {"idEmplacement": 12, "idMagasin": 1, "idBoite": 12, "ligne": 6, "colonne": 2},
-        {"idEmplacement": 13, "idMagasin": 1, "idBoite": 13, "ligne": 7, "colonne": 1},
-        {"idEmplacement": 14, "idMagasin": 1, "idBoite": 14, "ligne": 7, "colonne": 2},
-        {"idEmplacement": 15, "idMagasin": 1, "idBoite": 15, "ligne": 8, "colonne": 1},
-        {"idEmplacement": 16, "idMagasin": 1, "idBoite": 16, "ligne": 8, "colonne": 2},
-        {"idEmplacement": 17, "idMagasin": 1, "idBoite": 17, "ligne": 9, "colonne": 1},
-        {"idEmplacement": 18, "idMagasin": 1, "idBoite": 18, "ligne": 9, "colonne": 2},
+    # Création des Cases dans chaque Stand
+    Case_a_creer = [
+        # -------- Stand 1 --------
+        {"idCase": 1, "idStand": 1, "idBoite": 6767, "ligne": 1, "colonne": 1},
+        {"idCase": 2, "idStand": 1, "idBoite": 2, "ligne": 1, "colonne": 2},
+        {"idCase": 3, "idStand": 1, "idBoite": 3, "ligne": 2, "colonne": 1},
+        {"idCase": 4, "idStand": 1, "idBoite": 4, "ligne": 2, "colonne": 2},
+        {"idCase": 5, "idStand": 1, "idBoite": 5, "ligne": 3, "colonne": 1},
+        {"idCase": 6, "idStand": 1, "idBoite": 6, "ligne": 3, "colonne": 2},
+        {"idCase": 7, "idStand": 1, "idBoite": 7, "ligne": 4, "colonne": 1},
+        {"idCase": 8, "idStand": 1, "idBoite": 8, "ligne": 4, "colonne": 2},
+        {"idCase": 9, "idStand": 1, "idBoite": 9, "ligne": 5, "colonne": 1},
+        {"idCase": 10, "idStand": 1, "idBoite": 10, "ligne": 5, "colonne": 2},
+        {"idCase": 11, "idStand": 1, "idBoite": 11, "ligne": 6, "colonne": 1},
+        {"idCase": 12, "idStand": 1, "idBoite": 12, "ligne": 6, "colonne": 2},
+        {"idCase": 13, "idStand": 1, "idBoite": 13, "ligne": 7, "colonne": 1},
+        {"idCase": 14, "idStand": 1, "idBoite": 14, "ligne": 7, "colonne": 2},
+        {"idCase": 15, "idStand": 1, "idBoite": 15, "ligne": 8, "colonne": 1},
+        {"idCase": 16, "idStand": 1, "idBoite": 16, "ligne": 8, "colonne": 2},
+        {"idCase": 17, "idStand": 1, "idBoite": 17, "ligne": 9, "colonne": 1},
+        {"idCase": 18, "idStand": 1, "idBoite": 18, "ligne": 9, "colonne": 2},
 
-        # -------- Magasin 2 --------
-        {"idEmplacement": 19, "idMagasin": 2, "idBoite": 19, "ligne": 1, "colonne": 1},
-        {"idEmplacement": 20, "idMagasin": 2, "idBoite": 20, "ligne": 1, "colonne": 2},
-        {"idEmplacement": 21, "idMagasin": 2, "idBoite": 21, "ligne": 2, "colonne": 1},
-        {"idEmplacement": 22, "idMagasin": 2, "idBoite": 22, "ligne": 2, "colonne": 2},
-        {"idEmplacement": 23, "idMagasin": 2, "idBoite": 23, "ligne": 3, "colonne": 1},
-        {"idEmplacement": 24, "idMagasin": 2, "idBoite": 24, "ligne": 3, "colonne": 2},
-        {"idEmplacement": 25, "idMagasin": 2, "idBoite": 25, "ligne": 4, "colonne": 1},
-        {"idEmplacement": 26, "idMagasin": 2, "idBoite": 26, "ligne": 4, "colonne": 2},
-        {"idEmplacement": 27, "idMagasin": 2, "idBoite": 27, "ligne": 5, "colonne": 1},
-        {"idEmplacement": 28, "idMagasin": 2, "idBoite": 28, "ligne": 5, "colonne": 2},
-        {"idEmplacement": 29, "idMagasin": 2, "idBoite": 29, "ligne": 6, "colonne": 1},
-        {"idEmplacement": 30, "idMagasin": 2, "idBoite": 30, "ligne": 6, "colonne": 2},
-        {"idEmplacement": 31, "idMagasin": 2, "idBoite": 31, "ligne": 7, "colonne": 1},
-        {"idEmplacement": 32, "idMagasin": 2, "idBoite": 32, "ligne": 7, "colonne": 2},
-        {"idEmplacement": 33, "idMagasin": 2, "idBoite": 33, "ligne": 8, "colonne": 1},
-        {"idEmplacement": 34, "idMagasin": 2, "idBoite": 34, "ligne": 8, "colonne": 2},
-        {"idEmplacement": 35, "idMagasin": 2, "idBoite": 35, "ligne": 9, "colonne": 1},
-        {"idEmplacement": 36, "idMagasin": 2, "idBoite": 36, "ligne": 9, "colonne": 2},
+        # -------- Stand 2 --------
+        {"idCase": 19, "idStand": 2, "idBoite": 19, "ligne": 1, "colonne": 1},
+        {"idCase": 20, "idStand": 2, "idBoite": 20, "ligne": 1, "colonne": 2},
+        {"idCase": 21, "idStand": 2, "idBoite": 21, "ligne": 2, "colonne": 1},
+        {"idCase": 22, "idStand": 2, "idBoite": 22, "ligne": 2, "colonne": 2},
+        {"idCase": 23, "idStand": 2, "idBoite": 23, "ligne": 3, "colonne": 1},
+        {"idCase": 24, "idStand": 2, "idBoite": 24, "ligne": 3, "colonne": 2},
+        {"idCase": 25, "idStand": 2, "idBoite": 25, "ligne": 4, "colonne": 1},
+        {"idCase": 26, "idStand": 2, "idBoite": 26, "ligne": 4, "colonne": 2},
+        {"idCase": 27, "idStand": 2, "idBoite": 27, "ligne": 5, "colonne": 1},
+        {"idCase": 28, "idStand": 2, "idBoite": 28, "ligne": 5, "colonne": 2},
+        {"idCase": 29, "idStand": 2, "idBoite": 29, "ligne": 6, "colonne": 1},
+        {"idCase": 30, "idStand": 2, "idBoite": 30, "ligne": 6, "colonne": 2},
+        {"idCase": 31, "idStand": 2, "idBoite": 31, "ligne": 7, "colonne": 1},
+        {"idCase": 32, "idStand": 2, "idBoite": 32, "ligne": 7, "colonne": 2},
+        {"idCase": 33, "idStand": 2, "idBoite": 33, "ligne": 8, "colonne": 1},
+        {"idCase": 34, "idStand": 2, "idBoite": 34, "ligne": 8, "colonne": 2},
+        {"idCase": 35, "idStand": 2, "idBoite": 35, "ligne": 9, "colonne": 1},
+        {"idCase": 36, "idStand": 2, "idBoite": 36, "ligne": 9, "colonne": 2},
 
-        # -------- Magasin 3 --------
-        {"idEmplacement": 37, "idMagasin": 3, "idBoite": 37, "ligne": 1, "colonne": 1},
-        {"idEmplacement": 38, "idMagasin": 3, "idBoite": 38, "ligne": 1, "colonne": 2},
-        {"idEmplacement": 39, "idMagasin": 3, "idBoite": 39, "ligne": 2, "colonne": 1},
+        # -------- Stand 3 --------
+        {"idCase": 37, "idStand": 3, "idBoite": 37, "ligne": 1, "colonne": 1},
+        {"idCase": 38, "idStand": 3, "idBoite": 38, "ligne": 1, "colonne": 2},
+        {"idCase": 39, "idStand": 3, "idBoite": 39, "ligne": 2, "colonne": 1},
+        
+        # -------- Poste 1 --------
+        {"idCase": 40, "idStand": 5, "idBoite": 6767, "ligne": 1, "colonne": 1},
+         
     ]
 
-    # Création des emplacements
-    nouveaux_emplacements = []
-    for e in emplacement_a_creer:
-        if not db.query(Emplacement).filter_by(idEmplacement=e["idEmplacement"]).first():
-            nouveaux_emplacements.append(Emplacement(
-                idEmplacement=e["idEmplacement"],
-                idMagasin=e["idMagasin"],
+    # Création des Cases
+    nouveaux_Cases = []
+    for e in Case_a_creer:
+        if not db.query(Case).filter_by(idCase=e["idCase"]).first():
+            nouveaux_Cases.append(Case(
+                idCase=e["idCase"],
+                idStand=e["idStand"],
                 idBoite=e["idBoite"],
                 ligne=e["ligne"],
                 colonne=e["colonne"]
             ))
 
-    if nouveaux_emplacements:
-        db.bulk_save_objects(nouveaux_emplacements)
-        print(f"{len(nouveaux_emplacements)} emplacements créés.")
+    if nouveaux_Cases:
+        db.bulk_save_objects(nouveaux_Cases)
+        print(f"{len(nouveaux_Cases)} Cases créés.")
     else:
-        print("Toutes les emplacements existent déjà.")
+        print("Toutes les Cases existent déjà.")
 
     db.commit()
     db.close()
@@ -369,11 +373,11 @@ def data_db():
 
     # # Création de commandes exemples
     # commandes_a_creer = [
-    #     {"idCommande": 1, "idBoite": 1, "idMagasin": 1},
-    #     {"idCommande": 2, "idBoite": 2, "idMagasin": 1},
-    #     {"idCommande": 3, "idBoite": 3, "idMagasin": 2},
-    #     {"idCommande": 4, "idBoite": 4, "idMagasin": 3},
-    #     {"idCommande": 5, "idBoite": 5, "idMagasin": 3},
+    #     {"idCommande": 1, "idBoite": 1, "idStand": 1},
+    #     {"idCommande": 2, "idBoite": 2, "idStand": 1},
+    #     {"idCommande": 3, "idBoite": 3, "idStand": 2},
+    #     {"idCommande": 4, "idBoite": 4, "idStand": 3},
+    #     {"idCommande": 5, "idBoite": 5, "idStand": 3},
     # ]
 
     # nouvelle_commandes = []
@@ -384,7 +388,7 @@ def data_db():
     #         nouvelle_commandes.append(Commande(
     #             idCommande=c["idCommande"],
     #             idBoite=c["idBoite"],
-    #             idMagasin=c["idMagasin"]
+    #             idStand=c["idStand"]
 
     #         ))
 
