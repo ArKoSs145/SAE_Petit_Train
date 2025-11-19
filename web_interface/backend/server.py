@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # --- Gestion WebSocket ---
 class ConnectionManager:
     def __init__(self):
