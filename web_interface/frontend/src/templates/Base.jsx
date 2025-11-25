@@ -8,19 +8,19 @@ import {
   List,
   ListItem,
   ListItemText,
+  IconButton //
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
+import DeleteIcon from '@mui/icons-material/Delete' // Import de l'icône poubelle
 
-import '../../styles/Base.css'
-import PopupLivraison from '../templates/popup/PopupLivraison'
+import '../../styles/Base.css' //
+import PopupLivraison from '../templates/popup/PopupLivraison' //
 
 // --- CONSTANTES DE CONFIGURATION ---
 
-// Le cycle de déplacement fixe du train, dans l'ordre
 const CYCLE_PATH = ['1', '2', '3', '7', '4', '5', '6'];
 
-// Noms lisibles pour les ID
 const POSTE_NAMES = {
   '1': 'Poste 1',
   '2': 'Poste 2',
@@ -31,16 +31,15 @@ const POSTE_NAMES = {
   '7': 'Fournisseur',
 };
 
-// Map des positions du train pour chaque destination
 const TRAIN_POSITIONS = {
-  'null': { gridRow: 3, gridColumn: 1 }, // Position "Home" / Début de cycle
-  '1': { gridRow: 3, gridColumn: 2 }, // Devant Poste 1
-  '2': { gridRow: 3, gridColumn: 4 }, // Devant Poste 2
-  '3': { gridRow: 3, gridColumn: 6 }, // Devant Poste 3
-  '7': { gridRow: 2, gridColumn: 2 }, // Sous Fournisseur
-  '4': { gridRow: 2, gridColumn: 4 }, // Sous Presse
-  '5': { gridRow: 2, gridColumn: 6 }, // Sous Machine X
-  '6': { gridRow: 2, gridColumn: 8 }, // Sous Machine Y
+  'null': { gridRow: 3, gridColumn: 1 },
+  '1': { gridRow: 3, gridColumn: 2 },
+  '2': { gridRow: 3, gridColumn: 4 },
+  '3': { gridRow: 3, gridColumn: 6 },
+  '7': { gridRow: 2, gridColumn: 2 },
+  '4': { gridRow: 2, gridColumn: 4 },
+  '5': { gridRow: 2, gridColumn: 6 },
+  '6': { gridRow: 2, gridColumn: 8 },
 };
 
 // --- tâches (Sidebar) ---
@@ -61,20 +60,15 @@ const groupTasks = (tasks) => {
 
 // --- PROCHAINE destination ---
 const findNextDestination = (tasks, currentPosteId) => {
-  
   if (currentPosteId) {
     const hasPendingTasksAtCurrent = tasks.some(
       t => t.posteId === currentPosteId && t.status === 'pending'
     );
-    // Si le poste actuel a encore des tâches, le train ne bouge pas.
-    // La destination RESTE ce poste.
     if (hasPendingTasksAtCurrent) {
       return currentPosteId;
     }
   }
 
-  // Si le train est 'null' (au début) OU si le poste actuel est terminé,
-  // on cherche le *prochain* arrêt dans le cycle.
   const currentIndex = currentPosteId ? CYCLE_PATH.indexOf(currentPosteId) : -1;
 
   for (let i = 1; i <= CYCLE_PATH.length; i++) {
@@ -102,13 +96,10 @@ export default function Base() {
   
   const [isPopupOpen, setIsPopupOpen] = useState(false)
   const [selectedPosteId, setSelectedPosteId] = useState(null)
-
-  // Suit la position ACTUELLE du train. 'null' au démarrage.
   const [currentTrainPoste, setCurrentTrainPoste] = useState(null);
 
   // --- Connexion WebSocket ---
   useEffect(() => {
-    // ... (Logique WebSocket inchangée) ...
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -136,22 +127,23 @@ export default function Base() {
     return () => ws.close()
   }, [])
 
-  // --- Logique de Destination et Position (calculée) ---
-  
-  // Détermine la PROCHAINE destination (pour la surbrillance)
+  // --- Logique de Destination et Position ---
   const nextDestination = useMemo(
     () => findNextDestination(tasks, currentTrainPoste), 
-    [tasks, currentTrainPoste] // Recalcule si les tâches ou la position du train changent
+    [tasks, currentTrainPoste]
   );
   
-  // Détermine la position de l'ICÔNE du train (basée sur son état actuel)
   const trainGridPosition = useMemo(
     () => TRAIN_POSITIONS[currentTrainPoste] || TRAIN_POSITIONS['null'], 
-    [currentTrainPoste] // Recalcule seulement si le train bouge
+    [currentTrainPoste]
   );
   
-  // Calcule les groupes de tâches pour la sidebar
   const taskGroups = useMemo(() => groupTasks(tasks), [tasks]);
+
+  // --- Gestion de la suppression de tâche ---
+  const handleDeleteTask = (taskId) => {
+    setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
+  }
 
   // --- style pour les boîtes ---
   const getBoxSx = (posteId) => {
@@ -176,7 +168,6 @@ export default function Base() {
 
   // --- Gestion de la Popup ---
   const handlePosteClick = (posteId) => {
-    // La popup ne s'ouvre que si on clique sur la bonne destination
     if (posteId !== nextDestination) {
       console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
       return;
@@ -194,14 +185,10 @@ export default function Base() {
         task.id === taskId ? { ...task, status: 'delivered' } : task
       )
     )
-    // 'tasks' est mis à jour.
-    // 'nextDestination' sera automatiquement recalculé par le useMemo.
   }
 
   // --- Fonction de simulation ---
   const simulerTache = (posteId, item) => {
-    // Si on ne fournit pas un 'item' spécifique, on crée un item
-    // de test générique (pour les postes 1, 2, 4...)
     const itemFinal = item || `TEST_POUR_${POSTE_NAMES[posteId]}`;
     
     const MOCK_TASK = {
@@ -221,65 +208,35 @@ export default function Base() {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      minHeight: '100vh', 
+      height: '100vh', // Fixer la hauteur totale à l'écran pour le scroll
       bgcolor: 'grey.100',
-      p: 3 
+      p: 3,
+      overflow: 'hidden' // Empêche le scroll global
     }}>
-      <Grid container spacing={3} sx={{ flexGrow: 1 }}>
+      <Grid container spacing={3} sx={{ height: '100%' }}>
         
         {/* Colonne de Gauche: Le Plan */}
-        <Grid item xs={12} md={8} sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Grid item xs={12} md={8} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <Paper elevation={2} sx={{ 
             flexGrow: 1, 
             p: 3,
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            overflow: 'auto' // Scroll interne si le plan est trop grand
           }}>
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
               <Button variant="contained" color="error">Stop</Button>
               
-              {/*Boutons de simulation pour la maquette */}
-              <Button 
-                variant="outlined" 
-                color="info" 
-                size="small" 
-                onClick={() => simulerTache('3', 'Vis ABCD')}
-              >
-                Sim (P3 - Vis ABCD)
-              </Button>
-              <Button 
-                variant="outlined" 
-                color="info" 
-                size="small" 
-                onClick={() => simulerTache('3', 'Led NOPQ')}
-              >
-                Sim (P3 - Led NOPQ)
-              </Button>
-
-              <Button 
-                variant="outlined" 
-                color="info" 
-                size="small" 
-                onClick={() => simulerTache('1', 'Vis ABCD')}
-              >
-                Sim (P1 - Vis ABCD)
-              </Button>
-              <Button 
-                variant="outlined" 
-                color="info" 
-                size="small" 
-                onClick={() => simulerTache('2', 'Led NOPQ')}
-              >
-                Sim (P2 - Led NOPQ)
-              </Button>
+              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', 'Vis ABCD')}>Sim (P3 - Vis)</Button>
+              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', 'Led NOPQ')}>Sim (P3 - Led)</Button>
+              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('1', 'Vis ABCD')}>Sim (P1 - Vis)</Button>
+              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('2', 'Led NOPQ')}>Sim (P2 - Led)</Button>
             </Box>
             
             {/* Grille 8x3 */}
-            <Box
-              className="plan-grid"
-              sx={{
+            <Box className="plan-grid" sx={{
                 flexGrow: 1,
                 display: 'grid',
                 gridTemplateColumns: 'repeat(8, 1fr)',
@@ -299,10 +256,7 @@ export default function Base() {
               <Paper id="machine-y" sx={{ ...getBoxSx('6'), gridArea: '1 / 8' }} onClick={() => handlePosteClick('6')}>{POSTE_NAMES['6']}</Paper>
 
               {/* --- Ligne 2 (Train) --- */}
-              <Typography 
-                variant="h4" 
-                className="train" 
-                sx={{
+              <Typography variant="h4" className="train" sx={{
                   gridRow: trainGridPosition.gridRow,
                   gridColumn: trainGridPosition.gridColumn,
                   transition: 'all 0.5s ease-in-out',
@@ -325,55 +279,73 @@ export default function Base() {
         </Grid>
         
         {/* Colonne de Droite: La Sidebar */}
-        <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <Paper elevation={2} sx={{ 
             flexGrow: 1, 
             p: 2,
             display: 'flex',
-            flexDirection: 'column' 
+            flexDirection: 'column',
+            height: '100%' // Assure que le Paper prend toute la hauteur dispo
           }}>
             <Typography variant="h5" gutterBottom>À suivre</Typography>
             
-            {/* Rendu dynamique des tâches */}
-            {Object.keys(POSTE_NAMES).map(posteId => {
-              const posteName = POSTE_NAMES[posteId];
-              const tasksForPoste = taskGroups[posteName];
-              
-              if (tasksForPoste && tasksForPoste.length > 0) {
-                return (
-                  <Paper elevation={1} sx={{ p: 2, mb: 2 }} key={posteId}>
-                    <Typography variant="h6">{posteName}</Typography>
-                    <List dense>
-                      {tasksForPoste.map(task => (
-                        <ListItem key={task.id}>
-                          <ListItemText primary={`${task.action} ${task.item}`} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Paper>
-                );
-              }
-              return null;
-            })}
+            {/* ZONE DE SCROLL POUR LES TÂCHES */}
+            <Box sx={{ 
+              flexGrow: 1, 
+              overflowY: 'auto', // Active le scroll vertical
+              mb: 2,
+              pr: 1 // Petite marge pour la scrollbar
+            }}>
+              {Object.keys(POSTE_NAMES).map(posteId => {
+                const posteName = POSTE_NAMES[posteId];
+                const tasksForPoste = taskGroups[posteName];
+                
+                if (tasksForPoste && tasksForPoste.length > 0) {
+                  return (
+                    <Paper elevation={1} sx={{ p: 2, mb: 2 }} key={posteId}>
+                      <Typography variant="h6">{posteName}</Typography>
+                      <List dense>
+                        {tasksForPoste.map(task => (
+                          <ListItem 
+                            key={task.id}
+                            secondaryAction={
+                              <IconButton 
+                                edge="end" 
+                                aria-label="delete" 
+                                onClick={() => handleDeleteTask(task.id)}
+                                color="error"
+                                size="small"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            }
+                          >
+                            <ListItemText primary={`${task.action} ${task.item}`} />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Paper>
+                  );
+                }
+                return null;
+              })}
 
-            {tasks.filter(t => t.status === 'pending').length === 0 && (
-              <Typography sx={{ p: 2, color: 'text.secondary' }}>
-                Aucune tâche en attente.
-              </Typography>
-            )}
+              {tasks.filter(t => t.status === 'pending').length === 0 && (
+                <Typography sx={{ p: 2, color: 'text.secondary' }}>
+                  Aucune tâche en attente.
+                </Typography>
+              )}
+            </Box>
 
-            {/* Statut WebSocket en bas */}
-            <Box sx={{ mt: 'auto', pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            {/* Statut WebSocket en bas (Reste fixe) */}
+            <Box sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
               <Typography sx={{ display: 'flex', alignItems: 'center' }}>
                 WebSocket: 
                 {connected 
                   ? <CheckCircleIcon color="success" sx={{ ml: 1 }} />
                   : <ErrorIcon color="error" sx={{ ml: 1 }} />
                 }
-                <Box 
-                  component="span" 
-                  sx={{ ml: 0.5, color: connected ? 'success.main' : 'error.main', fontWeight: 'bold' }}
-                >
+                <Box component="span" sx={{ ml: 0.5, color: connected ? 'success.main' : 'error.main', fontWeight: 'bold' }}>
                   {connected ? 'connecté' : 'déconnecté'}
                 </Box>
               </Typography>
@@ -382,7 +354,6 @@ export default function Base() {
         </Grid>
       </Grid>
       
-      {/* Rendu de la Popup (Dialog) */}
       <PopupLivraison
         open={isPopupOpen}
         onClose={closePopup}
