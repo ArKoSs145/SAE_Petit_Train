@@ -94,6 +94,8 @@ async def recevoir_scan(request: Request):
         else:
             magasin_nom, ligne, colonne = "Inconnu", "-", "-"
 
+        id_piece = boite.idPiece
+
         nouvelle_commande = Commande(
             idBoite=boite.idBoite,
             idMagasin=magasin.idStand,
@@ -107,6 +109,7 @@ async def recevoir_scan(request: Request):
         message = {
             "poste": poste,
             "code_barre": code_barre,
+            "id_piece": id_piece,
             "magasin": magasin_nom,
             "ligne": ligne,
             "colonne": colonne,
