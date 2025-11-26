@@ -17,6 +17,10 @@ const GRID_COLS = 2;
 const itemLocations = {
   'Vis ABCD': [3, 0],
   'Led NOPQ': [5, 1],
+
+  'Vis A (Mag 5 -> P1)': [1, 0],  // Exemple : ligne 1, col 0
+  'Plastique (M4 -> P2)': [2, 1], // Exemple : ligne 2, col 1
+  'Colis (Fourn -> P3)': [4, 0],
 };
 
 const getPosteColor = (id) => {
@@ -41,9 +45,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     }
   }, [open]);
 
-  const tasksForPoste = tasks.filter(
-    (task) => task.posteId === posteId && task.status === 'pending'
-  )
+  const tasksForPoste = tasks;
 
   // --- 1. Gestion des Multiples : Récupérer toutes les tâches d'une case ---
   const getTasksAt = (r, c) => {
