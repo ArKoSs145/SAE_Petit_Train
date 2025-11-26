@@ -20,7 +20,7 @@ import PopupLivraison from '../templates/popup/PopupLivraison' //
 
 // --- CONSTANTES DE CONFIGURATION ---
 
-const CYCLE_PATH = ['1', '2', '3', '7', '4', '5', '6'];
+const CYCLE_PATH = ['7', '4', '5', '6', '1', '2', '3'];
 
 const POSTE_NAMES = {
   '1': 'Poste 1',
@@ -48,10 +48,12 @@ const groupTasks = (tasks) => {
   // On ignore les tâches terminées
   const activeTasks = tasks.filter(t => t.status !== 'finished');
 
-  const groups = Object.keys(POSTE_NAMES).reduce((acc, id) => {
-    acc[POSTE_NAMES[id]] = [];
-    return acc;
-  }, {});
+  const groups = CYCLE_PATH.reduce((acc, id) => {
+      if (POSTE_NAMES[id]) {
+        acc[POSTE_NAMES[id]] = [];
+      }
+      return acc;
+    }, {});
 
   activeTasks.forEach(task => {
     // Si statut = À RECUPERER -> On affiche sous le MAGASIN
@@ -130,12 +132,20 @@ export default function Base() {
         // On récupère l'ID du magasin envoyé par le back, ou '7' par défaut
         const magasin = data.magasin_id ? String(data.magasin_id) : '7' 
 
+        const row = parseInt(data.ligne) || 1; 
+        const col = parseInt(data.colonne) || 1;
+
         if (POSTE_NAMES[device]) {
           const newTask = {
             id: Date.now(),
             posteId: device,      // Destination finale
             magasinId: magasin,   // Source (Magasin)
             item: barcode,
+
+            gridRow: row, 
+            gridCol: col,
+
+
             origin: 'Scan',
             status: 'to_collect', // <--- NOUVEAU STATUT DE DEPART
             ts: new Date().toLocaleString()
@@ -218,14 +228,19 @@ export default function Base() {
   }
 
   // --- Fonction de simulation ---
-  const simulerTache = (posteId, magasinId, item) => {
+  const simulerTache = (posteId, magasinId, item, row = 1, col = 1) => {
     const newTask = {
       id: Date.now(),
-      posteId: posteId,      // Destination
-      magasinId: magasinId,  // Origine (Nouveau !)
+      posteId: posteId,
+      magasinId: magasinId,
       item: item,
+      
+      // Coordonnées simulées
+      gridRow: row,
+      gridCol: col,
+
       origin: 'Sim',
-      status: 'to_collect',  // Statut correct pour la sidebar
+      status: 'to_collect',
       ts: new Date().toLocaleString()
     };
     setTasks(prev => [newTask, ...prev]);
@@ -280,21 +295,19 @@ export default function Base() {
               {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
               <Button 
                 variant="outlined" color="info" size="small" 
-                onClick={() => simulerTache('1', '5', 'Vis A (Mag 5 -> P1)')}
+                onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
               >
                 Sim (M5 - P1)
               </Button>
-              
-              <Button 
-                variant="outlined" color="info" size="small" 
-                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)')}
-              >
+
+              <Button size="small" variant="outlined" 
+                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>
                 Sim (M4 - P2)
               </Button>
 
               <Button 
                  variant="outlined" color="info" size="small" 
-                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)')}
+                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}
               >
                 Sim (F - P3)
               </Button>
@@ -355,22 +368,32 @@ export default function Base() {
             <Typography variant="h5" gutterBottom>À suivre</Typography>
             
             {/* ZONE DE SCROLL POUR LES TÂCHES */}
+{/* ZONE DE SCROLL POUR LES TÂCHES */}
             <Box sx={{ 
               flexGrow: 1, 
-              overflowY: 'auto', // Active le scroll vertical
+              overflowY: 'auto', 
               mb: 2,
-              pr: 1 // Petite marge pour la scrollbar
+              pr: 1 
             }}>
-              {Object.keys(POSTE_NAMES).map(posteId => {
-                const posteName = POSTE_NAMES[posteId];
-                const tasksForPoste = taskGroups[posteName];
+              {/* CORRECTION : On map directement sur CYCLE_PATH pour forcer l'ordre 1->2->3->7->4... */}
+              {CYCLE_PATH.map(posteId => {
+                const posteName = POSTE_NAMES[posteId]; // On récupère le nom (ex: "Fournisseur")
+                const tasksForPoste = taskGroups[posteName]; // On récupère les tâches associées
                 
-                if (tasksForPoste && tasksForPoste.length > 0) {
-                  return (
-                    <Paper elevation={1} sx={{ p: 2, mb: 2 }} key={posteId}>
-                      <Typography variant="h6">{posteName}</Typography>
-                      <List dense>
-                        {tasksForPoste.map(task => (
+                // Si pas de tâches ou nom inconnu, on n'affiche rien
+                if (!tasksForPoste || tasksForPoste.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <Paper 
+                    key={posteId} // Utiliser l'ID du poste comme clé est plus robuste
+                    elevation={1} 
+                    sx={{ p: 2, mb: 2, borderLeft: '4px solid #1976d2' }}
+                  >
+                    <Typography variant="h6">{posteName}</Typography>
+                    <List dense>
+                      {tasksForPoste.map(task => (
                         <ListItem 
                           key={task.id} 
                           secondaryAction={
@@ -392,15 +415,13 @@ export default function Base() {
                             }
                           />
                         </ListItem>
-                        ))}
-                      </List>
-                    </Paper>
-                  );
-                }
-                return null;
+                      ))}
+                    </List>
+                  </Paper>
+                );
               })}
 
-              {tasks.filter(t => t.status === 'pending').length === 0 && (
+              {tasks.filter(t => t.status !== 'finished').length === 0 && (
                 <Typography sx={{ p: 2, color: 'text.secondary' }}>
                   Aucune tâche en attente.
                 </Typography>
