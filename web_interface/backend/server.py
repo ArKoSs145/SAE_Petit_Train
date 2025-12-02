@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException # <--- CORRECTION ICI
 from fastapi.middleware.cors import CORSMiddleware
 from database import Commande, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand
 from datetime import datetime
@@ -6,6 +6,9 @@ import asyncio
 import json
 import logging
 from typing import List
+from pydantic import BaseModel
+import sqlite3
+import os 
 
 logging.basicConfig(level=logging.INFO)
 
@@ -97,13 +100,15 @@ async def recevoir_scan(request: Request):
         id_piece = boite.idPiece
 
         nouvelle_commande = Commande(
-            idBoite=boite.idBoite,
-            idMagasin=magasin.idStand,
+            idBoite=boite.idBoite if boite else None, # Sécurité si boite est None
+            idMagasin=magasin.idStand if 'magasin' in locals() and magasin else None,
             idPoste=poste,
-            )
+        )
+        # Note: attention, si boite est None, idBoite sera None, assurez-vous que la DB l'accepte ou gérez le cas.
+        
         db.add(nouvelle_commande)
         db.commit()
-        print(f"[DB] Commande créée : Boite {boite.idBoite} (Magasin {magasin_nom}) pour Poste {poste}")
+        print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
 
         # Préparer le message pour le front
         message = {
@@ -121,6 +126,9 @@ async def recevoir_scan(request: Request):
 
         print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
         return {"status": "ok", "detail": "scan enregistré"}
+    except Exception as e:
+        logging.error(f"Erreur lors du scan: {e}")
+        return {"status": "error", "detail": str(e)}
     finally:
         db.close()
 
@@ -128,6 +136,7 @@ async def recevoir_scan(request: Request):
 @app.on_event("startup")
 async def startup_event():
     logging.info("Initialisation de la base de données...")
+    # Attention: ceci réinitialise vos tables SQLalchemy (mais pas train.db qui est sqlite3 pur ici)
     drop_db()
     init_db()
     data_db()
@@ -136,3 +145,37 @@ async def startup_event():
 @app.get("/")
 async def root():
     return {"status": "ok"}
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/login")
+def login(creds: LoginRequest):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(base_dir, "train.db")
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Vérification des identifiants
+        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, creds.password))
+        user = cursor.fetchone()
+        
+        if user:
+            print(f"Login réussi pour : {creds.username}")
+            return {"message": "Login successful"}
+        else:
+            print(f"Échec connexion pour : {creds.username}")
+            # C'est ici que l'import correct de HTTPException est crucial
+            raise HTTPException(status_code=401, detail="Identifiants incorrects")
+            
+    except sqlite3.Error as e:
+        print(f"Erreur Base de Données: {e}")
+        raise HTTPException(status_code=500, detail="Erreur serveur base de données")
+    finally:
+        if conn:
+            conn.close()
