@@ -89,7 +89,7 @@ const findNextDestination = (tasks, currentPosteId) => {
 
 
 // --- Composant principal ---
-export default function Base() {
+export default function Base({onApp}) {
   const [tasks, setTasks] = useState([])
   const [connected, setConnected] = useState(false)
   const wsRef = useRef(null)
@@ -244,8 +244,7 @@ export default function Base() {
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              <Button variant="contained" color="error">Stop</Button>
-              
+              <Button variant="contained" color="error" onClick={onApp}>Stop</Button>
               <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', 'Vis ABCD')}>Sim (P3 - Vis)</Button>
               <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', 'Led NOPQ')}>Sim (P3 - Led)</Button>
               <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('1', 'Vis ABCD')}>Sim (P1 - Vis)</Button>
