@@ -8,7 +8,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  IconButton //
+  IconButton,
+  Chip
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
@@ -19,7 +20,7 @@ import PopupLivraison from '../templates/popup/PopupLivraison' //
 
 // --- CONSTANTES DE CONFIGURATION ---
 
-const CYCLE_PATH = ['1', '2', '3', '7', '4', '5', '6'];
+const CYCLE_PATH = ['7', '4', '5', '6', '1', '2', '3'];
 
 const POSTE_NAMES = {
   '1': 'Poste 1',
@@ -44,44 +45,59 @@ const TRAIN_POSITIONS = {
 
 // --- tâches (Sidebar) ---
 const groupTasks = (tasks) => {
-  const groups = Object.keys(POSTE_NAMES).reduce((acc, posteId) => {
-    acc[POSTE_NAMES[posteId]] = [];
-    return acc;
-  }, {});
+  // On ignore les tâches terminées
+  const activeTasks = tasks.filter(t => t.status !== 'finished');
 
-  tasks.filter(t => t.status === 'pending').forEach(task => {
-    const posteName = POSTE_NAMES[task.posteId];
-    if (posteName) {
-      groups[posteName].push(task);
+  const groups = CYCLE_PATH.reduce((acc, id) => {
+      if (POSTE_NAMES[id]) {
+        acc[POSTE_NAMES[id]] = [];
+      }
+      return acc;
+    }, {});
+
+  activeTasks.forEach(task => {
+    // Si statut = À RECUPERER -> On affiche sous le MAGASIN
+    if (task.status === 'to_collect' && POSTE_NAMES[task.magasinId]) {
+      groups[POSTE_NAMES[task.magasinId]].push(task);
+    }
+    // Si statut = À DEPOSER -> On affiche sous le POSTE
+    else if (task.status === 'to_deposit' && POSTE_NAMES[task.posteId]) {
+      groups[POSTE_NAMES[task.posteId]].push(task);
     }
   });
   return groups;
 }
 
 // --- PROCHAINE destination ---
-const findNextDestination = (tasks, currentPosteId) => {
-  if (currentPosteId) {
-    const hasPendingTasksAtCurrent = tasks.some(
-      t => t.posteId === currentPosteId && t.status === 'pending'
-    );
-    if (hasPendingTasksAtCurrent) {
-      return currentPosteId;
-    }
+const findNextDestination = (tasks, currentTrainLocation) => {
+  const activeTasks = tasks.filter(t => t.status !== 'finished');
+
+  // 1. Priorité : Travail à faire là où on est déjà ?
+  if (currentTrainLocation) {
+    const hasWorkHere = activeTasks.some(t => {
+      // Je suis au magasin et je dois charger ?
+      if (t.status === 'to_collect' && t.magasinId === currentTrainLocation) return true;
+      // Je suis au poste et je dois décharger ?
+      if (t.status === 'to_deposit' && t.posteId === currentTrainLocation) return true;
+      return false;
+    });
+    if (hasWorkHere) return currentTrainLocation;
   }
 
-  const currentIndex = currentPosteId ? CYCLE_PATH.indexOf(currentPosteId) : -1;
+  // 2. Recherche du prochain arrêt dans le cycle
+  const currentIndex = currentTrainLocation ? CYCLE_PATH.indexOf(currentTrainLocation) : -1;
 
   for (let i = 1; i <= CYCLE_PATH.length; i++) {
     const checkIndex = (currentIndex + i) % CYCLE_PATH.length;
-    const posteToTest = CYCLE_PATH[checkIndex];
+    const locationToCheck = CYCLE_PATH[checkIndex];
 
-    const hasPendingTask = tasks.some(
-      t => t.posteId === posteToTest && t.status === 'pending'
-    );
-    
-    if (hasPendingTask) {
-      return posteToTest;
-    }
+    const needsStop = activeTasks.some(t => {
+      if (t.status === 'to_collect' && t.magasinId === locationToCheck) return true;
+      if (t.status === 'to_deposit' && t.posteId === locationToCheck) return true;
+      return false;
+    });
+
+    if (needsStop) return locationToCheck;
   }
 
   return null;
@@ -110,30 +126,31 @@ export default function Base({onApp}) {
     // Réception du message du backend
     ws.addEventListener('message', (ev) => {
       try {
-        // 1. On décode le JSON envoyé par main.py
         const data = JSON.parse(ev.data)
-        
-        // 2. On récupère les infos utiles
-        const device = String(data.poste) // ex: "1"
-        const barcode = data.code_barre   // ex: "Vis ABCD"
+        const device = String(data.poste)
+        const barcode = data.code_barre
+        // On récupère l'ID du magasin envoyé par le back, ou '7' par défaut
+        const magasin = data.magasin_id ? String(data.magasin_id) : '7' 
 
-        // 3. Si le poste est connu, on ajoute la tâche
+        const row = parseInt(data.ligne) || 1; 
+        const col = parseInt(data.colonne) || 1;
+
         if (POSTE_NAMES[device]) {
           const newTask = {
             id: Date.now(),
-            posteId: device, 
-            action: 'Récupérer', 
-            item: barcode, 
-            origin: 'Scan', 
-            status: 'pending',
+            posteId: device,      // Destination finale
+            magasinId: magasin,   // Source (Magasin)
+            item: barcode,
+
+            gridRow: row, 
+            gridCol: col,
+
+
+            origin: 'Scan',
+            status: 'to_collect', // <--- NOUVEAU STATUT DE DEPART
             ts: new Date().toLocaleString()
           }
-          
-          // Mise à jour de l'état React pour afficher la tâche
-          setTasks((currentTasks) => [newTask, ...currentTasks].slice(0, 100))
-          console.log(`[Front] Scan reçu : ${barcode} pour ${device}`)
-        } else {
-          console.warn(`Scan reçu d'un poste inconnu : ${device}`)
+          setTasks((prev) => [newTask, ...prev].slice(0, 100))
         }
 
       } catch (err) {
@@ -196,29 +213,58 @@ export default function Base({onApp}) {
   
   const closePopup = () => setIsPopupOpen(false)
   
-  const handleDeliverTask = (taskId) => {
-    setTasks(currentTasks =>
-      currentTasks.map(task =>
-        task.id === taskId ? { ...task, status: 'delivered' } : task
-      )
-    )
+  const handleTaskAction = (taskId) => {
+    setTasks(currentTasks => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+
+      // Logique d'avancement : Récupérer -> Déposer -> Fini
+      if (task.status === 'to_collect') {
+        return { ...task, status: 'to_deposit' }; 
+      } else if (task.status === 'to_deposit') {
+        return { ...task, status: 'finished' };   
+      }
+      return task;
+    }));
   }
 
   // --- Fonction de simulation ---
-  const simulerTache = (posteId, item) => {
-    const itemFinal = item || `TEST_POUR_${POSTE_NAMES[posteId]}`;
-    
-    const MOCK_TASK = {
+  const simulerTache = (posteId, magasinId, item, row = 1, col = 1) => {
+    const newTask = {
       id: Date.now(),
       posteId: posteId,
-      action: 'Déposer', 
-      item: itemFinal,
-      origin: 'Simulation',
-      status: 'pending',
+      magasinId: magasinId,
+      item: item,
+      
+      // Coordonnées simulées
+      gridRow: row,
+      gridCol: col,
+
+      origin: 'Sim',
+      status: 'to_collect',
       ts: new Date().toLocaleString()
     };
-    setTasks((currentTasks) => [MOCK_TASK, ...currentTasks]);
+    setTasks(prev => [newTask, ...prev]);
   }
+
+  const tasksForPopup = tasks.filter(t => {
+    // 1. On cache toujours les tâches terminées
+    if (t.status === 'finished') return false;
+
+    // 2. Si la popup est ouverte sur un MAGASIN (ex: '7')
+    // On ne veut voir que les tâches qui partent de CE magasin et qui sont "À récupérer"
+    if (selectedPosteId === t.magasinId && t.status === 'to_collect') {
+      return true;
+    }
+
+    // 3. Si la popup est ouverte sur un POSTE (ex: '1')
+    // On ne veut voir que les tâches qui vont vers CE poste et qui sont "À déposer"
+    if (selectedPosteId === t.posteId && t.status === 'to_deposit') {
+      return true;
+    }
+
+    // Sinon, on cache la tâche
+    return false;
+  });
 
   // --- Rendu JSX ---
   return (
@@ -245,10 +291,26 @@ export default function Base({onApp}) {
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
               <Button variant="contained" color="error" onClick={onApp}>Stop</Button>
-              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', 'Vis ABCD')}>Sim (P3 - Vis)</Button>
-              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', 'Led NOPQ')}>Sim (P3 - Led)</Button>
-              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('1', 'Vis ABCD')}>Sim (P1 - Vis)</Button>
-              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('2', 'Led NOPQ')}>Sim (P2 - Led)</Button>
+              
+              {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
+              <Button 
+                variant="outlined" color="info" size="small" 
+                onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
+              >
+                Sim (M5 - P1)
+              </Button>
+
+              <Button size="small" variant="outlined" 
+                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>
+                Sim (M4 - P2)
+              </Button>
+
+              <Button 
+                 variant="outlined" color="info" size="small" 
+                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}
+              >
+                Sim (F - P3)
+              </Button>
             </Box>
             
             {/* Grille 8x3 */}
@@ -306,47 +368,60 @@ export default function Base({onApp}) {
             <Typography variant="h5" gutterBottom>À suivre</Typography>
             
             {/* ZONE DE SCROLL POUR LES TÂCHES */}
+{/* ZONE DE SCROLL POUR LES TÂCHES */}
             <Box sx={{ 
               flexGrow: 1, 
-              overflowY: 'auto', // Active le scroll vertical
+              overflowY: 'auto', 
               mb: 2,
-              pr: 1 // Petite marge pour la scrollbar
+              pr: 1 
             }}>
-              {Object.keys(POSTE_NAMES).map(posteId => {
-                const posteName = POSTE_NAMES[posteId];
-                const tasksForPoste = taskGroups[posteName];
+              {/* CORRECTION : On map directement sur CYCLE_PATH pour forcer l'ordre 1->2->3->7->4... */}
+              {CYCLE_PATH.map(posteId => {
+                const posteName = POSTE_NAMES[posteId]; // On récupère le nom (ex: "Fournisseur")
+                const tasksForPoste = taskGroups[posteName]; // On récupère les tâches associées
                 
-                if (tasksForPoste && tasksForPoste.length > 0) {
-                  return (
-                    <Paper elevation={1} sx={{ p: 2, mb: 2 }} key={posteId}>
-                      <Typography variant="h6">{posteName}</Typography>
-                      <List dense>
-                        {tasksForPoste.map(task => (
-                          <ListItem 
-                            key={task.id}
-                            secondaryAction={
-                              <IconButton 
-                                edge="end" 
-                                aria-label="delete" 
-                                onClick={() => handleDeleteTask(task.id)}
-                                color="error"
-                                size="small"
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            }
-                          >
-                            <ListItemText primary={`${task.action} ${task.item}`} />
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Paper>
-                  );
+                // Si pas de tâches ou nom inconnu, on n'affiche rien
+                if (!tasksForPoste || tasksForPoste.length === 0) {
+                  return null;
                 }
-                return null;
+
+                return (
+                  <Paper 
+                    key={posteId} // Utiliser l'ID du poste comme clé est plus robuste
+                    elevation={1} 
+                    sx={{ p: 2, mb: 2, borderLeft: '4px solid #1976d2' }}
+                  >
+                    <Typography variant="h6">{posteName}</Typography>
+                    <List dense>
+                      {tasksForPoste.map(task => (
+                        <ListItem 
+                          key={task.id} 
+                          secondaryAction={
+                            <IconButton 
+                              edge="end" 
+                              onClick={() => handleDeleteTask(task.id)} 
+                              color="error" 
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          }
+                        >
+                          <ListItemText 
+                            primary={task.item}
+                            secondary={task.status === 'to_collect' ? 
+                              `Aller chercher au ${POSTE_NAMES[task.magasinId]}` : 
+                              `Apporter au ${POSTE_NAMES[task.posteId]}`
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Paper>
+                );
               })}
 
-              {tasks.filter(t => t.status === 'pending').length === 0 && (
+              {tasks.filter(t => t.status !== 'finished').length === 0 && (
                 <Typography sx={{ p: 2, color: 'text.secondary' }}>
                   Aucune tâche en attente.
                 </Typography>
@@ -375,8 +450,8 @@ export default function Base({onApp}) {
         onClose={closePopup}
         posteId={selectedPosteId}
         posteName={POSTE_NAMES[selectedPosteId] || ''} 
-        tasks={tasks} 
-        onDeliver={handleDeliverTask}
+        tasks={tasksForPopup} 
+        onDeliver={handleTaskAction}
       />
     </Box>
   )
