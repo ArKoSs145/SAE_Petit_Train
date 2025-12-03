@@ -12,7 +12,7 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 const renderBase = () => {
   root.render(
     <React.StrictMode>
-      <Base />
+      <Base onApp={renderApp}/>
     </React.StrictMode>
   );
 };
@@ -25,9 +25,17 @@ const renderAdmin = () => {
     );
 };
 
+const renderApp = () => {
+    root.render(
+      <React.StrictMode>
+        <App onContinue={renderBase} onAdminLogin={renderAdmin}/>
+      </React.StrictMode>
+    );
+};
+
 
 root.render(
   <React.StrictMode>
-    <App onContinue={renderBase} onAdminLogin={renderAdmin}/>
+    <App onContinue={renderBase} onAdminLogin={renderAdmin} />
   </React.StrictMode>
 );
