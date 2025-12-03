@@ -162,26 +162,50 @@ export default function Base() {
     setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
   }
 
-  // --- style pour les boîtes ---
+// Style des boîtes pour garantir qu'elles soient carrées
   const getBoxSx = (posteId) => {
     const isActive = nextDestination === posteId; 
     
     return {
-      p: 2,
-      textAlign: 'center',
-      height: '100%',
+      // Structure Carrée
+      width: '100%',
+      aspectRatio: '1 / 1', // FORCE LE CARRÉ
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
+      
+      // Visuel
+      p: 1,
+      textAlign: 'center',
       cursor: 'pointer',
       border: '2px solid',
       borderColor: isActive ? 'primary.main' : 'transparent',
       transform: isActive ? 'scale(1.05)' : 'scale(1)',
-      boxShadow: isActive ? 6 : 3,
+      boxShadow: isActive ? 6 : 2,
       transition: 'all 0.2s ease-in-out',
+      borderRadius: 2,
+      
+      // Gestion du texte long (ex: Presse Injection)
+      overflow: 'hidden',
+      wordBreak: 'break-word',
+      hyphens: 'auto',
+      fontSize: 'clamp(0.75rem, 1vw, 1.1rem)', // Police adaptative
+      lineHeight: 1.2,
+      fontWeight: 'bold',
+
       '&:hover': { boxShadow: 6 }
     };
   }
+
+  // Style pour centrer les flèches
+    const arrowSx = {
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      height: '100%',
+      color: '#999',
+      fontSize: '2rem'
+    };
 
   // --- Gestion de la Popup ---
   const handlePosteClick = (posteId) => {
@@ -223,24 +247,21 @@ export default function Base() {
   // --- Rendu JSX ---
   return (
     <Box sx={{ 
-      display: 'flex', 
+display: 'flex', 
       flexDirection: 'column', 
-      height: '100vh', // Fixer la hauteur totale à l'écran pour le scroll
+      height: '100vh',
+      width: '100vw', 
       bgcolor: 'grey.100',
-      p: 3,
-      overflow: 'hidden' // Empêche le scroll global
+      p: 1, 
+      boxSizing: 'border-box',
+      overflow: 'hidden'
     }}>
-      <Grid container spacing={3} sx={{ height: '100%' }}>
+      {/* Container GRID principal */}
+      <Grid container spacing={2} sx={{ height: '100%', width: '100%', m: 0 }}>
         
         {/* Colonne de Gauche: Le Plan */}
-        <Grid item xs={12} md={8} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <Paper elevation={2} sx={{ 
-            flexGrow: 1, 
-            p: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'auto' // Scroll interne si le plan est trop grand
-          }}>
+        <Grid item xs={12} md={8} sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}>
+          <Paper elevation={2} sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 3 }}>
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
@@ -253,14 +274,17 @@ export default function Base() {
             </Box>
             
             {/* Grille 8x3 */}
-            <Box className="plan-grid" sx={{
+            <Box sx={{
                 flexGrow: 1,
                 display: 'grid',
-                gridTemplateColumns: 'repeat(8, 1fr)',
-                gridTemplateRows: 'repeat(3, 1fr)',
-                gap: '10px',
+                // Gestion de la largeur des cases (8 colonnes égales)
+                gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', 
+                gridTemplateRows: 'repeat(3, minmax(0, 1fr))', 
+                gap: '1%', 
                 alignItems: 'center',      
-                justifyItems: 'stretch', 
+                justifyItems: 'center', 
+                width: '100%',
+                maxHeight: '100%'
               }}
             >
               {/* --- Ligne 1 (Magasins) --- */}
@@ -296,15 +320,9 @@ export default function Base() {
         </Grid>
         
         {/* Colonne de Droite: La Sidebar */}
-        <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <Paper elevation={2} sx={{ 
-            flexGrow: 1, 
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%' // Assure que le Paper prend toute la hauteur dispo
-          }}>
-            <Typography variant="h5" gutterBottom>À suivre</Typography>
+        <Grid item xs={12} md={4} sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}>
+          <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h4" gutterBottom>À suivre</Typography>
             
             {/* ZONE DE SCROLL POUR LES TÂCHES */}
             <Box sx={{ 
