@@ -105,7 +105,7 @@ const findNextDestination = (tasks, currentTrainLocation) => {
 
 
 // --- Composant principal ---
-export default function Base() {
+export default function Base({onApp}) {
   const [tasks, setTasks] = useState([])
   const [connected, setConnected] = useState(false)
   const wsRef = useRef(null)
@@ -290,7 +290,7 @@ export default function Base() {
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              <Button variant="contained" color="error">Stop</Button>
+              <Button variant="contained" color="error" onClick={onApp}>Stop</Button>
               
               {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
               <Button 
