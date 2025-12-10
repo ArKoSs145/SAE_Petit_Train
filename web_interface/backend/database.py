@@ -296,6 +296,7 @@ def data_db():
         {"idCase": 37, "idStand": 6, "idBoite": 37, "ligne": 1, "colonne": 1},
         {"idCase": 38, "idStand": 6, "idBoite": 38, "ligne": 1, "colonne": 2},
         {"idCase": 39, "idStand": 6, "idBoite": 39, "ligne": 2, "colonne": 1},
+        {"idCase": 41, "idStand": 6, "idBoite": 1, "ligne": 2, "colonne": 2},
         
         # -------- Poste 1 --------
         {"idCase": 40, "idStand": 1, "idBoite": 6767, "ligne": 1, "colonne": 1},
@@ -322,6 +323,12 @@ def data_db():
 
     db.commit()
 
+    # ---------- Mise à jour des idMagasin pour chaque boîte en fonction de sa case ----------
+    for case in db.query(Case).all():
+        if case.boite:  # si la boîte existe
+            case.boite.idMagasin = case.idStand  # on affecte le stand de la case comme magasin
+    db.commit()
+    
     # Création d'un utilisateur de test
     existing_user = db.query(Login).filter_by(username="test_user").first()
     if not existing_user:
