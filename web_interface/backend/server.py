@@ -1,6 +1,6 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException # <--- CORRECTION ICI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from database import Commande, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand
+from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand
 from datetime import datetime
 import asyncio
 import json
@@ -179,3 +179,55 @@ def login(creds: LoginRequest):
     finally:
         if conn:
             conn.close()
+
+@app.get("/api/admin/dashboard")
+def get_admin_dashboard():
+    db = SessionLocal()
+    try:
+        stands = db.query(Stand).all()
+        stands_map = {s.idStand: s.nomStand for s in stands}
+
+        commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
+
+        historique_fmt = []
+        for c in commandes:
+            # --- Récupération du nom de l'objet ---
+            nom_objet = "Objet Inconnu"
+            if c.boite:
+                if c.boite.piece:
+                    nom_objet = c.boite.piece.nomPiece
+                elif c.boite.code_barre:
+                    nom_objet = c.boite.code_barre
+
+            # --- Formatage de l'heure ---
+            if c.dateCommande:
+                heure_str = c.dateCommande.strftime("%H:%M")
+                date_complete = c.dateCommande.strftime("%d/%m %H:%M")
+            else:
+                heure_str = "--:--"
+                date_complete = "--"
+
+            # --- Construction de l'objet pour le front ---
+            historique_fmt.append({
+                "id": c.idCommande,
+                "objet": nom_objet,
+                "statut": c.statutCommande,
+                
+                "heure": heure_str,         
+                "date_full": date_complete,
+
+                "source_id": c.idMagasin,
+                "source_nom": stands_map.get(c.idMagasin, "Inconnu"),
+                "dest_id": c.idPoste,
+                "dest_nom": stands_map.get(c.idPoste, "Inconnu"),
+            })
+            
+        return {
+            "stands": [{"id": s.idStand, "nom": s.nomStand} for s in stands],
+            "historique": historique_fmt
+        }
+    except Exception as e:
+        print(f"Erreur Dashboard: {e}")
+        return {"stands": [], "historique": []}
+    finally:
+        db.close()

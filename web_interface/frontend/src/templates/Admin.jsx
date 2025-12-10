@@ -1,187 +1,156 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Button,
-  Grid,
-  Typography,
-  List,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  IconButton
+  Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
-// Données simulées pour l'affichage (basées sur l'image)
-const TIME_SLOTS = ['Total', '10h25', '10h35', '10h45', '10h55', '11h05', '11h15', '11h25'];
-
 export default function Admin() {
   const [selectedTime, setSelectedTime] = useState('Total');
+  const [dashboardData, setDashboardData] = useState({ stands: [], historique: [] });
+  const [timeSlots, setTimeSlots] = useState(['Total']);
 
-  // Fonction pour quitter (retour accueil ou fermeture)
-  const handleQuit = () => {
-    window.location.href = "/"; // Ou window.close() selon le besoin
+  // --- Chargement des données ---
+  const fetchData = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/admin/dashboard');
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardData(data);
+        
+        const times = [...new Set(data.historique.map(h => h.heure))];
+        setTimeSlots(['Total', ...times]);
+      }
+    } catch (err) {
+      console.error("Erreur chargement admin:", err);
+    }
   };
 
-  // Styles communs pour les boutons gris du header
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleQuit = () => { window.location.href = "/"; };
+
+  // --- Filtrage ---
+  const filteredHistory = dashboardData.historique.filter(item => 
+    selectedTime === 'Total' || item.heure === selectedTime
+  );
+
+  // --- Styles & Couleurs ---
   const headerBtnStyle = {
-    backgroundColor: '#d9d9d9',
-    color: 'black',
-    textTransform: 'none',
-    boxShadow: 'none',
-    borderRadius: 0,
-    fontSize: '1.1rem',
-    px: 3,
+    backgroundColor: '#d9d9d9', color: 'black', textTransform: 'none',
+    boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
     '&:hover': { backgroundColor: '#c0c0c0' }
   };
 
-  // Styles pour les cartes de la grille
-  const cardStyle = (bgColor) => ({
-    backgroundColor: bgColor,
-    height: '100%',
-    p: 3,
-    borderRadius: 2,
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: 'none',
-    color: 'black' // Texte noir
-  });
+  const getCardColor = (nom) => {
+    if (nom.includes('Poste 1')) return '#9fc3f1';
+    if (nom.includes('Poste 2')) return '#b6fcce';
+    if (nom.includes('Poste 3')) return '#ffb6b6';
+    return '#e0e0e0';
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'white', overflow: 'hidden' }}>
       
-      {/* --- 1. HEADER --- */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        p: 2,
-        pt: 3 
-      }}>
-        {/* Gauche */}
-        <Button variant="contained" sx={headerBtnStyle}>
-          Télécharger
-        </Button>
-
-        {/* Centre */}
+      {/* HEADER */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pt: 3 }}>
+        <Button variant="contained" sx={headerBtnStyle}>Télécharger</Button>
         <Typography variant="h3" sx={{ fontWeight: 400, color: 'black' }}>
-          Historique
+          Historique des Cycles
         </Typography>
-
-        {/* Droite */}
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" sx={headerBtnStyle}>Échange</Button>
-          <Button variant="contained" sx={headerBtnStyle}>Log</Button>
-          <Button 
-            variant="contained" 
-            onClick={handleQuit}
-            sx={{ 
-              backgroundColor: '#cc0000', // Rouge vif
-              color: 'white',
-              minWidth: '50px',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              borderRadius: 0,
-              boxShadow: 'none',
-              '&:hover': { backgroundColor: '#a00000' }
-            }}
-          >
-            X
-          </Button>
+          <Button variant="contained" sx={headerBtnStyle} onClick={fetchData}>Rafraîchir</Button>
+          <Button variant="contained" onClick={handleQuit} sx={{ 
+              backgroundColor: '#cc0000', color: 'white', minWidth: '50px', fontWeight: 'bold', fontSize: '1.2rem',
+              borderRadius: 0, '&:hover': { backgroundColor: '#a00000' }
+            }}>X</Button>
         </Box>
       </Box>
 
-      {/* --- 2. CONTENU PRINCIPAL (Sidebar + Grid) --- */}
+      {/* CONTENU */}
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', mt: 1 }}>
         
-        {/* A. SIDEBAR (Liste des heures) */}
-        <Box sx={{ 
-          width: '250px', 
-          bgcolor: '#d9d9d9', // Gris fond sidebar
-          borderRight: '1px solid #ccc',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
+        {/* SIDEBAR */}
+        <Box sx={{ width: '250px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
           <List component="nav" sx={{ p: 0 }}>
-            {TIME_SLOTS.map((time) => {
-              const isSelected = selectedTime === time;
-              return (
-                <ListItemButton
-                  key={time}
-                  onClick={() => setSelectedTime(time)}
-                  sx={{
-                    borderBottom: '1px solid #999',
-                    bgcolor: '#d9d9d9',
-                    py: 2,
-                    '&:hover': { bgcolor: '#c0c0c0' }
-                  }}
-                >
-                  <ListItemText 
-                    primary={time} 
-                    primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center' }} 
-                  />
-                  {/* Icône flèche (différente pour Total selon l'image) */}
-                  {time === 'Total' ? <ArrowDropDownIcon /> : <NavigateNextIcon />}
-                </ListItemButton>
-              );
-            })}
+            {timeSlots.map((time) => (
+              <ListItemButton
+                key={time}
+                onClick={() => setSelectedTime(time)}
+                sx={{
+                  borderBottom: '1px solid #999',
+                  bgcolor: selectedTime === time ? 'white' : '#d9d9d9',
+                  py: 2, '&:hover': { bgcolor: '#c0c0c0' }
+                }}
+              >
+                <ListItemText 
+                  primary={time} 
+                  secondary={time !== 'Total' ? "Cycle" : ""}
+                  primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center', fontWeight: selectedTime === time ? 'bold' : 'normal' }}
+                  secondaryTypographyProps={{ textAlign: 'center', fontSize: '0.8rem' }}
+                />
+                {time === 'Total' ? <ArrowDropDownIcon /> : <NavigateNextIcon />}
+              </ListItemButton>
+            ))}
           </List>
-          {/* Espace vide en bas de la sidebar pour remplir la hauteur */}
-          <Box sx={{ flexGrow: 1, bgcolor: '#d9d9d9', borderRight: '1px solid #ccc' }} />
         </Box>
 
-        {/* B. GRILLE (Postes) */}
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <Grid container spacing={2} sx={{ height: '100%' }}>
-            
-            {/* POSTE 1 (Bleu) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={cardStyle('#9fc3f1')}> {/* Bleu clair */}
-                <Typography variant="h5" gutterBottom>Poste 1</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Vis ABCD : 12/14</div>
-                  <div>Ecrou EFGH : 9/9</div>
-                </Box>
-              </Paper>
-            </Grid>
+        {/* GRILLE DES STANDS */}
+        <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto' }}>
+          <Grid container spacing={2}>
+            {dashboardData.stands.map((stand) => {
+              
+              const arrivages = filteredHistory.filter(h => h.dest_id === stand.id);
+              
+              const departs = filteredHistory.filter(h => h.source_id === stand.id);
+              
+              return (
+                <Grid item xs={12} sm={6} md={4} key={stand.id}>
+                  <Paper sx={{ 
+                      backgroundColor: getCardColor(stand.nom), 
+                      p: 2, borderRadius: 2, minHeight: '180px',
+                      display: 'flex', flexDirection: 'column', color: 'black'
+                    }}>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>{stand.nom}</Typography>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      
+                      {arrivages.length > 0 && (
+                        <Box>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', textTransform: 'uppercase', opacity: 0.7 }}>Reçoit :</Typography>
+                          {arrivages.map((item, idx) => (
+                            <Typography key={`in-${idx}`} variant="body1">
+                              • <b>{item.objet}</b> <span style={{fontSize:'0.8em'}}> (de {item.source_nom})</span>
+                            </Typography>
+                          ))}
+                        </Box>
+                      )}
 
-            {/* POSTE 2 (Vert) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={cardStyle('#b6fcce')}> {/* Vert clair */}
-                <Typography variant="h5" gutterBottom>Poste 2</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Verre IJKLM : 4/4</div>
-                </Box>
-              </Paper>
-            </Grid>
+                      {arrivages.length > 0 && departs.length > 0 && <Box sx={{ my: 1, borderTop: '1px dashed #666' }} />}
 
-            {/* POSTE 3 (Rouge) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={cardStyle('#ff8a80')}> {/* Rouge clair */}
-                <Typography variant="h5" gutterBottom>Poste 3</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Vis ABCD : 11/12</div>
-                  <div>Led NOPQ : 2/3</div>
-                </Box>
-              </Paper>
-            </Grid>
+                      {departs.length > 0 && (
+                        <Box>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', textTransform: 'uppercase', opacity: 0.7 }}>Envoie :</Typography>
+                          {departs.map((item, idx) => (
+                            <Typography key={`out-${idx}`} variant="body1">
+                              → <b>{item.objet}</b> <span style={{fontSize:'0.8em'}}> (vers {item.dest_nom})</span>
+                            </Typography>
+                          ))}
+                        </Box>
+                      )}
 
-            {/* MAGASIN (Gris) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={{ ...cardStyle('#d9d9d9'), position: 'relative' }}> {/* Gris */}
-                <Typography variant="h5" gutterBottom>Magasin / Fournisseur</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Vis ABCD x 26</div>
-                  <div>Ecrou EFGH x 9</div>
-                  <div>Verre IJKLM x 4</div>
-                  <div>Led NOPQ x 3</div>
-                </Box>
-                {/* Petit curseur souris simulé comme sur l'image (optionnel) */}
-                {/* <NavigationIcon sx={{ position: 'absolute', bottom: 20, left: '50%', transform: 'rotate(-45deg)', fontSize: 30 }} /> */}
-              </Paper>
-            </Grid>
-
+                      {arrivages.length === 0 && departs.length === 0 && (
+                        <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.5 }}>Aucun mouvement</Typography>
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+              );
+            })}
           </Grid>
         </Box>
       </Box>
