@@ -391,3 +391,22 @@ def get_commandes_en_cours():
         return taches
     finally:
         db.close()
+
+@app.put("/api/commande/{id_commande}/statut")
+def update_statut(id_commande: int):
+    try:
+        resultat = requetes.changer_statut_commande(id_commande)
+        
+        if resultat["status"] == "error":
+            raise HTTPException(status_code=404, detail=resultat["message"])
+            
+        print(f"[STATUT] {resultat['message']}")
+        
+        if "commande" in resultat:
+            return {"status": "ok", "nouveau_statut": resultat["commande"]["nouveau_statut"]}
+        else:
+            return {"status": "ok", "message": resultat["message"]}
+
+    except Exception as e:
+        print(f"Erreur serveur update statut: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
