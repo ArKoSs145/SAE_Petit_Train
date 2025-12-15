@@ -287,13 +287,38 @@ export default function Base({onApp}) {
   
   const closePopup = () => setIsPopupOpen(false)
   
-  const handleTaskAction = (taskId) => {
-    setTasks(currentTasks => currentTasks.map(task => {
-      if (task.id !== taskId) return task;
-      if (task.status === 'to_collect') return { ...task, status: 'to_deposit' }; 
-      else if (task.status === 'to_deposit') return { ...task, status: 'finished' };   
-      return task;
-    }));
+  // --- GESTION DU STATUT DES COMMANDES ---
+  const handleTaskAction = async (taskId) => {
+    const currentTask = tasks.find(t => t.id === taskId);
+    if (!currentTask) return;
+
+    let nextStatusDB = "";
+    let nextStatusFront = "";
+
+    if (currentTask.status === 'to_collect') {
+      nextStatusDB = "A déposer";
+      nextStatusFront = "to_deposit";
+    } else if (currentTask.status === 'to_deposit') {
+      nextStatusDB = "Terminé";
+      nextStatusFront = "finished";
+    } else {
+      return;
+    }
+
+    try {
+      await fetch(`http://localhost:8000/api/commande/${taskId}/statut`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nouveau_statut: nextStatusDB })
+      });
+
+      setTasks(currentTasks => currentTasks.map(task => 
+        task.id === taskId ? { ...task, status: nextStatusFront } : task
+      ));
+
+    } catch (err) {
+      console.error("Erreur lors de la mise à jour du statut:", err);
+    }
   }
 
   const simulerTache = (posteId, magasinId, item, row = 1, col = 1) => {
