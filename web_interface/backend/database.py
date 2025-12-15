@@ -41,8 +41,21 @@ class Stand(Base):
     nomStand = Column(String)
 
     Cases = relationship("Case", back_populates="Stand")
-    commandes_poste = relationship("Commande", foreign_keys="Commande.idPoste")
-    commandes_magasin = relationship("Commande", foreign_keys="Commande.idMagasin")
+
+    # Commandes où le stand est le poste (scan)
+    commandes_poste = relationship(
+        "Commande",
+        back_populates="poste",
+        foreign_keys="Commande.idPoste"
+    )
+
+    # Commandes où le stand est le magasin
+    commandes_magasin = relationship(
+        "Commande",
+        back_populates="magasin",
+        foreign_keys="Commande.idMagasin"
+    )
+
 
 
 # Table des cases
@@ -65,23 +78,36 @@ class Case(Base):
 # Table des commandes
 class Commande(Base):
     __tablename__ = "commandes"
+
+
     idCommande = Column(Integer, primary_key=True, index=True)
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
-    
-    # Stand qui scanne
     idPoste = Column(Integer, ForeignKey("stands.idStand"))
-    
-    # Stand où la boîte est stockée
     idMagasin = Column(Integer, ForeignKey("stands.idStand"))
 
     dateCommande = Column(DateTime, default=datetime.utcnow)
+
+    # Statut de la commande :
+    # - "A récupérer"
+    # - "A déposer"
+    # - "Commande finie"
     statutCommande = Column(String, default="A récupérer")
 
-    # relations
     boite = relationship("Boite")
-    poste = relationship("Stand", foreign_keys=[idPoste])
-    magasin = relationship("Stand", foreign_keys=[idMagasin])
 
+    # Relation vers le stand qui a scanné la commande
+    poste = relationship(
+        "Stand",
+        back_populates="commandes_poste",
+        foreign_keys=[idPoste]
+    )
+
+    # Relation vers le magasin où la boîte est stockée
+    magasin = relationship(
+        "Stand",
+        back_populates="commandes_magasin",
+        foreign_keys=[idMagasin]
+    )
 
 # Table Login
 class Login(Base):
