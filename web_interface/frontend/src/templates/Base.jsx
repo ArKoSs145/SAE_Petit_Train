@@ -116,6 +116,37 @@ export default function Base({onApp}) {
 
   // --- Connexion WebSocket ---
   useEffect(() => {
+
+    const fetchInitialTasks = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/commandes/en_cours');
+        if (res.ok) {
+          const data = await res.json();
+          
+          // On transforme les données DB en format Tâche pour le front
+          const initialTasks = data.map(cmd => ({
+            id: cmd.id,
+            posteId: String(cmd.poste),
+            magasinId: String(cmd.magasin_id),
+            item: cmd.code_barre,
+            
+            // Mapping des statuts DB vers Front
+            status: cmd.statut === 'A récupérer' ? 'to_collect' : 
+                    cmd.statut === 'A déposer' ? 'to_deposit' : 'pending',
+            
+            gridRow: cmd.ligne,
+            gridCol: cmd.colonne,
+            ts: new Date(cmd.timestamp).toLocaleString()
+          }));
+          
+          setTasks(initialTasks);
+        }
+      } catch (err) {
+        console.error("Erreur chargement initial:", err);
+      }
+    };
+    fetchInitialTasks();
+
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -128,33 +159,33 @@ export default function Base({onApp}) {
       try {
         const data = JSON.parse(ev.data)
         const device = String(data.poste)
-        const barcode = data.code_barre
-        // On récupère l'ID du magasin envoyé par le back, ou '7' par défaut
-        const magasin = data.magasin_id ? String(data.magasin_id) : '7' 
+        setTasks((prev) => {
+            if (prev.some(t => t.id === data.id_commande)) {
+                return prev;
+            }
 
-        const row = parseInt(data.ligne) || 1; 
-        const col = parseInt(data.colonne) || 1;
+            if (POSTE_NAMES[device]) {
+              const newTask = {
+                id: data.id_commande, 
+                
+                posteId: device,
+                magasinId: data.magasin_id ? String(data.magasin_id) : '7',
+                item: data.code_barre,
+                
+                gridRow: parseInt(data.ligne) || 1, 
+                gridCol: parseInt(data.colonne) || 1,
 
-        if (POSTE_NAMES[device]) {
-          const newTask = {
-            id: Date.now(),
-            posteId: device,      // Destination finale
-            magasinId: magasin,   // Source (Magasin)
-            item: barcode,
-
-            gridRow: row, 
-            gridCol: col,
-
-
-            origin: 'Scan',
-            status: 'to_collect', // <--- NOUVEAU STATUT DE DEPART
-            ts: new Date().toLocaleString()
-          }
-          setTasks((prev) => [newTask, ...prev].slice(0, 100))
-        }
+                origin: 'Scan',
+                status: 'to_collect',
+                ts: new Date().toLocaleString()
+              }
+              return [newTask, ...prev].slice(0, 100);
+            }
+            return prev;
+        })
 
       } catch (err) {
-        console.error("Erreur de lecture du message WebSocket :", err)
+        console.error("Erreur WebSocket :", err)
       }
     })
 
