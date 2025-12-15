@@ -114,6 +114,18 @@ export default function Base({onApp}) {
   const [selectedPosteId, setSelectedPosteId] = useState(null)
   const [currentTrainPoste, setCurrentTrainPoste] = useState(null);
 
+  const handleStopCycle = async () => {
+    try {
+        await fetch('http://localhost:8000/api/cycle/stop', { 
+            method: 'POST' 
+        });
+        console.log("Cycle arrêté");
+    } catch (err) {
+        console.error("Erreur arrêt cycle:", err);
+    }
+    onApp();
+  }
+
   // --- Connexion WebSocket ---
   useEffect(() => {
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
@@ -123,13 +135,11 @@ export default function Base({onApp}) {
     ws.addEventListener('open', () => setConnected(true))
     ws.addEventListener('close', () => setConnected(false))
 
-    // Réception du message du backend
     ws.addEventListener('message', (ev) => {
       try {
         const data = JSON.parse(ev.data)
         const device = String(data.poste)
         const barcode = data.code_barre
-        // On récupère l'ID du magasin envoyé par le back, ou '7' par défaut
         const magasin = data.magasin_id ? String(data.magasin_id) : '7' 
 
         const row = parseInt(data.ligne) || 1; 
@@ -138,8 +148,8 @@ export default function Base({onApp}) {
         if (POSTE_NAMES[device]) {
           const newTask = {
             id: Date.now(),
-            posteId: device,      // Destination finale
-            magasinId: magasin,   // Source (Magasin)
+            posteId: device,
+            magasinId: magasin,
             item: barcode,
 
             gridRow: row, 
@@ -147,7 +157,7 @@ export default function Base({onApp}) {
 
 
             origin: 'Scan',
-            status: 'to_collect', // <--- NOUVEAU STATUT DE DEPART
+            status: 'to_collect',
             ts: new Date().toLocaleString()
           }
           setTasks((prev) => [newTask, ...prev].slice(0, 100))
@@ -311,7 +321,13 @@ display: 'flex',
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              <Button variant="contained" color="error" onClick={onApp}>Stop</Button>
+              <Button 
+                variant="contained" 
+                color="error" 
+                onClick={handleStopCycle}
+              >
+                Stop
+              </Button>
               
               {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
               <Button 

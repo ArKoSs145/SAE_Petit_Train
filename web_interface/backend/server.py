@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand
+from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand, Cycle
 from datetime import datetime
 import asyncio
 import json
@@ -9,6 +9,7 @@ from typing import List
 from pydantic import BaseModel
 import sqlite3
 import os 
+import requetes
 
 logging.basicConfig(level=logging.INFO)
 
@@ -281,3 +282,68 @@ def get_cycle_logs(cycle_id: str):
         return {"logs": logs}
     finally:
         db.close()
+
+@app.post("/api/cycle/start")
+def start_cycle():
+    """Démarre un nouveau cycle si aucun n'est actif"""
+    db = SessionLocal()
+    try:
+        actif = db.query(Cycle).filter(Cycle.date_fin == None).first()
+        if actif:
+            return {"status": "error", "message": "Un cycle est déjà en cours"}
+        
+        nouveau = Cycle(date_debut=datetime.now())
+        db.add(nouveau)
+        db.commit()
+        print(f"[CYCLE] Démarré à {nouveau.date_debut}")
+        return {"status": "ok", "date_debut": nouveau.date_debut}
+    finally:
+        db.close()
+
+@app.post("/api/cycle/stop")
+def stop_cycle():
+    """Arrête le cycle en cours"""
+    db = SessionLocal()
+    try:
+        actif = db.query(Cycle).filter(Cycle.date_fin == None).first()
+        if not actif:
+            return {"status": "error", "message": "Aucun cycle actif"}
+        
+        actif.date_fin = datetime.now()
+        db.commit()
+        print(f"[CYCLE] Arrêté à {actif.date_fin}")
+        return {"status": "ok"}
+    finally:
+        db.close()
+
+@app.get("/api/admin/cycles")
+def get_cycles_list():
+    """Renvoie la liste des cycles pour le menu de gauche"""
+    db = SessionLocal()
+    try:
+        cycles = db.query(Cycle).order_by(Cycle.date_debut.desc()).all()
+        result = []
+        for c in cycles:
+            cycle_id = c.date_debut.strftime("%Y-%m-%d %H:%M:%S")
+            
+            label = c.date_debut.strftime("%d/%m/%y à %Hh%M")
+            if c.date_fin is None:
+                label += " (En cours)"
+                
+            result.append({"id": cycle_id, "label": label})
+        return result
+    finally:
+        db.close()
+
+@app.get("/api/admin/logs/{cycle_date}")
+def get_logs_for_cycle(cycle_date: str):
+    """Utilise get_commandes_cycle_logs"""
+    try:
+        date_obj = datetime.strptime(cycle_date, "%Y-%m-%d %H:%M:%S")
+        
+        logs = requetes.get_commandes_cycle_logs(date_obj)
+        
+        return {"logs": logs}
+    except Exception as e:
+        print(f"Erreur logs: {e}")
+        return {"logs": [f"Erreur: {str(e)}"]}
