@@ -175,7 +175,7 @@ export default function Base({onApp}) {
                 
                 posteId: device,
                 magasinId: data.magasin_id ? String(data.magasin_id) : '7',
-                item: data.code_barre,
+                item: data.nom_piece || data.code_barre,
                 
                 gridRow: parseInt(data.ligne) || 1, 
                 gridCol: parseInt(data.colonne) || 1,
