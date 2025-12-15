@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 DATABASE_URL = "sqlite:///./train.db"
@@ -85,7 +85,7 @@ class Commande(Base):
     idPoste = Column(Integer, ForeignKey("stands.idStand"))
     idMagasin = Column(Integer, ForeignKey("stands.idStand"))
 
-    dateCommande = Column(DateTime, default=datetime.utcnow)
+    dateCommande = Column(DateTime, default=datetime.now(timezone.utc))
 
     # Statut de la commande :
     # - "A récupérer"
@@ -109,6 +109,14 @@ class Commande(Base):
         foreign_keys=[idMagasin]
     )
 
+# Table Cycle
+class Cycle(Base):
+    __tablename__ = "cycles"
+    
+    idCycle = Column(Integer, primary_key=True, autoincrement=True)
+    date_debut = Column(DateTime, default=datetime.now(timezone.utc))
+    date_fin = Column(DateTime, nullable=True)  # nullable=True sert pour le cycle en cours
+    
 # Table Login
 class Login(Base):
     __tablename__ = "login"
