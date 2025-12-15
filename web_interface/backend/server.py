@@ -109,12 +109,20 @@ async def recevoir_scan(request: Request):
         db.add(nouvelle_commande)
         db.commit()
         print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
-
+        
+        nom_affichage = code_barre 
+        if boite:
+            if boite.piece:
+                nom_affichage = boite.piece.nomPiece
+            elif boite.code_barre:
+                nom_affichage = boite.code_barre
+                
         # Préparer le message pour le front
         message = {
             "poste": poste,
             "code_barre": code_barre,
             "id_piece": id_piece,
+            "nom_piece": nom_affichage,
             "magasin": magasin_nom,
             "ligne": ligne,
             "colonne": colonne,
@@ -179,3 +187,39 @@ def login(creds: LoginRequest):
     finally:
         if conn:
             conn.close()
+
+@app.get("/api/commandes/en_cours")
+def get_commandes_en_cours():
+    db = SessionLocal()
+    try:
+        commandes = db.query(Commande).filter(Commande.statutCommande != "Terminé").all()
+        
+        taches = []
+        for c in commandes:
+            nom_objet = "Inconnu"
+            if c.boite:
+                if c.boite.piece:
+                    nom_objet = c.boite.piece.nomPiece
+                elif c.boite.code_barre:
+                    nom_objet = c.boite.code_barre
+            
+            ligne, colonne = 1, 1
+            if c.boite and c.boite.Cases:
+                case = c.boite.Cases[0]
+                ligne = case.ligne
+                colonne = case.colonne
+
+            taches.append({
+                "id": c.idCommande,
+                "poste": str(c.idPoste),
+                "magasin_id": str(c.idMagasin) if c.idMagasin else "7",
+                "code_barre": nom_objet,
+                "statut": c.statutCommande,
+                "ligne": ligne,
+                "colonne": colonne,
+                "timestamp": c.dateCommande.isoformat() if c.dateCommande else None
+            })
+            
+        return taches
+    finally:
+        db.close()
