@@ -1,5 +1,5 @@
-from database import SessionLocal, Stand, Piece, Boite, Case, Commande, Login, Train
-from datetime import datetime
+from database import SessionLocal, Stand, Piece, Boite, Case, Commande, Login, Train, Cycle
+from datetime import datetime, timezone
 from sqlalchemy import func
 
 # ---------- TRAIN ----------
@@ -249,4 +249,87 @@ def get_boites_recuperees_magasins(debut, fin):
         return [{"idMagasin": r.idMagasin, "nomPiece": r.nomPiece, "quantite": r.quantite} for r in result]
     finally:
         db.close()
+
+# ---------- FORMATTAGE DES LOGS ----------
+def formater_log(commande: Commande):
+    heure = commande.dateCommande.strftime("%H:%M:%S le %d/%m/%Y")
+    nom_piece = commande.boite.piece.nomPiece
+    num_commande = commande.idCommande
+
+    if commande.statutCommande == "A récupérer":
+        return (
+            f"Le {commande.poste.nomStand} a commandé "
+            f"(commande n°{num_commande}) "
+            f"une boîte de {nom_piece} à {heure}"
+        )
+
+    elif commande.statutCommande == "A déposer":
+        return (
+            f"Le petit train a récupéré la commande n°{num_commande} "
+            f"au {commande.magasin.nomStand} à {heure}"
+        )
+
+    elif commande.statutCommande == "Commande finie":
+        return (
+            f"Le petit train a livré la commande n°{num_commande} "
+            f"au {commande.poste.nomStand} à {heure}"
+        )
+
+def get_commandes_cycle_logs(debut_cycle: datetime):
+    db = SessionLocal()
+    try: # Assure que debut_cycle est en UTC
+        if debut_cycle.tzinfo is None:
+            debut_cycle = debut_cycle.replace(tzinfo=timezone.utc)
+
+        # Recherche du cycle en comparant jusqu’à la seconde
+        cycle = db.query(Cycle).filter(
+            func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
+            debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
+        ).first()
+        if not cycle:
+            return []
+
+        # Récupérer date_fin ou utiliser l'heure actuelle si cycle en cours
+        fin_cycle = cycle.date_fin or datetime.now(timezone.utc)
+
+        # Requêtes des commandes entre date_debut et date_fin
+        commandes = db.query(Commande).filter(
+            Commande.dateCommande >= cycle.date_debut,
+            Commande.dateCommande <= fin_cycle
+        ).order_by(Commande.dateCommande.asc()).all()
+
+        logs = [formater_log(c) for c in commandes]
+        return logs
+    finally:
+        db.close()
+        
+# ---------- CYCLES ----------
+def get_commandes_cycle(debut_cycle: datetime):
+    db = SessionLocal()
+    try:# Assure que debut_cycle est en UTC
+        if debut_cycle.tzinfo is None:
+            debut_cycle = debut_cycle.replace(tzinfo=timezone.utc)
+
+        # Recherche du cycle en comparant jusqu’à la seconde
+        cycle = db.query(Cycle).filter(
+            func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
+            debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
+        ).first()
+        if not cycle:
+            return []
+
+        # Récupérer date_fin ou utiliser l'heure actuelle si cycle en cours
+        fin_cycle = cycle.date_fin or datetime.now(timezone.utc)
+
+        # Requêtes des commandes entre date_debut et date_fin
+        commandes = db.query(Commande).filter(
+            Commande.statutCommande == "Commande finie",
+            Commande.dateCommande >= cycle.date_debut,
+            Commande.dateCommande <= fin_cycle
+        ).order_by(Commande.dateCommande.asc()).all()
+
+        return commandes
+    finally:
+        db.close()
+
 
