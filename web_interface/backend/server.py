@@ -83,7 +83,6 @@ async def recevoir_scan(request: Request):
 
     db = SessionLocal()
     try:
-        # Recherche du code-barres dans la base
         boite = db.query(Boite).filter_by(code_barre=code_barre).first()
         if boite:
             case = db.query(Case).filter_by(idBoite=boite.idBoite).first()
@@ -100,17 +99,15 @@ async def recevoir_scan(request: Request):
         id_piece = boite.idPiece
 
         nouvelle_commande = Commande(
-            idBoite=boite.idBoite if boite else None, # Sécurité si boite est None
+            idBoite=boite.idBoite if boite else None,
             idMagasin=magasin.idStand if 'magasin' in locals() and magasin else None,
             idPoste=poste,
         )
-        # Note: attention, si boite est None, idBoite sera None, assurez-vous que la DB l'accepte ou gérez le cas.
         
         db.add(nouvelle_commande)
         db.commit()
         print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
 
-        # Préparer le message pour le front
         message = {
             "poste": poste,
             "code_barre": code_barre,
@@ -121,7 +118,6 @@ async def recevoir_scan(request: Request):
             "timestamp": datetime.now().isoformat()
         }
 
-        # Diffuser via WebSocket
         await manager.broadcast(json.dumps(message))
 
         print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
@@ -136,7 +132,6 @@ async def recevoir_scan(request: Request):
 @app.on_event("startup")
 async def startup_event():
     logging.info("Initialisation de la base de données...")
-    # Attention: ceci réinitialise vos tables SQLalchemy (mais pas train.db qui est sqlite3 pur ici)
     drop_db()
     init_db()
     data_db()
@@ -170,7 +165,6 @@ def login(creds: LoginRequest):
             return {"message": "Login successful"}
         else:
             print(f"Échec connexion pour : {creds.username}")
-            # C'est ici que l'import correct de HTTPException est crucial
             raise HTTPException(status_code=401, detail="Identifiants incorrects")
             
     except sqlite3.Error as e:
@@ -229,5 +223,61 @@ def get_admin_dashboard():
     except Exception as e:
         print(f"Erreur Dashboard: {e}")
         return {"stands": [], "historique": []}
+    finally:
+        db.close()
+
+@app.get("/api/admin/cycles")
+def get_cycles_list():
+    db = SessionLocal()
+    try:
+        stmt = db.query(Commande.dateCommande).order_by(Commande.dateCommande.desc()).all()
+        
+        cycles = []
+        seen = set()
+        
+        for row in stmt:
+            if row.dateCommande:
+                cycle_id = row.dateCommande.strftime("%Y-%m-%d %H:%M")
+                display = row.dateCommande.strftime("%d/%m/%y à %Hh%M")
+                
+                if cycle_id not in seen:
+                    cycles.append({"id": cycle_id, "label": display})
+                    seen.add(cycle_id)
+                    
+        return cycles[:20]
+    finally:
+        db.close()
+
+@app.get("/api/admin/logs/{cycle_id}")
+def get_cycle_logs(cycle_id: str):
+    db = SessionLocal()
+    try:
+        all_cmds = db.query(Commande).all()
+        stands = db.query(Stand).all()
+        stands_map = {s.idStand: s.nomStand for s in stands}
+        
+        logs = []
+        logs.append(f"({cycle_id.split(' ')[1]}:00): Début du cycle détecté")
+
+        filtered_cmds = [
+            c for c in all_cmds 
+            if c.dateCommande and c.dateCommande.strftime("%Y-%m-%d %H:%M") == cycle_id
+        ]
+
+        for c in filtered_cmds:
+            heure = c.dateCommande.strftime("%H:%M:%S")
+            nom_objet = c.boite.code_barre if c.boite else "Inconnu"
+            poste_nom = stands_map.get(c.idPoste, "Poste ?")
+            mag_nom = stands_map.get(c.idMagasin, "Magasin ?")
+            
+            logs.append(f"({heure}): Demande {nom_objet} par {poste_nom}")
+
+            if c.statutCommande in ["A déposer", "Terminé"]:
+                logs.append(f"(...): Retrait {nom_objet} au {mag_nom}")
+            
+            if c.statutCommande == "Terminé":
+                logs.append(f"(...): Dépôt {nom_objet} au {poste_nom}")
+
+        return {"logs": logs}
     finally:
         db.close()
