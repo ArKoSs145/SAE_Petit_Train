@@ -1,25 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
-  Grid,
   Paper,
   Typography,
   Button,
   List,
   ListItem,
   ListItemText,
-  IconButton //
+  IconButton
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
-import DeleteIcon from '@mui/icons-material/Delete' // Import de l'icône poubelle
+import DeleteIcon from '@mui/icons-material/Delete'
 
-import '../../styles/Base.css' //
-import PopupLivraison from '../templates/popup/PopupLivraison' //
+import '../../styles/Base.css'
+import PopupLivraison from '../templates/popup/PopupLivraison'
 
 // --- CONSTANTES DE CONFIGURATION ---
 
-const CYCLE_PATH = ['1', '2', '3', '7', '4', '5', '6'];
+// Ordre logique du cycle (boucle horaire) : 7 -> 4 -> 5 -> 6 -> 3 -> 2 -> 1
+const CYCLE_PATH = ['7', '4', '5', '6', '3', '2', '1'];
 
 const POSTE_NAMES = {
   '1': 'Poste 1',
@@ -31,78 +31,84 @@ const POSTE_NAMES = {
   '7': 'Fournisseur',
 };
 
+// Position du train : Sur la flèche JUSTE AVANT le poste de destination
 const TRAIN_POSITIONS = {
-  // GARAGE (Position par défaut)
-  'null': { gridRow: 5, gridColumn: 5 }, // On le met au centre (vide) pour ne pas gêner
-
-  // CYCLE (Le train se place sur la flèche AVANT d'arriver au poste)
+  'null': { gridRow: 5, gridColumn: 5 }, 
   
-  '7':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Juste avant Fournisseur)
-  '4':    { gridRow: 1, gridColumn: 2 }, // Flèche → (Juste avant Presse)
-  '5':    { gridRow: 1, gridColumn: 4 }, // Flèche → (Juste avant Machine X)
-  '6':    { gridRow: 2, gridColumn: 5 }, // Flèche ↓ (Juste avant Machine Y)
-  '3':    { gridRow: 5, gridColumn: 4 }, // Flèche ← (Juste avant Poste 3)
-  '2':    { gridRow: 5, gridColumn: 2 }, // Flèche ← (Juste avant Poste 2)
-  '1':    { gridRow: 4, gridColumn: 1 }, // Flèche ↑ (Juste avant Poste 1)
+  // Destination : Position de la flèche d'entrée
+  '7':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Fournisseur)
+  '4':    { gridRow: 1, gridColumn: 2 }, // Flèche → (Avant Presse)
+  '5':    { gridRow: 1, gridColumn: 4 }, // Flèche → (Avant Machine X)
+  '6':    { gridRow: 2, gridColumn: 5 }, // Flèche ↓ (Avant Machine Y)
+  '3':    { gridRow: 5, gridColumn: 4 }, // Flèche ← (Avant Poste 3)
+  '2':    { gridRow: 5, gridColumn: 2 }, // Flèche ← (Avant Poste 2)
+  '1':    { gridRow: 4, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
 };
 
-// --- tâches (Sidebar) ---
-const groupTasks = (tasks) => {
-  const groups = Object.keys(POSTE_NAMES).reduce((acc, posteId) => {
-    acc[POSTE_NAMES[posteId]] = [];
-    return acc;
-  }, {});
+// --- LOGIQUE MÉTIER ---
 
-  tasks.filter(t => t.status === 'pending').forEach(task => {
-    const posteName = POSTE_NAMES[task.posteId];
-    if (posteName) {
-      groups[posteName].push(task);
+const groupTasks = (tasks) => {
+  const activeTasks = tasks.filter(t => t.status !== 'finished');
+  const groups = CYCLE_PATH.reduce((acc, id) => {
+      if (POSTE_NAMES[id]) {
+        acc[POSTE_NAMES[id]] = [];
+      }
+      return acc;
+    }, {});
+
+  activeTasks.forEach(task => {
+    if (task.status === 'to_collect' && POSTE_NAMES[task.magasinId]) {
+      groups[POSTE_NAMES[task.magasinId]].push(task);
+    }
+    else if (task.status === 'to_deposit' && POSTE_NAMES[task.posteId]) {
+      groups[POSTE_NAMES[task.posteId]].push(task);
     }
   });
   return groups;
 }
 
-// --- PROCHAINE destination ---
-const findNextDestination = (tasks, currentPosteId) => {
-  if (currentPosteId) {
-    const hasPendingTasksAtCurrent = tasks.some(
-      t => t.posteId === currentPosteId && t.status === 'pending'
-    );
-    if (hasPendingTasksAtCurrent) {
-      return currentPosteId;
-    }
+const findNextDestination = (tasks, currentTrainLocation) => {
+  const activeTasks = tasks.filter(t => t.status !== 'finished');
+
+  if (currentTrainLocation) {
+    const hasWorkHere = activeTasks.some(t => {
+      if (t.status === 'to_collect' && t.magasinId === currentTrainLocation) return true;
+      if (t.status === 'to_deposit' && t.posteId === currentTrainLocation) return true;
+      return false;
+    });
+    if (hasWorkHere) return currentTrainLocation;
   }
 
-  const currentIndex = currentPosteId ? CYCLE_PATH.indexOf(currentPosteId) : -1;
+  const currentIndex = currentTrainLocation ? CYCLE_PATH.indexOf(currentTrainLocation) : -1;
 
   for (let i = 1; i <= CYCLE_PATH.length; i++) {
     const checkIndex = (currentIndex + i) % CYCLE_PATH.length;
-    const posteToTest = CYCLE_PATH[checkIndex];
+    const locationToCheck = CYCLE_PATH[checkIndex];
 
-    const hasPendingTask = tasks.some(
-      t => t.posteId === posteToTest && t.status === 'pending'
-    );
-    
-    if (hasPendingTask) {
-      return posteToTest;
-    }
+    const needsStop = activeTasks.some(t => {
+      if (t.status === 'to_collect' && t.magasinId === locationToCheck) return true;
+      if (t.status === 'to_deposit' && t.posteId === locationToCheck) return true;
+      return false;
+    });
+
+    if (needsStop) return locationToCheck;
   }
 
   return null;
 }
 
+// --- COMPOSANT PRINCIPAL ---
 
-// --- Composant principal ---
 export default function Base({onApp}) {
   const [tasks, setTasks] = useState([])
   const [connected, setConnected] = useState(false)
-  const wsRef = useRef(null)  
+  const wsRef = useRef(null)
   
   const [isPopupOpen, setIsPopupOpen] = useState(false)
   const [selectedPosteId, setSelectedPosteId] = useState(null)
   const [currentTrainPoste, setCurrentTrainPoste] = useState(null);
 
-  // --- Connexion WebSocket ---
+  // WebSocket
   useEffect(() => {
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
@@ -111,44 +117,39 @@ export default function Base({onApp}) {
     ws.addEventListener('open', () => setConnected(true))
     ws.addEventListener('close', () => setConnected(false))
 
-    // Réception du message du backend
     ws.addEventListener('message', (ev) => {
       try {
-        // 1. On décode le JSON envoyé par main.py
         const data = JSON.parse(ev.data)
-        
-        // 2. On récupère les infos utiles
-        const device = String(data.poste) // ex: "1"
-        const barcode = data.code_barre   // ex: "Vis ABCD"
+        const device = String(data.poste)
+        const barcode = data.code_barre
+        const magasin = data.magasin_id ? String(data.magasin_id) : '7' 
 
-        // 3. Si le poste est connu, on ajoute la tâche
+        const row = parseInt(data.ligne) || 1; 
+        const col = parseInt(data.colonne) || 1;
+
         if (POSTE_NAMES[device]) {
           const newTask = {
             id: Date.now(),
-            posteId: device, 
-            action: 'Récupérer', 
-            item: barcode, 
-            origin: 'Scan', 
-            status: 'pending',
+            posteId: device,      
+            magasinId: magasin,   
+            item: barcode,
+            gridRow: row, 
+            gridCol: col,
+            origin: 'Scan',
+            status: 'to_collect',
             ts: new Date().toLocaleString()
           }
-          
-          // Mise à jour de l'état React pour afficher la tâche
-          setTasks((currentTasks) => [newTask, ...currentTasks].slice(0, 100))
-          console.log(`[Front] Scan reçu : ${barcode} pour ${device}`)
-        } else {
-          console.warn(`Scan reçu d'un poste inconnu : ${device}`)
+          setTasks((prev) => [newTask, ...prev].slice(0, 100))
         }
 
       } catch (err) {
-        console.error("Erreur de lecture du message WebSocket :", err)
+        console.error("Erreur WebSocket :", err)
       }
     })
 
     return () => ws.close()
   }, [])
 
-  // --- Logique de Destination et Position ---
   const nextDestination = useMemo(
     () => findNextDestination(tasks, currentTrainPoste), 
     [tasks, currentTrainPoste]
@@ -161,49 +162,43 @@ export default function Base({onApp}) {
   
   const taskGroups = useMemo(() => groupTasks(tasks), [tasks]);
 
-  // --- Gestion de la suppression de tâche ---
   const handleDeleteTask = (taskId) => {
     setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
   }
 
-// Style des boîtes (Postes / Machines)
+  // Style des cartes (Postes / Machines)
   const getBoxSx = (posteId) => {
     const isActive = nextDestination === posteId; 
     
     return {
-      // --- MODIFICATION ICI : Forme adaptative ---
       width: '100%',
-      height: '100%', // Remplit toute la case de la grille
-      // On retire 'aspectRatio: 1/1' pour laisser la forme devenir rectangulaire
-      
+      height: '100%', // Remplissage complet
       display: 'flex',
-      flexDirection: 'column', // Permet d'aligner le texte verticalement si besoin
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       
-      // Visuel
       p: 1,
       textAlign: 'center',
       cursor: 'pointer',
       border: '2px solid',
       borderColor: isActive ? 'primary.main' : 'transparent',
-      transform: isActive ? 'scale(1.02)' : 'scale(1)', // Réduire légèrement l'échelle pour éviter le chevauchement
+      transform: isActive ? 'scale(1.02)' : 'scale(1)',
       boxShadow: isActive ? 6 : 2,
       transition: 'all 0.2s ease-in-out',
-      borderRadius: 4, // Arrondir un peu plus les angles (optionnel)
+      borderRadius: 4,
       
-      // Gestion du texte
       overflow: 'hidden',
       wordBreak: 'break-word',
-      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)', // Texte légèrement plus grand pour les rectangles
+      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)',
       fontWeight: 'bold',
-      backgroundColor: 'white', // Assure un fond propre
+      backgroundColor: 'white',
 
       '&:hover': { boxShadow: 6 }
     };
   }
 
-// Style des flèches
+  // --- Composant Flèche (Interne) ---
   const arrowSx = {
     display: 'flex',
     alignItems: 'center',
@@ -216,23 +211,23 @@ export default function Base({onApp}) {
     fontWeight: 'bold'
   };
 
-  // Composant Flèche intelligente (se cache sous le train)
   const GridArrow = ({ row, col, symbol }) => {
+    // La flèche disparaît si le train est sur ses coordonnées
     const isTrainHere = trainGridPosition.gridRow === row && trainGridPosition.gridColumn === col;
     return (
       <Typography sx={{
           ...arrowSx,
           gridRow: row,
           gridColumn: col,
-          opacity: isTrainHere ? 0 : 1, // Invisible si le train est là
+          opacity: isTrainHere ? 0 : 1, 
           transition: 'opacity 0.2s ease',
         }}>
         {symbol}
       </Typography>
     );
   };
-  
-  // --- Gestion de la Popup ---
+
+  // Popup logic
   const handlePosteClick = (posteId) => {
     if (posteId !== nextDestination) {
       console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
@@ -245,29 +240,36 @@ export default function Base({onApp}) {
   
   const closePopup = () => setIsPopupOpen(false)
   
-  const handleDeliverTask = (taskId) => {
-    setTasks(currentTasks =>
-      currentTasks.map(task =>
-        task.id === taskId ? { ...task, status: 'delivered' } : task
-      )
-    )
+  const handleTaskAction = (taskId) => {
+    setTasks(currentTasks => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      if (task.status === 'to_collect') return { ...task, status: 'to_deposit' }; 
+      else if (task.status === 'to_deposit') return { ...task, status: 'finished' };   
+      return task;
+    }));
   }
 
-  // --- Fonction de simulation ---
-  const simulerTache = (posteId, item) => {
-    const itemFinal = item || `TEST_POUR_${POSTE_NAMES[posteId]}`;
-    
-    const MOCK_TASK = {
+  const simulerTache = (posteId, magasinId, item, row = 1, col = 1) => {
+    const newTask = {
       id: Date.now(),
       posteId: posteId,
-      action: 'Déposer', 
-      item: itemFinal,
-      origin: 'Simulation',
-      status: 'pending',
+      magasinId: magasinId,
+      item: item,
+      gridRow: row,
+      gridCol: col,
+      origin: 'Sim',
+      status: 'to_collect',
       ts: new Date().toLocaleString()
     };
-    setTasks((currentTasks) => [MOCK_TASK, ...currentTasks]);
+    setTasks(prev => [newTask, ...prev]);
   }
+
+  const tasksForPopup = tasks.filter(t => {
+    if (t.status === 'finished') return false;
+    if (selectedPosteId === t.magasinId && t.status === 'to_collect') return true;
+    if (selectedPosteId === t.posteId && t.status === 'to_deposit') return true;
+    return false;
+  });
 
   // --- Rendu JSX ---
   return (
@@ -277,26 +279,16 @@ export default function Base({onApp}) {
       height: '100vh',
       width: '100vw', 
       bgcolor: 'grey.100',
-      p: 1, // Une petite marge autour de l'écran (optionnel, mettre 0 si vous voulez coller aux bords)
+      p: 1, 
       boxSizing: 'border-box',
       overflow: 'hidden'
     }}>
       
-      {/* --- RECTIFICATION : UTILISATION DE FLEXBOX AU LIEU DE GRID --- */}
-      <Box sx={{ 
-        display: 'flex', 
-        height: '100%', 
-        width: '100%', 
-        gap: 2 // Espace entre le plan et la sidebar
-      }}>
+      {/* Conteneur Flex pour Plan (gauche) et Sidebar (droite) */}
+      <Box sx={{ display: 'flex', height: '100%', width: '100%', gap: 2 }}>
         
-        {/* Colonne de Gauche: Le Plan (Prend tout l'espace restant avec flex: 1) */}
-        <Box sx={{ 
-          flex: 1, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          minWidth: 0 // Important pour empêcher le débordement flex
-        }}>
+        {/* --- ZONE PLAN (Gauche) --- */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Paper elevation={2} sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 3 }}>
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
@@ -307,7 +299,7 @@ export default function Base({onApp}) {
               <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}>Sim (F - P3)</Button>
             </Box>
             
-            {/* Grille 5x5 du Plan */}
+            {/* GRILLE DU PLAN */}
             <Box sx={{
                 flexGrow: 1,
                 display: 'grid',
@@ -321,37 +313,30 @@ export default function Base({onApp}) {
                 padding: 1
               }}
             >
-              {/* --- LIGNE 1 (HAUT) --- */}
+              {/* --- LIGNE 1 : HAUT --- */}
               <Paper id="fournisseur" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>{POSTE_NAMES['7']}</Paper>
               <GridArrow row={1} col={2} symbol="→" />
               <Paper id="presse" sx={{ ...getBoxSx('4'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('4')}>{POSTE_NAMES['4']}</Paper>
               <GridArrow row={1} col={4} symbol="→" />
               <Paper id="machine-x" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>{POSTE_NAMES['5']}</Paper>
               
-
-              {/* --- LIGNES INTERMÉDIAIRES (Verticales) --- */}
-              
-              {/* Flèches descendantes à droite */}
+              {/* --- LIGNES VERTICALES --- */}
+              {/* Droite (Descend) */}
               <GridArrow row={2} col={5} symbol="↓" />
               <Paper id="machine-y" sx={{ ...getBoxSx('6'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('6')}>{POSTE_NAMES['6']}</Paper>
               <GridArrow row={4} col={5} symbol="↓" />
 
-              {/* Flèches montantes à gauche */}
+              {/* Gauche (Monte) */}
               <GridArrow row={2} col={1} symbol="↑" />
               <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>{POSTE_NAMES['1']}</Paper>
               <GridArrow row={4} col={1} symbol="↑" />
 
-
-              {/* --- LIGNE 5 (BAS) --- */}
-              {/* Note: Poste 2 à gauche (1), Poste 3 au milieu (3) */}
-              
+              {/* --- LIGNE 5 : BAS --- */}
               <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>{POSTE_NAMES['2']}</Paper>
               <GridArrow row={5} col={2} symbol="←" />
               <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>{POSTE_NAMES['3']}</Paper>
               <GridArrow row={5} col={4} symbol="←" />
-              
-              {/* (La case 5/5 est vide, c'est le coin du virage) */}
-
+              {/* Coin bas-droit (5/5) vide ou pour transition */}
 
               {/* --- LE TRAIN --- */}
               <Typography variant="h4" className="train" sx={{
@@ -373,13 +358,8 @@ export default function Base({onApp}) {
           </Paper>
         </Box>
         
-        {/* Colonne de Droite: La Sidebar (Largeur Fixe) */}
-        <Box sx={{ 
-          width: '320px', // Largeur fixe pour éviter que la sidebar soit trop fine ou trop large
-          display: 'flex', 
-          flexDirection: 'column',
-          flexShrink: 0 // Empêche la sidebar de s'écraser si l'écran est petit
-        }}>
+        {/* --- SIDEBAR (Droite) --- */}
+        <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h4" gutterBottom>À suivre</Typography>
             
@@ -442,8 +422,8 @@ export default function Base({onApp}) {
         onClose={closePopup}
         posteId={selectedPosteId}
         posteName={POSTE_NAMES[selectedPosteId] || ''} 
-        tasks={tasks} 
-        onDeliver={handleDeliverTask}
+        tasks={tasksForPopup} 
+        onDeliver={handleTaskAction}
       />
     </Box>
   )
