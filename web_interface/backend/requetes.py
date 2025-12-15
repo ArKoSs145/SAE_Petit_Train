@@ -1,5 +1,6 @@
 from database import SessionLocal, Stand, Piece, Boite, Case, Commande, Login, Train
 from datetime import datetime
+from sqlalchemy import func
 
 # ---------- TRAIN ----------
 def get_position_train():
@@ -199,3 +200,53 @@ def get_all_users():
         return db.query(Login).all()
     finally:
         db.close()
+
+# ---------- PIECES ARRIVÉES DANS LES POSTES (avec nom de pièce) ----------
+def get_pieces_arrivees_postes(debut, fin):
+    db = SessionLocal()
+    try:
+        result = (
+            db.query(
+                Commande.idPoste,            # Poste où la boîte a été déposée
+                Piece.nomPiece,              # Nom de la pièce
+                func.sum(Boite.nbBoite).label("quantite")  # Somme des boîtes déposées
+            )
+            .join(Boite, Boite.idBoite == Commande.idBoite)
+            .join(Piece, Piece.idPiece == Boite.idPiece)
+            .filter(
+                Commande.statutCommande == "Commande finie",
+                Commande.dateCommande >= debut,
+                Commande.dateCommande <= fin
+            )
+            .group_by(Commande.idPoste, Piece.nomPiece)
+            .all()
+        )
+        return [{"idPoste": r.idPoste, "nomPiece": r.nomPiece, "quantite": r.quantite} for r in result]
+    finally:
+        db.close()
+
+
+# ---------- BOÎTES RÉCUPÉRÉES DANS LES MAGASINS (avec nom de pièce) ----------
+def get_boites_recuperees_magasins(debut, fin):
+    db = SessionLocal()
+    try:
+        result = (
+            db.query(
+                Commande.idMagasin,          # Magasin d'où la boîte a été récupérée
+                Piece.nomPiece,              # Nom de la pièce
+                func.sum(Boite.nbBoite).label("quantite")  # Somme des boîtes récupérées
+            )
+            .join(Boite, Boite.idBoite == Commande.idBoite)
+            .join(Piece, Piece.idPiece == Boite.idPiece)
+            .filter(
+                Commande.statutCommande == "Commande finie",
+                Commande.dateCommande >= debut,
+                Commande.dateCommande <= fin
+            )
+            .group_by(Commande.idMagasin, Piece.nomPiece)
+            .all()
+        )
+        return [{"idMagasin": r.idMagasin, "nomPiece": r.nomPiece, "quantite": r.quantite} for r in result]
+    finally:
+        db.close()
+
