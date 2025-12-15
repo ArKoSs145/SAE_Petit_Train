@@ -114,6 +114,18 @@ export default function Base({onApp}) {
   const [selectedPosteId, setSelectedPosteId] = useState(null)
   const [currentTrainPoste, setCurrentTrainPoste] = useState(null);
 
+  const handleStopCycle = async () => {
+    try {
+        await fetch('http://localhost:8000/api/cycle/stop', { 
+            method: 'POST' 
+        });
+        console.log("Cycle arrêté");
+    } catch (err) {
+        console.error("Erreur arrêt cycle:", err);
+    }
+    onApp();
+  }
+
   // --- Connexion WebSocket ---
   useEffect(() => {
 
@@ -154,35 +166,33 @@ export default function Base({onApp}) {
     ws.addEventListener('open', () => setConnected(true))
     ws.addEventListener('close', () => setConnected(false))
 
-    // Réception du message du backend
     ws.addEventListener('message', (ev) => {
       try {
         const data = JSON.parse(ev.data)
         const device = String(data.poste)
-        setTasks((prev) => {
-            if (prev.some(t => t.id === data.id_commande)) {
-                return prev;
-            }
+        const barcode = data.code_barre
+        const magasin = data.magasin_id ? String(data.magasin_id) : '7' 
 
-            if (POSTE_NAMES[device]) {
-              const newTask = {
-                id: data.id_commande, 
-                
-                posteId: device,
-                magasinId: data.magasin_id ? String(data.magasin_id) : '7',
-                item: data.nom_piece || data.code_barre,
-                
-                gridRow: parseInt(data.ligne) || 1, 
-                gridCol: parseInt(data.colonne) || 1,
+        const row = parseInt(data.ligne) || 1; 
+        const col = parseInt(data.colonne) || 1;
 
-                origin: 'Scan',
-                status: 'to_collect',
-                ts: new Date().toLocaleString()
-              }
-              return [newTask, ...prev].slice(0, 100);
-            }
-            return prev;
-        })
+        if (POSTE_NAMES[device]) {
+          const newTask = {
+            id: Date.now(),
+            posteId: device,
+            magasinId: magasin,
+            item: barcode,
+
+            gridRow: row, 
+            gridCol: col,
+
+
+            origin: 'Scan',
+            status: 'to_collect',
+            ts: new Date().toLocaleString()
+          }
+          setTasks((prev) => [newTask, ...prev].slice(0, 100))
+        }
 
       } catch (err) {
         console.error("Erreur WebSocket :", err)
@@ -342,7 +352,13 @@ display: 'flex',
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              <Button variant="contained" color="error" onClick={onApp}>Stop</Button>
+              <Button 
+                variant="contained" 
+                color="error" 
+                onClick={handleStopCycle}
+              >
+                Stop
+              </Button>
               
               {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
               <Button 
