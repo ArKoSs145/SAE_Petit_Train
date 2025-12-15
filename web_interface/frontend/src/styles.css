@@ -2,6 +2,10 @@ body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
   background: #fafafa;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Empêche les scrollbars doubles */
 }
 
 h1 {
