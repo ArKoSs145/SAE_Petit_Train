@@ -48,7 +48,7 @@ const TRAIN_POSITIONS = {
 // --- LOGIQUE MÉTIER ---
 
 const groupTasks = (tasks) => {
-  const activeTasks = tasks.filter(t => t.status !== 'finished');
+  const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
   const groups = CYCLE_PATH.reduce((acc, id) => {
       if (POSTE_NAMES[id]) {
         acc[POSTE_NAMES[id]] = [];
@@ -57,10 +57,10 @@ const groupTasks = (tasks) => {
     }, {});
 
   activeTasks.forEach(task => {
-    if (task.status === 'to_collect' && POSTE_NAMES[task.magasinId]) {
+    if (task.status === 'A récupérer' && POSTE_NAMES[task.magasinId]) {
       groups[POSTE_NAMES[task.magasinId]].push(task);
     }
-    else if (task.status === 'to_deposit' && POSTE_NAMES[task.posteId]) {
+    else if (task.status === 'A déposer' && POSTE_NAMES[task.posteId]) {
       groups[POSTE_NAMES[task.posteId]].push(task);
     }
   });
@@ -68,12 +68,12 @@ const groupTasks = (tasks) => {
 }
 
 const findNextDestination = (tasks, currentTrainLocation) => {
-  const activeTasks = tasks.filter(t => t.status !== 'finished');
+  const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
 
   if (currentTrainLocation) {
     const hasWorkHere = activeTasks.some(t => {
-      if (t.status === 'to_collect' && t.magasinId === currentTrainLocation) return true;
-      if (t.status === 'to_deposit' && t.posteId === currentTrainLocation) return true;
+      if (t.status === 'A récupérer' && t.magasinId === currentTrainLocation) return true;
+      if (t.status === 'A déposer' && t.posteId === currentTrainLocation) return true;
       return false;
     });
     if (hasWorkHere) return currentTrainLocation;
@@ -86,8 +86,8 @@ const findNextDestination = (tasks, currentTrainLocation) => {
     const locationToCheck = CYCLE_PATH[checkIndex];
 
     const needsStop = activeTasks.some(t => {
-      if (t.status === 'to_collect' && t.magasinId === locationToCheck) return true;
-      if (t.status === 'to_deposit' && t.posteId === locationToCheck) return true;
+      if (t.status === 'A récupérer' && t.magasinId === locationToCheck) return true;
+      if (t.status === 'A déposer' && t.posteId === locationToCheck) return true;
       return false;
     });
 
@@ -137,8 +137,8 @@ export default function Base({onApp}) {
             item: cmd.code_barre,
             
             // Mapping des statuts DB vers Front
-            status: cmd.statut === 'A récupérer' ? 'to_collect' : 
-                    cmd.statut === 'A déposer' ? 'to_deposit' : 'pending',
+            status: cmd.statut === 'A récupérer' ? 'A récupérer' : 
+                    cmd.statut === 'A déposer' ? 'A déposer' : 'pending',
             
             gridRow: cmd.ligne,
             gridCol: cmd.colonne,
@@ -181,7 +181,7 @@ export default function Base({onApp}) {
                 gridCol: parseInt(data.colonne) || 1,
 
                 origin: 'Scan',
-                status: 'to_collect',
+                status: 'A récupérer',
                 ts: new Date().toLocaleString()
               }
               return [newTask, ...prev].slice(0, 100);
@@ -295,12 +295,12 @@ export default function Base({onApp}) {
     let nextStatusDB = "";
     let nextStatusFront = "";
 
-    if (currentTask.status === 'to_collect') {
+    if (currentTask.status === 'A récupérer') {
       nextStatusDB = "A déposer";
-      nextStatusFront = "to_deposit";
-    } else if (currentTask.status === 'to_deposit') {
-      nextStatusDB = "Terminé";
-      nextStatusFront = "finished";
+      nextStatusFront = "A déposer";
+    } else if (currentTask.status === 'A déposer') {
+      nextStatusDB = "Commande finie";
+      nextStatusFront = "Commande finie";
     } else {
       return;
     }
@@ -330,16 +330,16 @@ export default function Base({onApp}) {
       gridRow: row,
       gridCol: col,
       origin: 'Sim',
-      status: 'to_collect',
+      status: 'A récupérer',
       ts: new Date().toLocaleString()
     };
     setTasks(prev => [newTask, ...prev]);
   }
 
   const tasksForPopup = tasks.filter(t => {
-    if (t.status === 'finished') return false;
-    if (selectedPosteId === t.magasinId && t.status === 'to_collect') return true;
-    if (selectedPosteId === t.posteId && t.status === 'to_deposit') return true;
+    if (t.status === 'Commande finie') return false;
+    if (selectedPosteId === t.magasinId && t.status === 'A récupérer') return true;
+    if (selectedPosteId === t.posteId && t.status === 'A déposer') return true;
     return false;
   });
 
@@ -479,7 +479,7 @@ export default function Base({onApp}) {
                         >
                           <ListItemText 
                             primary={task.item}
-                            secondary={task.status === 'to_collect' ? 
+                            secondary={task.status === 'A récupérer' ? 
                               `Aller chercher au ${POSTE_NAMES[task.magasinId]}` : 
                               `Apporter au ${POSTE_NAMES[task.posteId]}`
                             }
@@ -491,7 +491,7 @@ export default function Base({onApp}) {
                 );
               })}
 
-              {tasks.filter(t => t.status !== 'finished').length === 0 && (
+              {tasks.filter(t => t.status !== 'Commande finie').length === 0 && (
                 <Typography sx={{ p: 2, color: 'text.secondary' }}>Aucune tâche en attente.</Typography>
               )}
             </Box>
