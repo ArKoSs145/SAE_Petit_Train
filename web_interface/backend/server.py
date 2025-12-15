@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import sqlite3
 import os 
 import requetes
+from pydantic import BaseModel 
 
 logging.basicConfig(level=logging.INFO)
 
@@ -392,8 +393,11 @@ def get_commandes_en_cours():
     finally:
         db.close()
 
+class StatutUpdate(BaseModel):
+    nouveau_statut: str
+
 @app.put("/api/commande/{id_commande}/statut")
-def update_statut(id_commande: int):
+def update_statut(id_commande: int, update: StatutUpdate):
     try:
         resultat = requetes.changer_statut_commande(id_commande)
         

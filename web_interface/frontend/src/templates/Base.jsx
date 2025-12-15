@@ -309,7 +309,7 @@ export default function Base({onApp}) {
       await fetch(`http://localhost:8000/api/commande/${taskId}/statut`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nouveau_statut: nextStatusDB })
+        body: JSON.stringify({ nouveau_statut: "ignored" })
       });
 
       setTasks(currentTasks => currentTasks.map(task => 
