@@ -109,12 +109,20 @@ async def recevoir_scan(request: Request):
         db.add(nouvelle_commande)
         db.commit()
         print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
-
+        
+        nom_affichage = code_barre 
+        if boite:
+            if boite.piece:
+                nom_affichage = boite.piece.nomPiece
+            elif boite.code_barre:
+                nom_affichage = boite.code_barre
+                
         # Préparer le message pour le front
         message = {
             "poste": poste,
             "code_barre": code_barre,
             "id_piece": id_piece,
+            "nom_piece": nom_affichage,
             "magasin": magasin_nom,
             "ligne": ligne,
             "colonne": colonne,
