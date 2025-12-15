@@ -356,3 +356,39 @@ def get_logs_for_cycle(cycle_date: str):
     except Exception as e:
         print(f"Erreur logs: {e}")
         return {"logs": [f"Erreur: {str(e)}"]}
+
+@app.get("/api/commandes/en_cours")
+def get_commandes_en_cours():
+    db = SessionLocal()
+    try:
+        commandes = db.query(Commande).filter(Commande.statutCommande != "Terminé").all()
+        
+        taches = []
+        for c in commandes:
+            nom_objet = "Inconnu"
+            if c.boite:
+                if c.boite.piece:
+                    nom_objet = c.boite.piece.nomPiece
+                elif c.boite.code_barre:
+                    nom_objet = c.boite.code_barre
+            
+            ligne, colonne = 1, 1
+            if c.boite and c.boite.Cases:
+                case = c.boite.Cases[0]
+                ligne = case.ligne
+                colonne = case.colonne
+
+            taches.append({
+                "id": c.idCommande,
+                "poste": str(c.idPoste),
+                "magasin_id": str(c.idMagasin) if c.idMagasin else "7",
+                "code_barre": nom_objet,
+                "statut": c.statutCommande,
+                "ligne": ligne,
+                "colonne": colonne,
+                "timestamp": c.dateCommande.isoformat() if c.dateCommande else None
+            })
+            
+        return taches
+    finally:
+        db.close()
