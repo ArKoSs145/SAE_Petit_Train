@@ -1,189 +1,226 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Button,
-  Grid,
-  Typography,
-  List,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  IconButton
+  Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-
-// Données simulées pour l'affichage (basées sur l'image)
-const TIME_SLOTS = ['Total', '10h25', '10h35', '10h45', '10h55', '11h05', '11h15', '11h25'];
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 export default function Admin() {
-  const [selectedTime, setSelectedTime] = useState('Total');
+  // --- États ---
+  const [currentView, setCurrentView] = useState('dashboard');
+  
+  // États Dashboard
+  const [dashboardData, setDashboardData] = useState({ stands: [], historique: [] });
+  const [selectedTimeDashboard, setSelectedTimeDashboard] = useState('Total');
+  const [timeSlots, setTimeSlots] = useState(['Total']);
 
-  // Fonction pour quitter (retour accueil ou fermeture)
-  const handleQuit = () => {
-    window.location.href = "/"; // Ou window.close() selon le besoin
+  // États Logs
+  const [cyclesList, setCyclesList] = useState([]);
+  const [selectedCycleId, setSelectedCycleId] = useState(null);
+  const [selectedCycleLabel, setSelectedCycleLabel] = useState("");
+  const [cycleLogs, setCycleLogs] = useState([]);
+
+  // --- Chargement Données ---
+
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/admin/dashboard');
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardData(data);
+        const times = [...new Set(data.historique.map(h => h.heure))];
+        setTimeSlots(['Total', ...times]);
+      }
+    } catch (err) { console.error(err); }
   };
 
-  // Styles communs pour les boutons gris du header
-  const headerBtnStyle = {
-    backgroundColor: '#d9d9d9',
-    color: 'black',
-    textTransform: 'none',
-    boxShadow: 'none',
-    borderRadius: 0,
-    fontSize: '1.1rem',
-    px: 3,
+  const fetchCycles = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/admin/cycles');
+      if (res.ok) {
+        const data = await res.json();
+        setCyclesList(data);
+        if (data.length > 0 && !selectedCycleId) {
+            handleSelectCycle(data[0]);
+        }
+      }
+    } catch (err) { console.error(err); }
+  }
+
+  const fetchCycleLogs = async (id) => {
+    try {
+        const res = await fetch(`http://localhost:8000/api/admin/logs/${id}`);
+        if(res.ok) {
+            const data = await res.json();
+            setCycleLogs(data.logs);
+        }
+    } catch(err) { console.error(err); }
+  }
+
+  useEffect(() => {
+    if (currentView === 'dashboard') {
+        fetchDashboard();
+        const interval = setInterval(fetchDashboard, 5000);
+        return () => clearInterval(interval);
+    } else {
+        fetchCycles();
+    }
+  }, [currentView]);
+
+  // --- Handlers ---
+  const handleSelectCycle = (cycle) => {
+      setSelectedCycleId(cycle.id);
+      setSelectedCycleLabel(cycle.label);
+      fetchCycleLogs(cycle.id);
+  }
+
+  const handleQuit = () => { window.location.href = "/"; };
+
+  // --- Styles ---
+  const headerBtnStyle = (active) => ({
+    backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
+    color: 'black', textTransform: 'none',
+    boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
     '&:hover': { backgroundColor: '#c0c0c0' }
-  };
-
-  // Styles pour les cartes de la grille
-  const cardStyle = (bgColor) => ({
-    backgroundColor: bgColor,
-    height: '100%',
-    p: 3,
-    borderRadius: 2,
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: 'none',
-    color: 'black' // Texte noir
   });
 
+  const getCardColor = (nom) => {
+    if (nom.includes('Poste 1')) return '#9fc3f1';
+    if (nom.includes('Poste 2')) return '#b6fcce';
+    if (nom.includes('Poste 3')) return '#ffb6b6';
+    return '#e0e0e0';
+  };
+
+  // --- RENDER ---
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'white', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#333', overflow: 'hidden' }}>
       
-      {/* --- 1. HEADER --- */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        p: 2,
-        pt: 3 
-      }}>
-        {/* Gauche */}
-        <Button variant="contained" sx={headerBtnStyle}>
-          Télécharger
-        </Button>
-
-        {/* Centre */}
+      {/* HEADER (Commun) */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pt: 3, bgcolor: 'white' }}>
+        <Button variant="contained" sx={headerBtnStyle(false)}>Télécharger</Button>
+        
         <Typography variant="h3" sx={{ fontWeight: 400, color: 'black' }}>
-          Historique
+          {currentView === 'dashboard' ? 'Historique' : 'Page log'}
         </Typography>
-
-        {/* Droite */}
+        
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" sx={headerBtnStyle}>Échange</Button>
-          <Button variant="contained" sx={headerBtnStyle}>Log</Button>
+          <Button variant="contained" sx={headerBtnStyle(false)}>Échange</Button>
           <Button 
             variant="contained" 
-            onClick={handleQuit}
-            sx={{ 
-              backgroundColor: '#cc0000', // Rouge vif
-              color: 'white',
-              minWidth: '50px',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              borderRadius: 0,
-              boxShadow: 'none',
-              '&:hover': { backgroundColor: '#a00000' }
-            }}
+            sx={headerBtnStyle(currentView === 'logs')}
+            onClick={() => setCurrentView(currentView === 'dashboard' ? 'logs' : 'dashboard')}
           >
-            X
+            {currentView === 'dashboard' ? 'Log' : 'Historique'}
           </Button>
+
+          <Button variant="contained" onClick={handleQuit} sx={{ 
+              backgroundColor: '#cc0000', color: 'white', minWidth: '50px', fontWeight: 'bold', fontSize: '1.2rem',
+              borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#a00000' }
+            }}>X</Button>
         </Box>
       </Box>
 
-      {/* --- 2. CONTENU PRINCIPAL (Sidebar + Grid) --- */}
-      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', mt: 1 }}>
+      {/* CONTENU PRINCIPAL */}
+      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', mt: 1, bgcolor: '#333' }}>
         
-        {/* A. SIDEBAR (Liste des heures) */}
-        <Box sx={{ 
-          width: '250px', 
-          bgcolor: '#d9d9d9', // Gris fond sidebar
-          borderRight: '1px solid #ccc',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <List component="nav" sx={{ p: 0 }}>
-            {TIME_SLOTS.map((time) => {
-              const isSelected = selectedTime === time;
-              return (
-                <ListItemButton
-                  key={time}
-                  onClick={() => setSelectedTime(time)}
-                  sx={{
-                    borderBottom: '1px solid #999',
-                    bgcolor: '#d9d9d9',
-                    py: 2,
-                    '&:hover': { bgcolor: '#c0c0c0' }
-                  }}
-                >
-                  <ListItemText 
-                    primary={time} 
-                    primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center' }} 
-                  />
-                  {/* Icône flèche (différente pour Total selon l'image) */}
-                  {time === 'Total' ? <ArrowDropDownIcon /> : <NavigateNextIcon />}
-                </ListItemButton>
-              );
-            })}
-          </List>
-          {/* Espace vide en bas de la sidebar pour remplir la hauteur */}
-          <Box sx={{ flexGrow: 1, bgcolor: '#d9d9d9', borderRight: '1px solid #ccc' }} />
-        </Box>
-
-        {/* B. GRILLE (Postes) */}
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <Grid container spacing={2} sx={{ height: '100%' }}>
-            
-            {/* POSTE 1 (Bleu) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={cardStyle('#9fc3f1')}> {/* Bleu clair */}
-                <Typography variant="h5" gutterBottom>Poste 1</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Vis ABCD : 12/14</div>
-                  <div>Ecrou EFGH : 9/9</div>
+        {/* VUE DASHBOARD */}
+        {currentView === 'dashboard' && (
+            <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: 'white' }}>
+                {/* Sidebar Dashboard */}
+                <Box sx={{ width: '250px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', overflowY: 'auto' }}>
+                    <List component="nav" sx={{ p: 0 }}>
+                        {timeSlots.map((time) => (
+                        <ListItemButton
+                            key={time}
+                            onClick={() => setSelectedTimeDashboard(time)}
+                            sx={{ borderBottom: '1px solid #999', py: 2, bgcolor: selectedTimeDashboard === time ? 'white' : 'transparent' }}
+                        >
+                            <ListItemText primary={time} primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center' }} />
+                            {time === 'Total' ? <ArrowDropDownIcon /> : <NavigateNextIcon />}
+                        </ListItemButton>
+                        ))}
+                    </List>
                 </Box>
-              </Paper>
-            </Grid>
 
-            {/* POSTE 2 (Vert) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={cardStyle('#b6fcce')}> {/* Vert clair */}
-                <Typography variant="h5" gutterBottom>Poste 2</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Verre IJKLM : 4/4</div>
+                {/* Grille Dashboard */}
+                <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto' }}>
+                    <Grid container spacing={2}>
+                        {dashboardData.stands.map((stand) => {
+                            const filteredHistory = dashboardData.historique.filter(item => selectedTimeDashboard === 'Total' || item.heure === selectedTimeDashboard);
+                            const arrivages = filteredHistory.filter(h => h.dest_id === stand.id);
+                            const departs = filteredHistory.filter(h => h.source_id === stand.id);
+                            return (
+                                <Grid item xs={12} sm={6} md={4} key={stand.id}>
+                                    <Paper sx={{ backgroundColor: getCardColor(stand.nom), p: 2, minHeight: '180px' }}>
+                                        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>{stand.nom}</Typography>
+                                        {arrivages.map((i, idx) => <div key={idx}>• {i.objet} <small>(de {i.source_nom})</small></div>)}
+                                        {arrivages.length > 0 && departs.length > 0 && <hr style={{opacity:0.3}}/>}
+                                        {departs.map((i, idx) => <div key={idx}>→ {i.objet} <small>(vers {i.dest_nom})</small></div>)}
+                                    </Paper>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
                 </Box>
-              </Paper>
-            </Grid>
+            </Box>
+        )}
 
-            {/* POSTE 3 (Rouge) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={cardStyle('#ff8a80')}> {/* Rouge clair */}
-                <Typography variant="h5" gutterBottom>Poste 3</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Vis ABCD : 11/12</div>
-                  <div>Led NOPQ : 2/3</div>
-                </Box>
-              </Paper>
-            </Grid>
+        {/* VUE LOGS */}
+        {currentView === 'logs' && (
+             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
+                
+                {/* Sidebar Logs (20 derniers cycles) */}
+                <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
+                    <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold' }}>
+                        20 derniers (cycles)
+                    </Box>
+                    <List component="nav" sx={{ p: 0 }}>
+                        {cyclesList.map((cycle) => (
+                            <ListItemButton 
+                                key={cycle.id} 
+                                onClick={() => handleSelectCycle(cycle)}
+                                sx={{ 
+                                    borderBottom: '1px solid #bbb', 
+                                    bgcolor: selectedCycleId === cycle.id ? '#a0a0a0' : 'transparent',
+                                    '&:hover': { bgcolor: '#bfbfbf' }
+                                }}
+                            >
+                                <ListItemText primary={cycle.label} primaryTypographyProps={{ fontSize: '1.1rem', textAlign: 'center' }} />
+                            </ListItemButton>
+                        ))}
+                    </List>
+                </Paper>
 
-            {/* MAGASIN (Gris) */}
-            <Grid item xs={6} sx={{ height: '50%' }}>
-              <Paper sx={{ ...cardStyle('#d9d9d9'), position: 'relative' }}> {/* Gris */}
-                <Typography variant="h5" gutterBottom>Magasin / Fournisseur</Typography>
-                <Box sx={{ mt: 2, fontSize: '1.3rem', lineHeight: 1.6 }}>
-                  <div>Vis ABCD x 26</div>
-                  <div>Ecrou EFGH x 9</div>
-                  <div>Verre IJKLM x 4</div>
-                  <div>Led NOPQ x 3</div>
-                </Box>
-                {/* Petit curseur souris simulé comme sur l'image (optionnel) */}
-                {/* <NavigationIcon sx={{ position: 'absolute', bottom: 20, left: '50%', transform: 'rotate(-45deg)', fontSize: 30 }} /> */}
-              </Paper>
-            </Grid>
+                {/* Contenu Log */}
+                <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
+                    {/* Header Log */}
+                    <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ textAlign: 'center', width: '100%' }}>
+                            <Typography variant="h4">Logs du {selectedCycleLabel.split(' à ')[0]}</Typography>
+                            <Typography variant="h4">à {selectedCycleLabel.split(' à ')[1]}</Typography>
+                        </Box>
+                        <IconButton sx={{ bgcolor: '#d9d9d9', borderRadius: 1 }} onClick={() => setCurrentView('dashboard')}>
+                            <ArrowBackIcon />
+                        </IconButton>
+                    </Box>
+                    <Box sx={{ 
+                        flexGrow: 1, m: 4, mt: 0, p: 4, 
+                        bgcolor: '#d9d9d9', borderRadius: 4, 
+                        overflowY: 'auto', fontFamily: 'monospace', fontSize: '1.1rem' 
+                    }}>
+                        {cycleLogs.length > 0 ? (
+                            cycleLogs.map((line, index) => (
+                                <div key={index} style={{ marginBottom: '8px' }}>{line}</div>
+                            ))
+                        ) : (
+                            <div>Sélectionnez un cycle pour voir les détails...</div>
+                        )}
+                    </Box>
+                </Paper>
+             </Box>
+        )}
 
-          </Grid>
-        </Box>
       </Box>
     </Box>
   );

@@ -108,7 +108,19 @@ export default function Base({onApp}) {
   const [selectedPosteId, setSelectedPosteId] = useState(null)
   const [currentTrainPoste, setCurrentTrainPoste] = useState(null);
 
-  // WebSocket
+  const handleStopCycle = async () => {
+    try {
+        await fetch('http://localhost:8000/api/cycle/stop', { 
+            method: 'POST' 
+        });
+        console.log("Cycle arrêté");
+    } catch (err) {
+        console.error("Erreur arrêt cycle:", err);
+    }
+    onApp();
+  }
+
+  // --- Connexion WebSocket ---
   useEffect(() => {
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
@@ -130,11 +142,14 @@ export default function Base({onApp}) {
         if (POSTE_NAMES[device]) {
           const newTask = {
             id: Date.now(),
-            posteId: device,      
-            magasinId: magasin,   
+            posteId: device,
+            magasinId: magasin,
             item: barcode,
+
             gridRow: row, 
             gridCol: col,
+
+
             origin: 'Scan',
             status: 'to_collect',
             ts: new Date().toLocaleString()
@@ -293,10 +308,33 @@ export default function Base({onApp}) {
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              <Button variant="contained" color="error" onClick={onApp}>Stop</Button>
-              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}>Sim (M5 - P1)</Button>
-              <Button size="small" variant="outlined" onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>Sim (M4 - P2)</Button>
-              <Button variant="outlined" color="info" size="small" onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}>Sim (F - P3)</Button>
+              <Button 
+                variant="contained" 
+                color="error" 
+                onClick={handleStopCycle}
+              >
+                Stop
+              </Button>
+              
+              {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
+              <Button 
+                variant="outlined" color="info" size="small" 
+                onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
+              >
+                Sim (M5 - P1)
+              </Button>
+
+              <Button size="small" variant="outlined" 
+                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>
+                Sim (M4 - P2)
+              </Button>
+
+              <Button 
+                 variant="outlined" color="info" size="small" 
+                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}
+              >
+                Sim (F - P3)
+              </Button>
             </Box>
             
             {/* GRILLE DU PLAN */}
