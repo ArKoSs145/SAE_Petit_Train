@@ -142,7 +142,6 @@ async def recevoir_scan(request: Request):
 @app.on_event("startup")
 async def startup_event():
     logging.info("Initialisation de la base de données...")
-    drop_db()
     init_db()
     data_db()
     logging.info("Base prête ✅")
