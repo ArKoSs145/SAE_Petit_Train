@@ -122,6 +122,37 @@ export default function Base({onApp}) {
 
   // --- Connexion WebSocket ---
   useEffect(() => {
+
+     const fetchInitialTasks = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/commandes/en_cours');
+        if (res.ok) {
+          const data = await res.json();
+          
+          // On transforme les données DB en format Tâche pour le front
+          const initialTasks = data.map(cmd => ({
+            id: cmd.id,
+            posteId: String(cmd.poste),
+            magasinId: String(cmd.magasin_id),
+            item: cmd.code_barre,
+            
+            // Mapping des statuts DB vers Front
+            status: cmd.statut === 'A récupérer' ? 'to_collect' : 
+                    cmd.statut === 'A déposer' ? 'to_deposit' : 'pending',
+            
+            gridRow: cmd.ligne,
+            gridCol: cmd.colonne,
+            ts: new Date(cmd.timestamp).toLocaleString()
+          }));
+          
+          setTasks(initialTasks);
+        }
+      } catch (err) {
+        console.error("Erreur chargement initial:", err);
+      }
+    };
+    fetchInitialTasks();
+    
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
