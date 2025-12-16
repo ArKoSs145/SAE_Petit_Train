@@ -280,7 +280,7 @@ export default function Base({onApp}) {
       p: 1,
       textAlign: 'center',
       cursor: 'pointer',
-      border: '2px solid',
+      border: '5px solid',
       borderColor: isActive ? 'primary.main' : 'transparent',
       transform: isActive ? 'scale(1.02)' : 'scale(1)',
       boxShadow: isActive ? 6 : 2,
@@ -504,7 +504,7 @@ export default function Base({onApp}) {
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
                 }}
               >
-                🚂
+                <img class ="image" src= "../../../images/cart2.png"/>
               </Typography>
 
             </Box>
