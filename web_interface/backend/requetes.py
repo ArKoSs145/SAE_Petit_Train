@@ -126,6 +126,21 @@ def supprimer_case(id_case):
         db.close()
 
 # ---------- COMMANDES ----------
+
+def supprimer_commande(id_commande):
+    db = SessionLocal()
+    try:
+        commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
+
+        if not commande:
+            return False  # Commande inexistante
+
+        db.delete(commande)
+        db.commit()
+        return True
+    finally:
+        db.close()
+        
 def changer_statut_commande(id_commande):
     db = SessionLocal()
     try:
