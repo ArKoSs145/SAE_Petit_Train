@@ -21,7 +21,7 @@ const getPosteColor = (id) => {
   else if (id === "2") return '#b6fcce'; 
   else if (id === "3") return '#ffb6b6'; 
   else if (id === "4") return '#FFC481'; 
-  else if (id === "5") return '#FFFD8E'; 
+  else if (id === "5") return '#e7e42bff'; 
   else if (id === "6") return '#B6A9FF'; 
   else if (id === "7") return '#ffb1e5'; 
   else return '#5e5e5eff'
