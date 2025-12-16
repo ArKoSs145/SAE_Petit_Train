@@ -332,4 +332,12 @@ def get_commandes_cycle(debut_cycle: datetime):
     finally:
         db.close()
 
-
+# ---------- CYCLES ----------
+def get_all_cycles():
+    db = SessionLocal()
+    try:
+        # Récupère tous les cycles du plus récent au plus ancien
+        cycles = (db.query(Cycle).order_by(Cycle.date_debut.desc()).all())
+        return cycles
+    finally:
+        db.close()
