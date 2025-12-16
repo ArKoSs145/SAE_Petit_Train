@@ -352,10 +352,6 @@ def get_commandes_cycle(debut_cycle: datetime):
 def get_all_cycles():
     db = SessionLocal()
     try:
-<<<<<<< HEAD
-        # Récupère tous les cycles du plus récent au plus ancien
-=======
->>>>>>> de99e68 (fix statut cycles log historique)
         cycles = (db.query(Cycle).order_by(Cycle.date_debut.desc()).all())
         return cycles
     finally:
