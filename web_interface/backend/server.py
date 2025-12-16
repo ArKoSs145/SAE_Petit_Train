@@ -126,6 +126,7 @@ async def recevoir_scan(request: Request):
             "id_piece": id_piece,
             "nom_piece": nom_affichage,
             "magasin": magasin_nom,
+            "magasin_id": str(magasin.idStand) if 'magasin' in locals() and magasin else None,
             "ligne": ligne,
             "colonne": colonne,
             "timestamp": datetime.now().isoformat()
