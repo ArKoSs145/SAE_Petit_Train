@@ -6,27 +6,12 @@ import LoginPopup from '../templates/popup/LoginPopup.jsx';
 export default function App({ onContinue, onAdminLogin }) {
     const [showLogin, setShowLogin] = useState(false);
 
-    const handleStartCycle = async () => {
-        try {
-            await fetch('http://localhost:8000/api/cycle/start', { 
-                method: 'POST' 
-            });
-            console.log("Nouveau cycle démarré");
-            onContinue();
-        } catch (err) {
-            console.error("Erreur démarrage cycle:", err);
-            onContinue();
-        }
-    }
-
     // --- Actions ---
     function buttonPersonalisé() {
         console.log("Avec un départ personnalisé");
-        // Ajoutez ici la logique de navigation si nécessaire
     }
 
     function quit() {
-        // Tentative de fermeture standard pour les navigateurs configurés (ex: mode Kiosk)
         window.open("about:blank", "_self");
         window.close();
     }
@@ -119,7 +104,7 @@ export default function App({ onContinue, onAdminLogin }) {
 
                     <Button 
                         variant="contained" 
-                        onClick={handleStartCycle}
+                        onClick={buttonPersonalisé}
                         sx={mainButtonStyle}
                     >
                         Avec un départ personnalisé

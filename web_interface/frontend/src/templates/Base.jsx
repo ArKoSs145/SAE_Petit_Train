@@ -12,6 +12,8 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
 import DeleteIcon from '@mui/icons-material/Delete'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import StopIcon from '@mui/icons-material/Stop';
 
 import '../../styles/Base.css'
 import PopupLivraison from '../templates/popup/PopupLivraison'
@@ -120,10 +122,13 @@ export default function Base({onApp}) {
     onApp();
   }
 
+
+  const [cycleActive, setCycleActive] = useState(false);
+
   // --- Connexion WebSocket ---
   useEffect(() => {
 
-     const fetchInitialTasks = async () => {
+    const fetchInitialTasks = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/commandes/en_cours');
         if (res.ok) {
@@ -152,6 +157,32 @@ export default function Base({onApp}) {
       }
     };
     fetchInitialTasks();
+
+    const fetchCycleStatus = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/cycles');
+        if (res.ok) {
+          const cycles = await res.json();
+          
+          if (cycles.length > 0) {
+            const lastCycle = cycles[0];
+            
+            if (lastCycle.date_fin === null) {
+                console.log("Cycle actif trouvé ID:", lastCycle.idCycle);
+                setCycleActive(true);
+            } else {
+                console.log("Dernier cycle terminé.");
+                setCycleActive(false);
+            }
+          } else {
+            setCycleActive(false);
+          }
+        }
+      } catch (err) {
+        console.error("Erreur vérification cycle:", err);
+      }
+    };
+    fetchCycleStatus();
 
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
@@ -208,6 +239,27 @@ export default function Base({onApp}) {
   );
   
   const taskGroups = useMemo(() => groupTasks(tasks), [tasks]);
+
+  const handleQuitInterface = () => {
+    onApp();
+  }
+
+  const handleToggleCycle = async () => {
+    try {
+        if (cycleActive) {
+            await fetch('http://localhost:8000/api/cycle/stop', { method: 'POST' });
+            console.log("Cycle arrêté");
+            setCycleActive(false);
+        } else {
+            await fetch('http://localhost:8000/api/cycle/start', { method: 'POST' });
+            console.log("Cycle démarré");
+            setCycleActive(true);
+        }
+    } catch (err) {
+        console.error("Erreur cycle:", err);
+        alert("Erreur de communication avec le serveur");
+    }
+  }
 
   const handleDeleteTask = (taskId) => {
     setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
@@ -365,12 +417,18 @@ export default function Base({onApp}) {
             <Typography variant="h4" gutterBottom>Plan</Typography>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+              <Button variant="contained" color="error" onClick={handleQuitInterface}>
+                Quitter
+              </Button>
+
               <Button 
                 variant="contained" 
-                color="error" 
-                onClick={handleStopCycle}
+                color={cycleActive ? "warning" : "success"}
+                onClick={handleToggleCycle}
+                startIcon={cycleActive ? <StopIcon /> : <PlayArrowIcon />}
+                sx={{ fontWeight: 'bold' }}
               >
-                Stop
+                {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
               </Button>
               
               {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}

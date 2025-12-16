@@ -1,10 +1,16 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime, timezone
 
 
-DATABASE_URL = "sqlite:///./train.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'train.db')}"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+Base = declarative_base()
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
@@ -85,7 +91,9 @@ class Commande(Base):
     idPoste = Column(Integer, ForeignKey("stands.idStand"))
     idMagasin = Column(Integer, ForeignKey("stands.idStand"))
 
-    dateCommande = Column(DateTime, default=datetime.now(timezone.utc))
+    dateCommande = Column(DateTime, default=datetime.now)
+    date_recuperation = Column(DateTime, nullable=True)
+    date_livraison = Column(DateTime, nullable=True)
 
     # Statut de la commande :
     # - "A récupérer"
@@ -114,7 +122,7 @@ class Cycle(Base):
     __tablename__ = "cycles"
     
     idCycle = Column(Integer, primary_key=True, autoincrement=True)
-    date_debut = Column(DateTime, default=datetime.now(timezone.utc))
+    date_debut = Column(DateTime, default=datetime.now)
     date_fin = Column(DateTime, nullable=True)  # nullable=True sert pour le cycle en cours
     
 # Table Login

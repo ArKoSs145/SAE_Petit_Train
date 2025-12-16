@@ -148,15 +148,45 @@ export default function Admin() {
                     <Grid container spacing={2}>
                         {dashboardData.stands.map((stand) => {
                             const filteredHistory = dashboardData.historique.filter(item => selectedTimeDashboard === 'Total' || item.heure === selectedTimeDashboard);
-                            const arrivages = filteredHistory.filter(h => h.dest_id === stand.id);
-                            const departs = filteredHistory.filter(h => h.source_id === stand.id);
+                            
+                            let rawArrivages = filteredHistory.filter(h => h.dest_id === stand.id);
+                            let rawDeparts = filteredHistory.filter(h => h.source_id === stand.id);
+
+                            const aggregateItems = (items) => {
+                                const map = new Map();
+                                items.forEach(item => {
+                                    const key = `${item.objet}|${item.source_nom}|${item.dest_nom}`;
+                                    if (!map.has(key)) {
+                                        map.set(key, { ...item, count: item.count || 1 });
+                                    } else {
+                                        map.get(key).count += (item.count || 1);
+                                    }
+                                });
+                                return Array.from(map.values());
+                            };
+
+                            const arrivages = aggregateItems(rawArrivages);
+                            const departs = aggregateItems(rawDeparts);
+
                             return (
                                 <Grid item xs={12} sm={6} md={4} key={stand.id}>
                                     <Paper sx={{ backgroundColor: getCardColor(stand.nom), p: 2, minHeight: '180px' }}>
                                         <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>{stand.nom}</Typography>
-                                        {arrivages.map((i, idx) => <div key={idx}>• {i.objet} <small>(de {i.source_nom})</small></div>)}
+                                        
+                                        {/* Affichage avec gestion du (xN) */}
+                                        {arrivages.map((i, idx) => (
+                                            <div key={idx}>
+                                                • {i.objet} {i.count > 1 && <strong>(x{i.count})</strong>} <small>(de {i.source_nom})</small>
+                                            </div>
+                                        ))}
+                                        
                                         {arrivages.length > 0 && departs.length > 0 && <hr style={{opacity:0.3}}/>}
-                                        {departs.map((i, idx) => <div key={idx}>→ {i.objet} <small>(vers {i.dest_nom})</small></div>)}
+                                        
+                                        {departs.map((i, idx) => (
+                                            <div key={idx}>
+                                                → {i.objet} {i.count > 1 && <strong>(x{i.count})</strong>} <small>(vers {i.dest_nom})</small>
+                                            </div>
+                                        ))}
                                     </Paper>
                                 </Grid>
                             );

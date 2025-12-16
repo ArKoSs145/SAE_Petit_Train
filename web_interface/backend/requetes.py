@@ -135,14 +135,18 @@ def changer_statut_commande(id_commande):
 
         if commande.statutCommande == "A récupérer":
             commande.statutCommande = "A déposer"
+            commande.date_recuperation = datetime.now() 
+            
         elif commande.statutCommande == "A déposer":
             commande.statutCommande = "Commande finie"
+            commande.date_livraison = datetime.now()
+            
         else:
-            return {"status": "no_change", "message": f"Commande {id_commande} non modifiée (statut actuel : {commande.statutCommande})"}
+            return {"status": "no_change", "message": f"Statut inchangé : {commande.statutCommande}"}
 
         db.commit()
         db.refresh(commande)
-        return {"status": "ok", "message": f"Commande {id_commande} mise à jour : {commande.statutCommande}", "commande": {"idCommande": commande.idCommande, "nouveau_statut": commande.statutCommande}}
+        return {"status": "ok", "message": "OK", "commande": {"idCommande": commande.idCommande, "nouveau_statut": commande.statutCommande}}
     finally:
         db.close()
 
@@ -207,9 +211,9 @@ def get_pieces_arrivees_postes(debut, fin):
     try:
         result = (
             db.query(
-                Commande.idPoste,            # Poste où la boîte a été déposée
-                Piece.nomPiece,              # Nom de la pièce
-                func.sum(Boite.nbBoite).label("quantite")  # Somme des boîtes déposées
+                Commande.idPoste,
+                Piece.nomPiece, 
+                func.sum(Boite.nbBoite).label("quantite")
             )
             .join(Boite, Boite.idBoite == Commande.idBoite)
             .join(Piece, Piece.idPiece == Boite.idPiece)
@@ -232,9 +236,9 @@ def get_boites_recuperees_magasins(debut, fin):
     try:
         result = (
             db.query(
-                Commande.idMagasin,          # Magasin d'où la boîte a été récupérée
-                Piece.nomPiece,              # Nom de la pièce
-                func.sum(Boite.nbBoite).label("quantite")  # Somme des boîtes récupérées
+                Commande.idMagasin,          
+                Piece.nomPiece,             
+                func.sum(Boite.nbBoite).label("quantite") 
             )
             .join(Boite, Boite.idBoite == Commande.idBoite)
             .join(Piece, Piece.idPiece == Boite.idPiece)
@@ -250,55 +254,70 @@ def get_boites_recuperees_magasins(debut, fin):
     finally:
         db.close()
 
-# ---------- FORMATTAGE DES LOGS ----------
-def formater_log(commande: Commande):
-    heure = commande.dateCommande.strftime("%H:%M:%S le %d/%m/%Y")
-    nom_piece = commande.boite.piece.nomPiece
-    num_commande = commande.idCommande
-
-    if commande.statutCommande == "A récupérer":
-        return (
-            f"Le {commande.poste.nomStand} a commandé "
-            f"(commande n°{num_commande}) "
-            f"une boîte de {nom_piece} à {heure}"
-        )
-
-    elif commande.statutCommande == "A déposer":
-        return (
-            f"Le petit train a récupéré la commande n°{num_commande} "
-            f"au {commande.magasin.nomStand} à {heure}"
-        )
-
-    elif commande.statutCommande == "Commande finie":
-        return (
-            f"Le petit train a livré la commande n°{num_commande} "
-            f"au {commande.poste.nomStand} à {heure}"
-        )
-
+# --- backend/requetes.py ---
 def get_commandes_cycle_logs(debut_cycle: datetime):
     db = SessionLocal()
-    try: # Assure que debut_cycle est en UTC
-        if debut_cycle.tzinfo is None:
-            debut_cycle = debut_cycle.replace(tzinfo=timezone.utc)
+    try:
+        if debut_cycle.tzinfo is not None:
+             debut_cycle = debut_cycle.replace(tzinfo=None)
 
-        # Recherche du cycle en comparant jusqu’à la seconde
         cycle = db.query(Cycle).filter(
-            func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
-            debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
+            func.abs(func.strftime('%s', Cycle.date_debut) - debut_cycle.timestamp()) < 2
         ).first()
+        
         if not cycle:
-            return []
+             cycle = db.query(Cycle).filter(
+                func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
+                debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
+            ).first()
 
-        # Récupérer date_fin ou utiliser l'heure actuelle si cycle en cours
-        fin_cycle = cycle.date_fin or datetime.now(timezone.utc)
+        if not cycle:
+            return [f"Cycle introuvable pour la date {debut_cycle}"]
 
-        # Requêtes des commandes entre date_debut et date_fin
+        fin_cycle = cycle.date_fin or datetime.now()
+
         commandes = db.query(Commande).filter(
             Commande.dateCommande >= cycle.date_debut,
             Commande.dateCommande <= fin_cycle
-        ).order_by(Commande.dateCommande.asc()).all()
+        ).all()
 
-        logs = [formater_log(c) for c in commandes]
+        events = []
+        
+        for c in commandes:
+            nom_piece = "Inconnu"
+            if c.boite:
+                if c.boite.piece: nom_piece = c.boite.piece.nomPiece
+                elif c.boite.code_barre: nom_piece = c.boite.code_barre
+            
+            poste_nom = c.poste.nomStand if c.poste else "?"
+            mag_nom = c.magasin.nomStand if c.magasin else "?"
+            
+
+            if c.dateCommande:
+                events.append({
+                    "time": c.dateCommande,
+                    "msg": f"[{c.dateCommande.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom})"
+                })
+
+            if c.date_recuperation:
+                 events.append({
+                    "time": c.date_recuperation,
+                    "msg": f"[{c.date_recuperation.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom})"
+                })
+
+            if c.date_livraison:
+                 events.append({
+                    "time": c.date_livraison,
+                    "msg": f"[{c.date_livraison.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
+                })
+
+        events.sort(key=lambda x: x["time"], reverse=True)
+        
+        logs = [e["msg"] for e in events]
+
+        if not logs:
+            logs.append("Aucune activité dans ce cycle.")
+
         return logs
     finally:
         db.close()
@@ -306,11 +325,10 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
 # ---------- CYCLES ----------
 def get_commandes_cycle(debut_cycle: datetime):
     db = SessionLocal()
-    try:# Assure que debut_cycle est en UTC
+    try:
         if debut_cycle.tzinfo is None:
             debut_cycle = debut_cycle.replace(tzinfo=timezone.utc)
 
-        # Recherche du cycle en comparant jusqu’à la seconde
         cycle = db.query(Cycle).filter(
             func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
             debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
@@ -318,10 +336,8 @@ def get_commandes_cycle(debut_cycle: datetime):
         if not cycle:
             return []
 
-        # Récupérer date_fin ou utiliser l'heure actuelle si cycle en cours
         fin_cycle = cycle.date_fin or datetime.now(timezone.utc)
 
-        # Requêtes des commandes entre date_debut et date_fin
         commandes = db.query(Commande).filter(
             Commande.statutCommande == "Commande finie",
             Commande.dateCommande >= cycle.date_debut,
@@ -336,7 +352,10 @@ def get_commandes_cycle(debut_cycle: datetime):
 def get_all_cycles():
     db = SessionLocal()
     try:
+<<<<<<< HEAD
         # Récupère tous les cycles du plus récent au plus ancien
+=======
+>>>>>>> de99e68 (fix statut cycles log historique)
         cycles = (db.query(Cycle).order_by(Cycle.date_debut.desc()).all())
         return cycles
     finally:

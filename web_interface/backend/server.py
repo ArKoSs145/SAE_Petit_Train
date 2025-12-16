@@ -108,6 +108,7 @@ async def recevoir_scan(request: Request):
         
         db.add(nouvelle_commande)
         db.commit()
+        db.refresh(nouvelle_commande)
         print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
         
         nom_affichage = code_barre 
@@ -119,6 +120,7 @@ async def recevoir_scan(request: Request):
                 
         # Préparer le message pour le front
         message = {
+            "id_commande": nouvelle_commande.idCommande,
             "poste": poste,
             "code_barre": code_barre,
             "id_piece": id_piece,
@@ -166,7 +168,6 @@ def login(creds: LoginRequest):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Vérification des identifiants
         cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, creds.password))
         user = cursor.fetchone()
         
@@ -184,6 +185,7 @@ def login(creds: LoginRequest):
         if conn:
             conn.close()
 
+# --- backend/server.py ---
 @app.get("/api/admin/dashboard")
 def get_admin_dashboard():
     db = SessionLocal()
@@ -193,9 +195,9 @@ def get_admin_dashboard():
 
         commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
 
-        historique_fmt = []
+        grouped_history = {} 
+
         for c in commandes:
-            # --- Récupération du nom de l'objet ---
             nom_objet = "Objet Inconnu"
             if c.boite:
                 if c.boite.piece:
@@ -203,29 +205,34 @@ def get_admin_dashboard():
                 elif c.boite.code_barre:
                     nom_objet = c.boite.code_barre
 
-            # --- Formatage de l'heure ---
             if c.dateCommande:
                 heure_str = c.dateCommande.strftime("%H:%M")
                 date_complete = c.dateCommande.strftime("%d/%m %H:%M")
             else:
                 heure_str = "--:--"
                 date_complete = "--"
-
-            # --- Construction de l'objet pour le front ---
-            historique_fmt.append({
-                "id": c.idCommande,
-                "objet": nom_objet,
-                "statut": c.statutCommande,
-                
-                "heure": heure_str,         
-                "date_full": date_complete,
-
-                "source_id": c.idMagasin,
-                "source_nom": stands_map.get(c.idMagasin, "Inconnu"),
-                "dest_id": c.idPoste,
-                "dest_nom": stands_map.get(c.idPoste, "Inconnu"),
-            })
             
+            key = (nom_objet, c.idMagasin, c.idPoste, c.statutCommande, heure_str)
+            
+            if key in grouped_history:
+                grouped_history[key]["count"] += 1
+            else:
+                grouped_history[key] = {
+                    "count": 1,
+                    "id": c.idCommande,
+                    "objet": nom_objet,
+                    "statut": c.statutCommande,
+                    "heure": heure_str,         
+                    "date_full": date_complete,
+                    "source_id": c.idMagasin,
+                    "source_nom": stands_map.get(c.idMagasin, "Inconnu"),
+                    "dest_id": c.idPoste,
+                    "dest_nom": stands_map.get(c.idPoste, "Inconnu"),
+                }
+
+        historique_fmt = list(grouped_history.values())
+        historique_fmt.sort(key=lambda x: x["date_full"], reverse=True)
+
         return {
             "stands": [{"id": s.idStand, "nom": s.nomStand} for s in stands],
             "historique": historique_fmt
@@ -236,66 +243,51 @@ def get_admin_dashboard():
     finally:
         db.close()
 
+
 @app.get("/api/admin/cycles")
 def get_cycles_list():
+    """Récupère les vrais cycles de la table Cycle"""
     db = SessionLocal()
     try:
-        stmt = db.query(Commande.dateCommande).order_by(Commande.dateCommande.desc()).all()
+        cycles_db = db.query(Cycle).order_by(Cycle.date_debut.desc()).limit(20).all()
         
-        cycles = []
-        seen = set()
-        
-        for row in stmt:
-            if row.dateCommande:
-                cycle_id = row.dateCommande.strftime("%Y-%m-%d %H:%M")
-                display = row.dateCommande.strftime("%d/%m/%y à %Hh%M")
+        cycles_fmt = []
+        for c in cycles_db:
+            if c.date_debut:
+                cycle_id = c.date_debut.strftime("%Y-%m-%d %H:%M:%S")
                 
-                if cycle_id not in seen:
-                    cycles.append({"id": cycle_id, "label": display})
-                    seen.add(cycle_id)
+                start_str = c.date_debut.strftime("%d/%m à %Hh%M")
+                if c.date_fin:
+                    end_str = c.date_fin.strftime("%Hh%M")
+                    label = f"{start_str} - {end_str}"
+                else:
+                    label = f"{start_str} (En cours...)"
+                
+                cycles_fmt.append({"id": cycle_id, "label": label})
                     
-        return cycles[:20]
+        return cycles_fmt
     finally:
         db.close()
+
 
 @app.get("/api/admin/logs/{cycle_id}")
 def get_cycle_logs(cycle_id: str):
-    db = SessionLocal()
+    """Route Logs corrigée"""
     try:
-        all_cmds = db.query(Commande).all()
-        stands = db.query(Stand).all()
-        stands_map = {s.idStand: s.nomStand for s in stands}
+        date_obj = datetime.strptime(cycle_id, "%Y-%m-%d %H:%M:%S")
         
-        logs = []
-        logs.append(f"({cycle_id.split(' ')[1]}:00): Début du cycle détecté")
-
-        filtered_cmds = [
-            c for c in all_cmds 
-            if c.dateCommande and c.dateCommande.strftime("%Y-%m-%d %H:%M") == cycle_id
-        ]
-
-        for c in filtered_cmds:
-            heure = c.dateCommande.strftime("%H:%M:%S")
-            nom_objet = c.boite.code_barre if c.boite else "Inconnu"
-            poste_nom = stands_map.get(c.idPoste, "Poste ?")
-            mag_nom = stands_map.get(c.idMagasin, "Magasin ?")
-            
-            logs.append(f"({heure}): Demande {nom_objet} par {poste_nom}")
-
-            if c.statutCommande in ["A déposer", "Terminé"]:
-                logs.append(f"(...): Retrait {nom_objet} au {mag_nom}")
-            
-            if c.statutCommande == "Terminé":
-                logs.append(f"(...): Dépôt {nom_objet} au {poste_nom}")
-
+        logs = requetes.get_commandes_cycle_logs(date_obj)
+        
         return {"logs": logs}
-    finally:
-        db.close()
+    except Exception as e:
+        print(f"Erreur logs: {e}")
+        return {"logs": [f"Erreur: {str(e)}"]}
 
 @app.post("/api/cycle/start")
 def start_cycle():
     """Démarre un nouveau cycle si aucun n'est actif"""
     db = SessionLocal()
+    print("DB URL =", db.bind.url)
     try:
         actif = db.query(Cycle).filter(Cycle.date_fin == None).first()
         if actif:
@@ -313,6 +305,7 @@ def start_cycle():
 def stop_cycle():
     """Arrête le cycle en cours"""
     db = SessionLocal()
+    print("DB URL =", db.bind.url)
     try:
         actif = db.query(Cycle).filter(Cycle.date_fin == None).first()
         if not actif:
@@ -325,37 +318,19 @@ def stop_cycle():
     finally:
         db.close()
 
-@app.get("/api/admin/cycles")
-def get_cycles_list():
-    """Renvoie la liste des cycles pour le menu de gauche"""
-    db = SessionLocal()
-    try:
-        cycles = db.query(Cycle).order_by(Cycle.date_debut.desc()).all()
-        result = []
-        for c in cycles:
-            cycle_id = c.date_debut.strftime("%Y-%m-%d %H:%M:%S")
-            
-            label = c.date_debut.strftime("%d/%m/%y à %Hh%M")
-            if c.date_fin is None:
-                label += " (En cours)"
-                
-            result.append({"id": cycle_id, "label": label})
-        return result
-    finally:
-        db.close()
-
-@app.get("/api/admin/logs/{cycle_date}")
-def get_logs_for_cycle(cycle_date: str):
-    """Utilise get_commandes_cycle_logs"""
-    try:
-        date_obj = datetime.strptime(cycle_date, "%Y-%m-%d %H:%M:%S")
-        
-        logs = requetes.get_commandes_cycle_logs(date_obj)
-        
-        return {"logs": logs}
-    except Exception as e:
-        print(f"Erreur logs: {e}")
-        return {"logs": [f"Erreur: {str(e)}"]}
+@app.get("/api/cycles")
+def api_get_cycles():
+    """Récupère l'historique de tous les cycles"""
+    cycles = requetes.get_all_cycles()
+    
+    return [
+        {
+            "idCycle": c.idCycle,
+            "date_debut": c.date_debut,
+            "date_fin": c.date_fin
+        }
+        for c in cycles
+    ]
 
 @app.get("/api/commandes/en_cours")
 def get_commandes_en_cours():
