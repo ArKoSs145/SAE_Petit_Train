@@ -133,7 +133,7 @@ def supprimer_commande(id_commande):
         commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
 
         if not commande:
-            return False  # Commande inexistante
+            return False
 
         db.delete(commande)
         db.commit()
@@ -273,17 +273,13 @@ def get_boites_recuperees_magasins(debut, fin):
 def get_commandes_cycle_logs(debut_cycle: datetime):
     db = SessionLocal()
     try:
-        # L'ID reçu est une date théorique (ex: 2023-10-27 10:00:00)
         target_id_str = debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
 
-        # 1. On récupère TOUS les cycles et on cherche le bon en Python
-        # Cela évite les problèmes de format SQL vs Python
         cycles = db.query(Cycle).all()
         found_cycle = None
         
         for c in cycles:
             if c.date_debut:
-                # On formate la date DB exactement comme l'ID cible
                 c_str = c.date_debut.strftime('%Y-%m-%d %H:%M:%S')
                 if c_str == target_id_str:
                     found_cycle = c
@@ -292,7 +288,6 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
         if not found_cycle:
             return [f"Cycle introuvable : {target_id_str}"]
 
-        # 2. Définition des bornes (Naïf pour comparaison sûre)
         debut_safe = found_cycle.date_debut.replace(tzinfo=None)
         
         if found_cycle.date_fin:
@@ -300,8 +295,6 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
         else:
             fin_safe = datetime.now().replace(tzinfo=None)
 
-        # 3. Récupération et filtrage manuel des commandes
-        # On charge tout et on filtre en Python pour être certain du résultat
         all_commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
         
         logs_events = []
@@ -311,7 +304,6 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
             
             c_date = c.dateCommande.replace(tzinfo=None)
             
-            # Vérification : est-ce dans le créneau ?
             if debut_safe <= c_date <= fin_safe:
                 
                 # --- Formatage du log ---
@@ -323,13 +315,11 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
                 poste_nom = c.poste.nomStand if c.poste else "?"
                 mag_nom = c.magasin.nomStand if c.magasin else "?"
 
-                # Event 1 : Demande
                 logs_events.append({
                     "time": c_date,
                     "msg": f"[{c_date.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom})"
                 })
 
-                # Event 2 : Retrait
                 if c.date_recuperation:
                     r_date = c.date_recuperation.replace(tzinfo=None)
                     logs_events.append({
@@ -337,7 +327,6 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
                         "msg": f"[{r_date.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom})"
                     })
 
-                # Event 3 : Livraison
                 if c.date_livraison:
                     l_date = c.date_livraison.replace(tzinfo=None)
                     logs_events.append({
@@ -345,7 +334,6 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
                         "msg": f"[{l_date.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
                     })
 
-        # Tri chronologique inverse
         logs_events.sort(key=lambda x: x["time"], reverse=True)
         
         final_logs = [e["msg"] for e in logs_events]

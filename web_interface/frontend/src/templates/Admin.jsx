@@ -61,13 +61,11 @@ export default function Admin() {
     useEffect(() => {
         fetchCycles();
         fetchDashboard();
-        // Si on est sur une vue Logs avec un cycle sélectionné, on rafraichit aussi les logs
         if (currentView === 'logs' && selectedCycleId !== 'Total') {
             fetchCycleLogs(selectedCycleId);
         }
-    }, [currentView]); // <-- S'exécute à chaque changement d'onglet
+    }, [currentView]);
 
-    // 2. Rafraîchissement automatique (Toutes les 5 sec)
     useEffect(() => {
         const interval = setInterval(() => {
             fetchDashboard();
@@ -141,7 +139,6 @@ export default function Admin() {
                 {/* Sidebar Dashboard */}
                 <Box sx={{ width: '300px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', overflowY: 'auto' }}>
                     <List component="nav" sx={{ p: 0 }}>
-                        {/* Option Total */}
                         <ListItemButton
                             onClick={() => handleSelectCycle({id: 'Total', label: 'Total'})}
                             sx={{ borderBottom: '1px solid #999', py: 2, bgcolor: selectedCycleId === 'Total' ? 'white' : 'transparent' }}
@@ -149,14 +146,12 @@ export default function Admin() {
                             <ListItemText primary="Total" primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center' }} />
                         </ListItemButton>
 
-                        {/* Liste des Cycles (dynamique) */}
                         {cyclesList.map((cycle) => (
                         <ListItemButton
                             key={cycle.id}
                             onClick={() => handleSelectCycle(cycle)}
                             sx={{ borderBottom: '1px solid #999', py: 2, bgcolor: selectedCycleId === cycle.id ? 'white' : 'transparent' }}
                         >
-                            {/* Affiche le label formaté par le back (ex: 10h00 - 10h15) */}
                             <ListItemText primary={cycle.label} primaryTypographyProps={{ fontSize: '1.0rem', textAlign: 'center' }} />
                             <NavigateNextIcon />
                         </ListItemButton>

@@ -261,8 +261,25 @@ export default function Base({onApp}) {
     }
   }
 
-  const handleDeleteTask = (taskId) => {
-    setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cette commande définitivement ?")) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`http://localhost:8000/api/commande/${taskId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            setTasks(prev => prev.filter(t => t.id !== taskId));
+            console.log(`Tâche ${taskId} supprimée.`);
+        } else {
+            alert("Erreur lors de la suppression sur le serveur.");
+        }
+    } catch (err) {
+        console.error("Erreur suppression:", err);
+    }
   }
 
   // Style des cartes (Postes / Machines)

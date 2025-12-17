@@ -197,31 +197,25 @@ def get_admin_dashboard():
 
         cycles = db.query(Cycle).all()
         
-        # S'il n'y a absolument aucun cycle, on renvoie vide (comportement demandé)
         if not cycles:
              return {"stands": [{"id": s.idStand, "nom": s.nomStand} for s in stands], "historique": []}
 
         commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
         
-        # On utilise une date 'maintenant' naïve (sans timezone) pour éviter les conflits
         now = datetime.now().replace(tzinfo=None)
 
         grouped_history = {} 
 
         for c in commandes:
-            # --- 1. Identification du Cycle (CORRIGÉ & ROBUSTE) ---
             cycle_id = None
-            if c.dateCommande and cycles: # On vérifie juste qu'il y a des cycles
-                # Force date naïve (sans fuseau)
+            if c.dateCommande and cycles:
                 cmd_date = c.dateCommande.replace(tzinfo=None) if c.dateCommande.tzinfo else c.dateCommande
                 
                 for cy in cycles:
-                    # On force les dates du cycle en naïf
                     debut = cy.date_debut.replace(tzinfo=None) if cy.date_debut else None
                     fin = cy.date_fin.replace(tzinfo=None) if cy.date_fin else now
                     
                     if debut and debut <= cmd_date <= fin:
-                        # On a trouvé le cycle !
                         cycle_id = cy.date_debut.strftime("%Y-%m-%d %H:%M:%S")
                         break
 
@@ -238,7 +232,6 @@ def get_admin_dashboard():
                 heure_str, date_complete = "--:--", "--"
                 raw_date = datetime.min
             
-            # Clé unique pour regrouper
             key = (nom_objet, c.idMagasin, c.idPoste, c.statutCommande, cycle_id)
             
             if key in grouped_history:
@@ -422,4 +415,19 @@ def update_statut(id_commande: int, update: StatutUpdate):
 
     except Exception as e:
         print(f"Erreur serveur update statut: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.delete("/api/commande/{id_commande}")
+def delete_commande_endpoint(id_commande: int):
+    try:
+        succes = requetes.supprimer_commande(id_commande)
+        
+        if not succes:
+            raise HTTPException(status_code=404, detail="Commande introuvable")
+            
+        print(f"[DELETE] Commande {id_commande} supprimée")
+        return {"status": "ok", "message": f"Commande {id_commande} supprimée"}
+        
+    except Exception as e:
+        print(f"Erreur suppression: {e}")
         raise HTTPException(status_code=500, detail=str(e))
