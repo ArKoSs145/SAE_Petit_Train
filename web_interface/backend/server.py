@@ -431,3 +431,20 @@ def delete_commande_endpoint(id_commande: int):
     except Exception as e:
         print(f"Erreur suppression: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+class TrainPosUpdate(BaseModel):
+    position: str
+
+@app.get("/api/train/position")
+def get_train_position():
+    pos = requetes.get_position_train()
+    return {"position": pos}
+
+@app.put("/api/train/position")
+def update_train_position(update: TrainPosUpdate):
+    try:
+        nouvelle_pos = requetes.update_position_train(update.position)
+        return {"status": "ok", "position": nouvelle_pos}
+    except Exception as e:
+        print(f"Erreur update train: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

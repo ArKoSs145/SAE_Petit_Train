@@ -184,6 +184,19 @@ export default function Base({onApp}) {
     };
     fetchCycleStatus();
 
+    const fetchTrainPos = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/api/train/position');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.position) {
+                    setCurrentTrainPoste(data.position);
+                }
+            }
+        } catch (err) { console.error("Erreur récupération train:", err); }
+    }
+    fetchTrainPos();
+
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -344,14 +357,22 @@ export default function Base({onApp}) {
   };
 
   // Popup logic
-  const handlePosteClick = (posteId) => {
-    if (posteId !== nextDestination) {
-      console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
-      return;
+  const handlePosteClick = async (posteId) => {
+    if (posteId !== nextDestination) { console.warn(`Action bloquée.`); return; }
+    
+    setCurrentTrainPoste(posteId);
+    setSelectedPosteId(posteId);
+    setIsPopupOpen(true);
+
+    try {
+        await fetch('http://localhost:8000/api/train/position', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ position: posteId })
+        });
+    } catch (err) {
+        console.error("Impossible de sauvegarder la position du train:", err);
     }
-    setCurrentTrainPoste(posteId); 
-    setSelectedPosteId(posteId)
-    setIsPopupOpen(true)
   }
   
   const closePopup = () => setIsPopupOpen(false)

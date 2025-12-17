@@ -11,6 +11,22 @@ def get_position_train():
     finally:
         db.close()
 
+def update_position_train(nouvelle_position: str):
+    db = SessionLocal()
+    try:
+        train = db.query(Train).first()
+        if not train:
+            train = Train(position=nouvelle_position)
+            db.add(train)
+        else:
+            train.position = nouvelle_position
+            
+        db.commit()
+        db.refresh(train)
+        return train.position
+    finally:
+        db.close()
+
 # ---------- STAND ----------
 def create_stand(nom):
     db = SessionLocal()
