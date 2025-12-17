@@ -1,0 +1,63 @@
+{
+  "layout": {
+    "templateRows": "repeat(4, 1fr)",
+    "templateColumns": "repeat(2, 1fr)"
+  },
+  "items": [
+    {
+      "id": "0-0",
+      "r": 0,
+      "c": 0,
+      "val": "234",
+      "isMerged": false,
+      "style": {
+        "gridRow": "1 / span 1",
+        "gridColumn": "1 / span 1"
+      }
+    },
+    {
+      "id": "0-1",
+      "r": 0,
+      "c": 1,
+      "val": "345",
+      "isMerged": false,
+      "style": {
+        "gridRow": "1 / span 1",
+        "gridColumn": "2 / span 1"
+      }
+    },
+    {
+      "id": "1-0",
+      "r": 1,
+      "c": 0,
+      "val": "123",
+      "isMerged": false,
+      "style": {
+        "gridRow": "2 / span 1",
+        "gridColumn": "1 / span 1"
+      }
+    },
+    {
+      "id": "1-1",
+      "r": 1,
+      "c": 1,
+      "val": "456",
+      "isMerged": false,
+      "style": {
+        "gridRow": "2 / span 1",
+        "gridColumn": "2 / span 1"
+      }
+    },
+    {
+      "id": "2-0",
+      "r": 2,
+      "c": 0,
+      "val": "768",
+      "isMerged": true,
+      "style": {
+        "gridRow": "3 / span 2",
+        "gridColumn": "1 / span 2"
+      }
+    }
+  ]
+}

@@ -6,15 +6,11 @@ import {
   ListItemText,
   Button,
   Box,
-  Typography
+  Typography,
+  CircularProgress
 } from '@mui/material'
-import '../../../styles/PopupLivraison.css';
+import '../../../styles/PopupLivraison.css'; 
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-
-const GRID_ROWS = 8;
-const GRID_COLS = 2;
-
-// itemLocations a été supprimé : on utilise les données de la tâche directement.
 
 const getPosteColor = (id) => {
   if (id === "1") return '#9fc3f1'; 
@@ -30,7 +26,45 @@ const getPosteColor = (id) => {
 export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, posteColor }) {
   
   const [clickedTasks, setClickedTasks] = useState(new Set());
+  const [gridConfig, setGridConfig] = useState(null); 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // <--- NOUVEAU : État d'erreur
+
   const color = posteColor || getPosteColor(posteId);
+
+  // 1. Chargement de la configuration
+  useEffect(() => {
+    console.log("🔄 DÉBUT DU CHARGEMENT DE /etagere.json");
+    setLoading(true);
+    setError(null);
+
+    fetch('/etagere.json')
+      .then(res => {
+        console.log(`📡 Statut HTTP: ${res.status}`);
+        if (!res.ok) {
+            throw new Error(`Fichier introuvable ou erreur serveur (HTTP ${res.status})`);
+        }
+        // Vérification du type de contenu
+        const contentType = res.headers.get("content-type");
+        if (contentType && !contentType.includes("application/json")) {
+            throw new Error("Le fichier reçu n'est pas du JSON (C'est peut-être une page HTML d'erreur)");
+        }
+        return res.json();
+      })
+      .then(data => {
+        console.log("✅ JSON chargé avec succès :", data);
+        if (!data.items || !data.layout) {
+            throw new Error("Le JSON est mal formé (il manque 'items' ou 'layout')");
+        }
+        setGridConfig(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("❌ ERREUR CRITIQUE :", err);
+        setError(err.message); // On stocke le message pour l'afficher
+        setLoading(false);     // On arrête le chargement même en cas d'erreur
+      });
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -38,14 +72,10 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     }
   }, [open]);
 
-  // On utilise directement les tâches filtrées passées par Base.jsx
   const tasksForPoste = tasks; 
 
-  // --- 1. Filtrage DYNAMIQUE basé sur les données serveur ---
   const getTasksAt = (r, c) => {
     return tasksForPoste.filter(task => {
-      // On compare la ligne de la grille (r) avec celle de la tâche (task.gridRow)
-      // Note : r commence à 0, gridRow commence à 1
       return task.gridRow === (r + 1) && task.gridCol === (c + 1);
     });
   };
@@ -55,35 +85,62 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
 
     setClickedTasks(prevClickedTasks => {
       const newSet = new Set(prevClickedTasks);
-      // Vérifie si toutes les tâches de la cellule sont déjà sélectionnées
       const allSelected = cellTasks.every(t => newSet.has(t.id));
 
       if (allSelected) {
-        // Si tout est sélectionné, on désélectionne tout
         cellTasks.forEach(t => newSet.delete(t.id));
       } else {
-        // Sinon, on sélectionne tout
         cellTasks.forEach(t => newSet.add(t.id));
       }
       return newSet;
     });
   };
 
-  const gridCells = [];
-  for (let r = 0; r < GRID_ROWS; r++) {
-    for (let c = 0; c < GRID_COLS; c++) {
-      const cellTasks = getTasksAt(r, c);
-      const hasTask = cellTasks.length > 0;
-      // La cellule est visuellement validée si toutes ses tâches sont dans clickedTasks
-      const isFullyChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
-      // On prend le nom du premier item (supposé identique ou représentatif)
-      const itemName = hasTask ? cellTasks[0].item : '';
+  const handleValidate = () => {
+    clickedTasks.forEach(taskId => {
+      onDeliver(taskId);
+    });
+    onClose();
+  };
 
-      gridCells.push(
+  const allTasksClicked = tasksForPoste.length > 0 && clickedTasks.size === tasksForPoste.length;
+
+  // --- RENDU DE LA GRILLE DYNAMIQUE (LOGIQUE CORRIGÉE) ---
+  let gridContent;
+  
+  if (loading) {
+    // CAS 1 : Chargement
+    gridContent = (
+        <Box sx={{ display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center', height:'100%', color:'white' }}>
+            <CircularProgress color="inherit" />
+            <Typography sx={{ mt: 2 }}>Chargement de l'étagère...</Typography>
+        </Box>
+    );
+  } else if (error) {
+    // CAS 2 : Erreur (C'est ici que tu verras le problème)
+    gridContent = (
+        <Box sx={{ display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center', height:'100%', color:'#ffcccc', textAlign:'center', p:2 }}>
+            <Typography variant="h5" sx={{ mb: 1 }}>⚠️ Erreur</Typography>
+            <Typography variant="body1">{error}</Typography>
+            <Typography variant="caption" sx={{ mt: 2, fontStyle:'italic' }}>
+                Vérifiez la console (F12) pour plus de détails.
+            </Typography>
+        </Box>
+    );
+  } else if (gridConfig && gridConfig.items) {
+    // CAS 3 : Succès
+    gridContent = gridConfig.items.map((item) => {
+      const cellTasks = getTasksAt(item.r, item.c);
+      const hasTask = cellTasks.length > 0;
+      const isFullyChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
+      const displayText = hasTask ? cellTasks[0].item : item.val;
+
+      return (
         <Box
-          key={`${r}-${c}`}
-          className="grid-cell"
+          key={item.id}
+          className={`grid-cell ${item.isMerged ? 'merged' : ''}`}
           onClick={() => handleCellClick(cellTasks)}
+          style={item.style} 
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -97,9 +154,10 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             cursor: hasTask ? 'pointer' : 'default',
             transition: 'opacity 0.2s ease',
             opacity: isFullyChecked ? 0.5 : 1.0, 
+            height: '100%', 
+            width: '100%'
           }}
         >
-          {/* Badge xN si plusieurs tâches sur la même case */}
           {hasTask && cellTasks.length > 1 && (
             <Box sx={{
               position: 'absolute', top: 5, right: 5,
@@ -112,7 +170,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             </Box>
           )}
 
-          {itemName}
+          {displayText}
           
           {isFullyChecked && (
             <CheckCircleIcon sx={{
@@ -121,17 +179,11 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           )}
         </Box>
       );
-    }
-  }
-  
-  const handleValidate = () => {
-    clickedTasks.forEach(taskId => {
-      onDeliver(taskId);
     });
-    onClose();
-  };
-
-  const allTasksClicked = tasksForPoste.length > 0 && clickedTasks.size === tasksForPoste.length;
+  } else {
+      // Cas de secours
+      gridContent = <Typography color="white">Configuration vide.</Typography>;
+  }
 
   return (
     <Dialog open={open} onClose={onClose} fullScreen>
@@ -142,10 +194,16 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
         
         {/* GRILLE */}
         <Box sx={{
-            display: 'grid', gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
-            gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: '1px', border: '3px solid #666', backgroundColor: '#666',
+            display: 'grid',
+            gridTemplateRows: gridConfig ? gridConfig.layout.templateRows : '1fr',
+            gridTemplateColumns: gridConfig ? gridConfig.layout.templateColumns : '1fr',
+            gap: '1px', 
+            border: '3px solid #666', 
+            backgroundColor: '#666',
+            height: '100%', 
+            overflow: 'auto'
           }}>
-          {gridCells}
+          {gridContent}
         </Box>
 
         {/* BOUTONS */}

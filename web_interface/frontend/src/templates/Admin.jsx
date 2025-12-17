@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton
 } from '@mui/material';
@@ -20,6 +20,9 @@ export default function Admin() {
   const [selectedCycleId, setSelectedCycleId] = useState(null);
   const [selectedCycleLabel, setSelectedCycleLabel] = useState("");
   const [cycleLogs, setCycleLogs] = useState([]);
+
+  // Référence pour l'input caché
+  const fileInputRef = useRef(null);
 
   // --- Chargement Données ---
 
@@ -77,6 +80,64 @@ export default function Admin() {
 
   const handleQuit = () => { window.location.href = "/"; };
 
+  // --- HANDLERS UPLOAD CONFIGURATION (JSON Method) ---
+
+  // 1. Ouvre le sélecteur de fichier
+  const onConfigurationClick = () => {
+    if (fileInputRef.current) {
+        fileInputRef.current.click();
+    }
+  };
+
+  // 2. Lit le fichier et l'envoie comme texte JSON
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!window.confirm(`Voulez-vous mettre à jour la configuration avec le fichier "${file.name}" ?`)) {
+        event.target.value = null; 
+        return;
+    }
+
+    // Lecture du fichier côté client
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+        const textContent = e.target.result; // Contenu du CSV
+
+        try {
+            console.log("Envoi de la configuration...");
+            // Envoi au format JSON (pas besoin de python-multipart)
+            const res = await fetch('http://localhost:8000/api/admin/upload-config', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    csv_content: textContent 
+                })
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                alert("✅ " + data.message);
+            } else {
+                const errData = await res.json();
+                alert("❌ Erreur : " + (errData.detail || "Erreur serveur"));
+            }
+        } catch (err) {
+            console.error("Erreur upload:", err);
+            alert("❌ Erreur de connexion au serveur.");
+        } finally {
+            // Reset de l'input
+            event.target.value = null;
+        }
+    };
+
+    // Lance la lecture
+    reader.readAsText(file);
+  };
+
   // --- Styles ---
   const headerBtnStyle = (active) => ({
     backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
@@ -105,7 +166,25 @@ export default function Admin() {
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" sx={headerBtnStyle(false)}>Échange</Button>
+          
+          {/* INPUT CACHÉ */}
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            style={{ display: 'none' }} 
+            accept=".csv"
+            onChange={handleFileChange}
+          />
+
+          {/* BOUTON CONFIGURATION */}
+          <Button 
+            variant="contained" 
+            sx={headerBtnStyle(false)}
+            onClick={onConfigurationClick}
+          >
+            Configuration
+          </Button>
+
           <Button 
             variant="contained" 
             sx={headerBtnStyle(currentView === 'logs')}
@@ -173,7 +252,7 @@ export default function Admin() {
                                     <Paper sx={{ backgroundColor: getCardColor(stand.nom), p: 2, minHeight: '180px' }}>
                                         <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>{stand.nom}</Typography>
                                         
-                                        {/* Affichage avec gestion du (xN) */}
+                                        {/* Affichage arrivages */}
                                         {arrivages.map((i, idx) => (
                                             <div key={idx}>
                                                 • {i.objet} {i.count > 1 && <strong>(x{i.count})</strong>} <small>(de {i.source_nom})</small>
@@ -182,6 +261,7 @@ export default function Admin() {
                                         
                                         {arrivages.length > 0 && departs.length > 0 && <hr style={{opacity:0.3}}/>}
                                         
+                                        {/* Affichage départs */}
                                         {departs.map((i, idx) => (
                                             <div key={idx}>
                                                 → {i.objet} {i.count > 1 && <strong>(x{i.count})</strong>} <small>(vers {i.dest_nom})</small>
@@ -200,7 +280,7 @@ export default function Admin() {
         {currentView === 'logs' && (
              <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
                 
-                {/* Sidebar Logs (20 derniers cycles) */}
+                {/* Sidebar Logs */}
                 <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold' }}>
                         20 derniers (cycles)
@@ -224,7 +304,6 @@ export default function Admin() {
 
                 {/* Contenu Log */}
                 <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
-                    {/* Header Log */}
                     <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box sx={{ textAlign: 'center', width: '100%' }}>
                             <Typography variant="h4">Logs du {selectedCycleLabel.split(' à ')[0]}</Typography>
