@@ -80,10 +80,10 @@
 #poste-1 { background-color: #9fc3f1; }
 #poste-2 { background-color: #b6fcce; }
 #poste-3 { background-color: #ffb6b6; }
-#presse { background-color: #FFC481; }
-#machine-x { background-color: #FFFD8E; }
-#machine-y { background-color: #B6A9FF; }
-#fournisseur { background-color: #ffb1e5; }
+#presse_injection { background-color: #FFC481; }
+#presse_emboutir { background-color: #FFFD8E; }
+#tour_cn { background-color: #B6A9FF; }
+#magasin_externe { background-color: #ffb1e5; }
 
 .poste.active {
   border: 3px solid #f59e0b;

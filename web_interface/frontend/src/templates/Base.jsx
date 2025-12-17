@@ -21,16 +21,16 @@ import PopupLivraison from '../templates/popup/PopupLivraison'
 // --- CONSTANTES DE CONFIGURATION ---
 
 // Ordre logique du cycle (boucle horaire) : 7 -> 4 -> 5 -> 6 -> 3 -> 2 -> 1
-const CYCLE_PATH = ['7', '4', '5', '6', '3', '2', '1'];
+const CYCLE_PATH = ['4' ,'7', '6', '5', '1', '2', '3'];
 
 const POSTE_NAMES = {
-  '1': 'Poste 1',
-  '2': 'Poste 2',
-  '3': 'Poste 3',
-  '4': 'Presse Injection',
-  '5': 'Machine X',
-  '6': 'Machine Y',
-  '7': 'Fournisseur',
+  '1': 'Arrêt Poste 1',
+  '2': 'Arrêt Poste 2',
+  '3': 'Arrêt Poste 3',
+  '4': 'Presse à Injecter',
+  '5': 'Presse à Emboutir',
+  '6': 'Tour CN',
+  '7': 'Magasin Externe',
 };
 
 // Position du train : Sur la flèche JUSTE AVANT le poste de destination
@@ -38,13 +38,13 @@ const TRAIN_POSITIONS = {
   'null': { gridRow: 5, gridColumn: 5 }, 
   
   // Destination : Position de la flèche d'entrée
-  '7':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Fournisseur)
-  '4':    { gridRow: 1, gridColumn: 2 }, // Flèche → (Avant Presse)
-  '5':    { gridRow: 1, gridColumn: 4 }, // Flèche → (Avant Machine X)
-  '6':    { gridRow: 2, gridColumn: 5 }, // Flèche ↓ (Avant Machine Y)
-  '3':    { gridRow: 5, gridColumn: 4 }, // Flèche ← (Avant Poste 3)
-  '2':    { gridRow: 5, gridColumn: 2 }, // Flèche ← (Avant Poste 2)
-  '1':    { gridRow: 4, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
+  '7':    { gridRow: 2, gridColumn: 5 }, // Flèche ↑ (Avant Fournisseur)
+  '4':    { gridRow: 4, gridColumn: 5 }, // Flèche → (Avant Presse)
+  '5':    { gridRow: 1, gridColumn: 2 }, // Flèche → (Avant Machine X)
+  '6':    { gridRow: 1, gridColumn: 4 }, // Flèche ↓ (Avant Machine Y)
+  '3':    { gridRow: 5, gridColumn: 2 }, // Flèche ← (Avant Poste 3)
+  '2':    { gridRow: 4, gridColumn: 1 }, // Flèche ← (Avant Poste 2)
+  '1':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
 };
 
 // --- LOGIQUE MÉTIER ---
@@ -467,28 +467,28 @@ export default function Base({onApp}) {
               }}
             >
               {/* --- LIGNE 1 : HAUT --- */}
-              <Paper id="fournisseur" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>{POSTE_NAMES['7']}</Paper>
-              <GridArrow row={1} col={2} symbol="→" />
-              <Paper id="presse" sx={{ ...getBoxSx('4'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('4')}>{POSTE_NAMES['4']}</Paper>
-              <GridArrow row={1} col={4} symbol="→" />
-              <Paper id="machine-x" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>{POSTE_NAMES['5']}</Paper>
+              <Paper id="magasin_externe" sx={{ ...getBoxSx('7'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('7')}>{POSTE_NAMES['7']}</Paper>
+              <GridArrow row={1} col={2} symbol="←" />
+              <Paper id="tour_cn" sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>{POSTE_NAMES['6']}</Paper>
+              <GridArrow row={1} col={4} symbol="←" />
+              <Paper id="presse_emboutir" sx={{ ...getBoxSx('5'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('5')}>{POSTE_NAMES['5']}</Paper>
               
               {/* --- LIGNES VERTICALES --- */}
               {/* Droite (Descend) */}
-              <GridArrow row={2} col={5} symbol="↓" />
-              <Paper id="machine-y" sx={{ ...getBoxSx('6'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('6')}>{POSTE_NAMES['6']}</Paper>
-              <GridArrow row={4} col={5} symbol="↓" />
+              <GridArrow row={2} col={5} symbol="↑" />
+              <Paper id="presse_injection" sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>{POSTE_NAMES['4']}</Paper>
+              <GridArrow row={4} col={5} symbol="↑" />
 
               {/* Gauche (Monte) */}
-              <GridArrow row={2} col={1} symbol="↑" />
+              <GridArrow row={2} col={1} symbol="↓" />
               <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>{POSTE_NAMES['1']}</Paper>
-              <GridArrow row={4} col={1} symbol="↑" />
+              <GridArrow row={4} col={1} symbol="↓" />
 
               {/* --- LIGNE 5 : BAS --- */}
               <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>{POSTE_NAMES['2']}</Paper>
-              <GridArrow row={5} col={2} symbol="←" />
+              <GridArrow row={5} col={2} symbol="→" />
               <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>{POSTE_NAMES['3']}</Paper>
-              <GridArrow row={5} col={4} symbol="←" />
+              <GridArrow row={5} col={4} symbol="→" />
               {/* Coin bas-droit (5/5) vide ou pour transition */}
 
               {/* --- LE TRAIN --- */}
@@ -514,14 +514,19 @@ export default function Base({onApp}) {
         {/* --- SIDEBAR (Droite) --- */}
         <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h4" gutterBottom>À suivre</Typography>
+            <Typography variant="h4" gutterBottom>À récupérer</Typography>
             
             <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
               {CYCLE_PATH.map(posteId => {
                 const posteName = POSTE_NAMES[posteId];
                 const tasksForPoste = taskGroups[posteName];
                 
-                if (!tasksForPoste || tasksForPoste.length === 0) return null;
+                const tasksToPickUp = tasks.filter(t => 
+                    t.magasinId === posteId && 
+                    (t.status === 'A récupérer' || t.status === 'À récupérer' || (t.status && t.status.includes('récupérer')))
+                );
+                
+                if (tasksToPickUp.length === 0) return null;
 
                 return (
                   <Paper key={posteId} elevation={1} sx={{ p: 2, mb: 2, borderLeft: '4px solid #1976d2' }}>
@@ -553,18 +558,55 @@ export default function Base({onApp}) {
                 <Typography sx={{ p: 2, color: 'text.secondary' }}>Aucune tâche en attente.</Typography>
               )}
             </Box>
+          </Paper>
+        </Box>
 
-            <Box sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography sx={{ display: 'flex', alignItems: 'center' }}>
-                WebSocket: 
-                {connected 
-                  ? <CheckCircleIcon color="success" sx={{ ml: 1 }} />
-                  : <ErrorIcon color="error" sx={{ ml: 1 }} />
-                }
-                <Box component="span" sx={{ ml: 0.5, color: connected ? 'success.main' : 'error.main', fontWeight: 'bold' }}>
-                  {connected ? 'connecté' : 'déconnecté'}
-                </Box>
-              </Typography>
+        {/* --- SIDEBAR (Droite) --- */}
+        <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h4" gutterBottom>À déposer</Typography>
+            
+            <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
+              {CYCLE_PATH.map(posteId => {
+                const posteName = POSTE_NAMES[posteId];
+                const tasksForPoste = taskGroups[posteName];
+                
+                const tasksToDrop = tasks.filter(t => 
+                    t.posteId === posteId && 
+                    (t.status === 'A déposer' || t.status === 'À déposer' || (t.status && t.status.includes('déposer')))
+                );
+                
+                if (tasksToDrop.length === 0) return null;
+
+                return (
+                  <Paper key={posteId} elevation={1} sx={{ p: 2, mb: 2, borderLeft: '4px solid #1976d2' }}>
+                    <Typography variant="h6">{posteName}</Typography>
+                    <List dense>
+                      {tasksForPoste.map(task => (
+                        <ListItem key={task.id} 
+                          secondaryAction={
+                            <IconButton edge="end" onClick={() => handleDeleteTask(task.id)} color="error" size="small">
+                              <DeleteIcon />
+                            </IconButton>
+                          }
+                        >
+                          <ListItemText 
+                            primary={task.item}
+                            secondary={task.status === 'A récupérer' ? 
+                              `Aller chercher au ${POSTE_NAMES[task.magasinId]}` : 
+                              `Apporter au ${POSTE_NAMES[task.posteId]}`
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Paper>
+                );
+              })}
+
+              {tasks.filter(t => t.status !== 'Commande finie').length === 0 && (
+                <Typography sx={{ p: 2, color: 'text.secondary' }}>Aucune tâche en attente.</Typography>
+              )}
             </Box>
           </Paper>
         </Box>
