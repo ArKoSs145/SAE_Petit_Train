@@ -151,7 +151,8 @@ def supprimer_commande(id_commande):
         if not commande:
             return False
 
-        db.delete(commande)
+        commande.statutCommande = "Annulée"
+        commande.date_livraison = datetime.now()
         db.commit()
         return True
     finally:
@@ -345,10 +346,17 @@ def get_commandes_cycle_logs(debut_cycle: datetime):
 
                 if c.date_livraison:
                     l_date = c.date_livraison.replace(tzinfo=None)
-                    logs_events.append({
-                        "time": l_date,
-                        "msg": f"[{l_date.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
-                    })
+                    
+                    if c.statutCommande == "Annulée":
+                        logs_events.append({
+                            "time": l_date,
+                            "msg": f"[{l_date.strftime('%H:%M:%S')}] Annulé  : {nom_piece}"
+                        })
+                    else:
+                        logs_events.append({
+                            "time": l_date,
+                            "msg": f"[{l_date.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
+                        })
 
         logs_events.sort(key=lambda x: x["time"], reverse=True)
         

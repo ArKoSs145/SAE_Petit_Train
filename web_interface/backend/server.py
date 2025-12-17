@@ -363,7 +363,9 @@ def api_get_cycles():
 def get_commandes_en_cours():
     db = SessionLocal()
     try:
-        commandes = db.query(Commande).filter(Commande.statutCommande != "Terminé").all()
+        commandes = db.query(Commande).filter(Commande.statutCommande != "Commande finie",
+                                            Commande.statutCommande != "Annulée" 
+        ).all()
         
         taches = []
         for c in commandes:
