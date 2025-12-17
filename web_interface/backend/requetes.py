@@ -269,71 +269,92 @@ def get_boites_recuperees_magasins(debut, fin):
     finally:
         db.close()
 
-# --- backend/requetes.py ---
+## --- backend/requetes.py ---
 def get_commandes_cycle_logs(debut_cycle: datetime):
     db = SessionLocal()
     try:
-        if debut_cycle.tzinfo is not None:
-             debut_cycle = debut_cycle.replace(tzinfo=None)
+        # L'ID reçu est une date théorique (ex: 2023-10-27 10:00:00)
+        target_id_str = debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
 
-        cycle = db.query(Cycle).filter(
-            func.abs(func.strftime('%s', Cycle.date_debut) - debut_cycle.timestamp()) < 2
-        ).first()
+        # 1. On récupère TOUS les cycles et on cherche le bon en Python
+        # Cela évite les problèmes de format SQL vs Python
+        cycles = db.query(Cycle).all()
+        found_cycle = None
         
-        if not cycle:
-             cycle = db.query(Cycle).filter(
-                func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
-                debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
-            ).first()
-
-        if not cycle:
-            return [f"Cycle introuvable pour la date {debut_cycle}"]
-
-        fin_cycle = cycle.date_fin or datetime.now()
-
-        commandes = db.query(Commande).filter(
-            Commande.dateCommande >= cycle.date_debut,
-            Commande.dateCommande <= fin_cycle
-        ).all()
-
-        events = []
+        for c in cycles:
+            if c.date_debut:
+                # On formate la date DB exactement comme l'ID cible
+                c_str = c.date_debut.strftime('%Y-%m-%d %H:%M:%S')
+                if c_str == target_id_str:
+                    found_cycle = c
+                    break
         
-        for c in commandes:
-            nom_piece = "Inconnu"
-            if c.boite:
-                if c.boite.piece: nom_piece = c.boite.piece.nomPiece
-                elif c.boite.code_barre: nom_piece = c.boite.code_barre
+        if not found_cycle:
+            return [f"Cycle introuvable : {target_id_str}"]
+
+        # 2. Définition des bornes (Naïf pour comparaison sûre)
+        debut_safe = found_cycle.date_debut.replace(tzinfo=None)
+        
+        if found_cycle.date_fin:
+            fin_safe = found_cycle.date_fin.replace(tzinfo=None)
+        else:
+            fin_safe = datetime.now().replace(tzinfo=None)
+
+        # 3. Récupération et filtrage manuel des commandes
+        # On charge tout et on filtre en Python pour être certain du résultat
+        all_commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
+        
+        logs_events = []
+        
+        for c in all_commandes:
+            if not c.dateCommande: continue
             
-            poste_nom = c.poste.nomStand if c.poste else "?"
-            mag_nom = c.magasin.nomStand if c.magasin else "?"
+            c_date = c.dateCommande.replace(tzinfo=None)
             
+            # Vérification : est-ce dans le créneau ?
+            if debut_safe <= c_date <= fin_safe:
+                
+                # --- Formatage du log ---
+                nom_piece = "Inconnu"
+                if c.boite:
+                    if c.boite.piece: nom_piece = c.boite.piece.nomPiece
+                    elif c.boite.code_barre: nom_piece = c.boite.code_barre
+                
+                poste_nom = c.poste.nomStand if c.poste else "?"
+                mag_nom = c.magasin.nomStand if c.magasin else "?"
 
-            if c.dateCommande:
-                events.append({
-                    "time": c.dateCommande,
-                    "msg": f"[{c.dateCommande.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom})"
+                # Event 1 : Demande
+                logs_events.append({
+                    "time": c_date,
+                    "msg": f"[{c_date.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom})"
                 })
 
-            if c.date_recuperation:
-                 events.append({
-                    "time": c.date_recuperation,
-                    "msg": f"[{c.date_recuperation.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom})"
-                })
+                # Event 2 : Retrait
+                if c.date_recuperation:
+                    r_date = c.date_recuperation.replace(tzinfo=None)
+                    logs_events.append({
+                        "time": r_date,
+                        "msg": f"[{r_date.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom})"
+                    })
 
-            if c.date_livraison:
-                 events.append({
-                    "time": c.date_livraison,
-                    "msg": f"[{c.date_livraison.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
-                })
+                # Event 3 : Livraison
+                if c.date_livraison:
+                    l_date = c.date_livraison.replace(tzinfo=None)
+                    logs_events.append({
+                        "time": l_date,
+                        "msg": f"[{l_date.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
+                    })
 
-        events.sort(key=lambda x: x["time"], reverse=True)
+        # Tri chronologique inverse
+        logs_events.sort(key=lambda x: x["time"], reverse=True)
         
-        logs = [e["msg"] for e in events]
+        final_logs = [e["msg"] for e in logs_events]
 
-        if not logs:
-            logs.append("Aucune activité dans ce cycle.")
+        if not final_logs:
+            final_logs.append("Aucune activité dans ce cycle (dates vérifiées).")
 
-        return logs
+        return final_logs
+
     finally:
         db.close()
         

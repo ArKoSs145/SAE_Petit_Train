@@ -11,6 +11,7 @@ import sqlite3
 import os 
 import requetes
 from pydantic import BaseModel 
+from sqlalchemy import func
 
 logging.basicConfig(level=logging.INFO)
 
@@ -194,44 +195,78 @@ def get_admin_dashboard():
         stands = db.query(Stand).all()
         stands_map = {s.idStand: s.nomStand for s in stands}
 
+        cycles = db.query(Cycle).all()
+        
+        # S'il n'y a absolument aucun cycle, on renvoie vide (comportement demandé)
+        if not cycles:
+             return {"stands": [{"id": s.idStand, "nom": s.nomStand} for s in stands], "historique": []}
+
         commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
+        
+        # On utilise une date 'maintenant' naïve (sans timezone) pour éviter les conflits
+        now = datetime.now().replace(tzinfo=None)
 
         grouped_history = {} 
 
         for c in commandes:
+            # --- 1. Identification du Cycle (CORRIGÉ & ROBUSTE) ---
+            cycle_id = None
+            if c.dateCommande and cycles: # On vérifie juste qu'il y a des cycles
+                # Force date naïve (sans fuseau)
+                cmd_date = c.dateCommande.replace(tzinfo=None) if c.dateCommande.tzinfo else c.dateCommande
+                
+                for cy in cycles:
+                    # On force les dates du cycle en naïf
+                    debut = cy.date_debut.replace(tzinfo=None) if cy.date_debut else None
+                    fin = cy.date_fin.replace(tzinfo=None) if cy.date_fin else now
+                    
+                    if debut and debut <= cmd_date <= fin:
+                        # On a trouvé le cycle !
+                        cycle_id = cy.date_debut.strftime("%Y-%m-%d %H:%M:%S")
+                        break
+
             nom_objet = "Objet Inconnu"
             if c.boite:
-                if c.boite.piece:
-                    nom_objet = c.boite.piece.nomPiece
-                elif c.boite.code_barre:
-                    nom_objet = c.boite.code_barre
+                if c.boite.piece: nom_objet = c.boite.piece.nomPiece
+                elif c.boite.code_barre: nom_objet = c.boite.code_barre
 
             if c.dateCommande:
                 heure_str = c.dateCommande.strftime("%H:%M")
                 date_complete = c.dateCommande.strftime("%d/%m %H:%M")
+                raw_date = c.dateCommande
             else:
-                heure_str = "--:--"
-                date_complete = "--"
+                heure_str, date_complete = "--:--", "--"
+                raw_date = datetime.min
             
-            key = (nom_objet, c.idMagasin, c.idPoste, c.statutCommande, heure_str)
+            # Clé unique pour regrouper
+            key = (nom_objet, c.idMagasin, c.idPoste, c.statutCommande, cycle_id)
             
             if key in grouped_history:
                 grouped_history[key]["count"] += 1
+                if raw_date > grouped_history[key]["raw_date"]:
+                     grouped_history[key]["raw_date"] = raw_date
+                     grouped_history[key]["date_full"] = date_complete
             else:
                 grouped_history[key] = {
                     "count": 1,
+                    "raw_date": raw_date,
                     "id": c.idCommande,
                     "objet": nom_objet,
                     "statut": c.statutCommande,
                     "heure": heure_str,         
                     "date_full": date_complete,
+                    "cycle_id": cycle_id,
                     "source_id": c.idMagasin,
                     "source_nom": stands_map.get(c.idMagasin, "Inconnu"),
                     "dest_id": c.idPoste,
                     "dest_nom": stands_map.get(c.idPoste, "Inconnu"),
                 }
 
-        historique_fmt = list(grouped_history.values())
+        historique_fmt = []
+        for item in grouped_history.values():
+            del item["raw_date"]
+            historique_fmt.append(item)
+            
         historique_fmt.sort(key=lambda x: x["date_full"], reverse=True)
 
         return {
@@ -244,44 +279,42 @@ def get_admin_dashboard():
     finally:
         db.close()
 
-
 @app.get("/api/admin/cycles")
 def get_cycles_list():
-    """Récupère les vrais cycles de la table Cycle"""
     db = SessionLocal()
     try:
         cycles_db = db.query(Cycle).order_by(Cycle.date_debut.desc()).limit(20).all()
-        
         cycles_fmt = []
         for c in cycles_db:
             if c.date_debut:
                 cycle_id = c.date_debut.strftime("%Y-%m-%d %H:%M:%S")
-                
                 start_str = c.date_debut.strftime("%d/%m à %Hh%M")
                 if c.date_fin:
                     end_str = c.date_fin.strftime("%Hh%M")
                     label = f"{start_str} - {end_str}"
                 else:
-                    label = f"{start_str} (En cours...)"
+                    label = f"{start_str} (En cours)"
                 
                 cycles_fmt.append({"id": cycle_id, "label": label})
-                    
         return cycles_fmt
+    except Exception as e:
+        print(f"Erreur Cycles: {e}")
+        return []
     finally:
         db.close()
 
 
 @app.get("/api/admin/logs/{cycle_id}")
 def get_cycle_logs(cycle_id: str):
-    """Route Logs corrigée"""
     try:
+        if cycle_id == "Total":
+            return {"logs": []}
+        
         date_obj = datetime.strptime(cycle_id, "%Y-%m-%d %H:%M:%S")
-        
         logs = requetes.get_commandes_cycle_logs(date_obj)
-        
         return {"logs": logs}
     except Exception as e:
-        print(f"Erreur logs: {e}")
+        print(f"Erreur Logs Route: {e}")
         return {"logs": [f"Erreur: {str(e)}"]}
 
 @app.post("/api/cycle/start")

@@ -504,7 +504,7 @@ export default function Base({onApp}) {
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
                 }}
               >
-                <img class ="image" src= "../../../images/cart2.png"/>
+                <img className ="image" src= "../../../images/cart2.png"/>
               </Typography>
 
             </Box>
