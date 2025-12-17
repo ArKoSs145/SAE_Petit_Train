@@ -468,26 +468,6 @@ export default function Base({onApp}) {
               >
                 {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
               </Button>
-              
-              {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
-              <Button 
-                variant="outlined" color="info" size="small" 
-                onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
-              >
-                Sim (M5 - P1)
-              </Button>
-
-              <Button size="small" variant="outlined" 
-                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>
-                Sim (M4 - P2)
-              </Button>
-
-              <Button 
-                 variant="outlined" color="info" size="small" 
-                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}
-              >
-                Sim (F - P3)
-              </Button>
             </Box>
             
             {/* GRILLE DU PLAN */}
