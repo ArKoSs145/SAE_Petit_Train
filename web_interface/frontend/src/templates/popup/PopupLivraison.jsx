@@ -27,7 +27,7 @@ const getPosteColor = (id) => {
   else return '#5e5e5eff'
 };
 
-export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, posteColor }) {
+export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, onMissing, posteColor }) {
   
   const [clickedTasks, setClickedTasks] = useState(new Set());
   const color = posteColor || getPosteColor(posteId);
@@ -78,6 +78,11 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
       const isFullyChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
       // On prend le nom du premier item (supposé identique ou représentatif)
       const itemName = hasTask ? cellTasks[0].item : '';
+
+      let content = '';
+      if (hasTask) {
+        content = cellTasks[0].item;
+      }
 
       gridCells.push(
         <Box
@@ -131,7 +136,25 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     onClose();
   };
 
+  const handleMissing = async () => {
+    for (let taskId of clickedTasks) {
+      try {
+        await fetch(`http://127.0.0.1:8000/api/commande/${taskId}/manquant`, {
+            method: 'PUT'
+        });
+        if (onMissing) {
+          onMissing(taskId);
+        }
+
+      } catch (error) {
+        console.error("Erreur signalement manquant:", error);
+      }
+    }
+    onClose();
+  };
+
   const allTasksClicked = tasksForPoste.length > 0 && clickedTasks.size === tasksForPoste.length;
+  const anyTaskClicked = clickedTasks.size > 0;
 
   return (
     <Dialog open={open} onClose={onClose} fullScreen>
@@ -152,6 +175,19 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '40px 0' }}>
           <Button variant="contained" onClick={onClose} sx={{ padding: '25px', fontSize: '1.5rem', backgroundColor: '#d9d9d9', color: 'black' }}>
             Retour
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleMissing} 
+            disabled={!anyTaskClicked}
+            sx={{ 
+                padding: '20px', 
+                fontSize: '1.2rem', 
+                backgroundColor: '#ff6b6b', 
+                color: 'white',
+                '&:hover': { backgroundColor: '#d32f2f' }
+            }}>
+            Produit Manquant
           </Button>
           <Button variant="contained" onClick={handleValidate} disabled={!allTasksClicked} 
             sx={{ padding: '25px', fontSize: '1.5rem', backgroundColor: '#d9d9d9', color: 'black', opacity: !allTasksClicked ? 0.5 : 1.0 }}>

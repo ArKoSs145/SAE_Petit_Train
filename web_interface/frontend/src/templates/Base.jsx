@@ -50,7 +50,7 @@ const TRAIN_POSITIONS = {
 // --- LOGIQUE MÉTIER ---
 
 const groupTasks = (tasks) => {
-  const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
+  const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
   const groups = CYCLE_PATH.reduce((acc, id) => {
       if (POSTE_NAMES[id]) {
         acc[POSTE_NAMES[id]] = [];
@@ -70,7 +70,7 @@ const groupTasks = (tasks) => {
 }
 
 const findNextDestination = (tasks, currentTrainLocation) => {
-  const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
+  const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
 
   if (currentTrainLocation) {
     const hasWorkHere = activeTasks.some(t => {
@@ -388,8 +388,12 @@ export default function Base({onApp}) {
     setTasks(prev => [newTask, ...prev]);
   }
 
+  const handleMissingTask = (taskId) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  }
+
   const tasksForPopup = tasks.filter(t => {
-    if (t.status === 'Commande finie') return false;
+    if (t.status === 'Commande finie' || t.status === 'Produit manquant') return false;
     if (selectedPosteId === t.magasinId && t.status === 'A récupérer') return true;
     if (selectedPosteId === t.posteId && t.status === 'A déposer') return true;
     return false;
@@ -577,6 +581,7 @@ export default function Base({onApp}) {
         posteName={POSTE_NAMES[selectedPosteId] || ''} 
         tasks={tasksForPopup} 
         onDeliver={handleTaskAction}
+        onMissing={handleMissingTask}
       />
     </Box>
   )

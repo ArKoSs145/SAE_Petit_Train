@@ -19,6 +19,7 @@ app = FastAPI()
 # --- Autoriser le front React ---
 origins = [
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -142,12 +143,22 @@ async def recevoir_scan(request: Request):
     finally:
         db.close()
 
+async def simulation_apport_boites():
+    """Augmente le stock de 1 pour toutes les boîtes toutes les 2 minutes"""
+    while True:
+        await asyncio.sleep(120)
+        print("[STOCK] Lancement simulation réapprovisionnement...")
+        requetes.incrementer_stock_global()
+        print("[STOCK] Stock incrémenté (+1) pour toutes les boîtes.")
+
 # --- Démarrage serveur ---
 @app.on_event("startup")
 async def startup_event():
     logging.info("Initialisation de la base de données...")
     init_db()
     data_db()
+
+    asyncio.create_task(simulation_apport_boites())
     logging.info("Base prête ✅")
 
 @app.get("/")
@@ -389,4 +400,17 @@ def update_statut(id_commande: int, update: StatutUpdate):
 
     except Exception as e:
         print(f"Erreur serveur update statut: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.put("/api/commande/{id_commande}/manquant")
+def set_commande_manquant(id_commande: int):
+    try:
+        succes = requetes.declarer_commande_manquante(id_commande)
+        if not succes:
+            raise HTTPException(status_code=404, detail="Commande introuvable")
+            
+        print(f"[MANQUANT] Commande {id_commande} marquée manquante")
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Erreur manquant: {e}")
         raise HTTPException(status_code=500, detail=str(e))
