@@ -39,26 +39,6 @@ const TRAIN_POSITIONS = {
 
 // --- LOGIQUE MÉTIER ---
 
-const groupTasks = (tasks) => {
-  const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
-  const groups = CYCLE_PATH.reduce((acc, id) => {
-      if (POSTE_NAMES[id]) {
-        acc[POSTE_NAMES[id]] = [];
-      }
-      return acc;
-    }, {});
-
-  activeTasks.forEach(task => {
-    if (task.status === 'A récupérer' && POSTE_NAMES[task.magasinId]) {
-      groups[POSTE_NAMES[task.magasinId]].push(task);
-    }
-    else if (task.status === 'A déposer' && POSTE_NAMES[task.posteId]) {
-      groups[POSTE_NAMES[task.posteId]].push(task);
-    }
-  });
-  return groups;
-}
-
 const findNextDestination = (tasks, currentTrainLocation) => {
   const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
 
@@ -321,71 +301,6 @@ export default function Base({onApp}) {
         console.error("Erreur suppression:", err);
     }
   }
-
-  const handlePosteClick = (posteId) => {
-    if (posteId !== nextDestination) {
-      console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
-      return;
-  // Style des cartes (Postes / Machines)
-  const getBoxSx = (posteId) => {
-    const isActive = nextDestination === posteId; 
-    
-    return {
-      width: '100%',
-      height: '100%', // Remplissage complet
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      
-      p: 1,
-      textAlign: 'center',
-      cursor: 'pointer',
-      border: '5px solid',
-      borderColor: isActive ? 'primary.main' : 'transparent',
-      transform: isActive ? 'scale(1.02)' : 'scale(1)',
-      boxShadow: isActive ? 6 : 2,
-      transition: 'all 0.2s ease-in-out',
-      borderRadius: 4,
-      
-      overflow: 'hidden',
-      wordBreak: 'break-word',
-      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)',
-      fontWeight: 'bold',
-      backgroundColor: 'white',
-
-      '&:hover': { boxShadow: 6 }
-    };
-  }
-
-  // --- Composant Flèche (Interne) ---
-  const arrowSx = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
-    fontSize: '2.5rem',
-    color: '#000000ff',
-    userSelect: 'none',
-    fontWeight: 'bold'
-  };
-
-  const GridArrow = ({ row, col, symbol }) => {
-    // La flèche disparaît si le train est sur ses coordonnées
-    const isTrainHere = trainGridPosition.gridRow === row && trainGridPosition.gridColumn === col;
-    return (
-      <Typography sx={{
-          ...arrowSx,
-          gridRow: row,
-          gridColumn: col,
-          opacity: isTrainHere ? 0 : 1, 
-          transition: 'opacity 0.2s ease',
-        }}>
-        {symbol}
-      </Typography>
-    );
-  };
 
   // Popup logic
   const handlePosteClick = async (posteId) => {
