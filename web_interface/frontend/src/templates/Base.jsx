@@ -147,7 +147,8 @@ export default function Base({onApp}) {
             
             gridRow: cmd.ligne,
             gridCol: cmd.colonne,
-            ts: new Date(cmd.timestamp).toLocaleString()
+            ts: new Date(cmd.timestamp).toLocaleString(),
+            stock: cmd.stock,
           }));
           
           setTasks(initialTasks);
@@ -226,7 +227,8 @@ export default function Base({onApp}) {
 
                 origin: 'Scan',
                 status: 'A récupérer',
-                ts: new Date().toLocaleString()
+                ts: new Date().toLocaleString(),
+                stock: data.stock,
               }
               return [newTask, ...prev].slice(0, 100);
             }

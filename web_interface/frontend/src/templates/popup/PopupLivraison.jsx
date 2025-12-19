@@ -27,10 +27,13 @@ const getPosteColor = (id) => {
   else return '#5e5e5eff'
 };
 
+const STORE_IDS = ['4', '5', '6', '7'];
+
 export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, onMissing, posteColor }) {
   
   const [clickedTasks, setClickedTasks] = useState(new Set());
   const color = posteColor || getPosteColor(posteId);
+  const isMagasin = STORE_IDS.includes(String(posteId));
 
   useEffect(() => {
     if (open) {
@@ -79,16 +82,22 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
       // On prend le nom du premier item (supposé identique ou représentatif)
       const itemName = hasTask ? cellTasks[0].item : '';
 
+      let stockDisplay = null;
       let content = '';
-      if (hasTask) {
+
+      if (hasTask && cellTasks[0]) {
         content = cellTasks[0].item;
+        
+        if (isMagasin) {
+            stockDisplay = cellTasks[0].stock !== undefined ? cellTasks[0].stock : '?';
+        }
       }
 
       gridCells.push(
         <Box
           key={`${r}-${c}`}
           className="grid-cell"
-          onClick={() => handleCellClick(cellTasks)}
+          onClick={() => hasTask && handleCellClick(cellTasks)}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -104,6 +113,16 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             opacity: isFullyChecked ? 0.5 : 1.0, 
           }}
         >
+          {hasTask && cellTasks[0] && (
+            <>
+              <span>{content}</span>
+              {isMagasin && (
+                <span style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                    (Stock: {stockDisplay})
+                </span>
+              )}
+            </>
+          )}
           {/* Badge xN si plusieurs tâches sur la même case */}
           {hasTask && cellTasks.length > 1 && (
             <Box sx={{
@@ -116,8 +135,6 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
               x{cellTasks.length}
             </Box>
           )}
-
-          {itemName}
           
           {isFullyChecked && (
             <CheckCircleIcon sx={{
@@ -176,19 +193,21 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           <Button variant="contained" onClick={onClose} sx={{ padding: '25px', fontSize: '1.5rem', backgroundColor: '#d9d9d9', color: 'black' }}>
             Retour
           </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleMissing} 
-            disabled={!anyTaskClicked}
-            sx={{ 
-                padding: '20px', 
-                fontSize: '1.2rem', 
-                backgroundColor: '#ff6b6b', 
-                color: 'white',
-                '&:hover': { backgroundColor: '#d32f2f' }
-            }}>
-            Produit Manquant
-          </Button>
+          {isMagasin && (
+            <Button 
+              variant="contained" 
+              onClick={handleMissing} 
+              disabled={!anyTaskClicked}
+              sx={{ 
+                  padding: '20px', 
+                  fontSize: '1.2rem', 
+                  backgroundColor: '#ff6b6b', 
+                  color: 'white',
+                  '&:hover': { backgroundColor: '#d32f2f' }
+              }}>
+              Produit Manquant
+            </Button>
+          )}
           <Button variant="contained" onClick={handleValidate} disabled={!allTasksClicked} 
             sx={{ padding: '25px', fontSize: '1.5rem', backgroundColor: '#d9d9d9', color: 'black', opacity: !allTasksClicked ? 0.5 : 1.0 }}>
             Valider

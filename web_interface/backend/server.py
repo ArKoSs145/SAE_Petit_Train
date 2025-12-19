@@ -131,6 +131,7 @@ async def recevoir_scan(request: Request):
             "magasin_id": str(magasin.idStand) if 'magasin' in locals() and magasin else None,
             "ligne": ligne,
             "colonne": colonne,
+            "stock": boite.nbBoite if boite else 0,
             "timestamp": datetime.now().isoformat()
         }
 
@@ -380,6 +381,7 @@ def get_commandes_en_cours():
         
         taches = []
         for c in commandes:
+            stock = c.boite.nbBoite if c.boite else 0
             nom_objet = "Inconnu"
             if c.boite:
                 if c.boite.piece:
@@ -401,6 +403,7 @@ def get_commandes_en_cours():
                 "statut": c.statutCommande,
                 "ligne": ligne,
                 "colonne": colonne,
+                "stock": stock,
                 "timestamp": c.dateCommande.isoformat() if c.dateCommande else None
             })
             
