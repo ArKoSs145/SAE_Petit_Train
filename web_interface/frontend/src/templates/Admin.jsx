@@ -6,7 +6,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-export default function Admin() {
+export default function Admin({onParametre}) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
   
@@ -58,15 +58,24 @@ export default function Admin() {
     } catch(err) { console.error(err); }
   }
 
-  useEffect(() => {
-    if (currentView === 'dashboard') {
-        fetchDashboard();
-        const interval = setInterval(fetchDashboard, 5000);
-        return () => clearInterval(interval);
-    } else {
+    useEffect(() => {
         fetchCycles();
-    }
-  }, [currentView]);
+        fetchDashboard();
+        if (currentView === 'logs' && selectedCycleId !== 'Total') {
+            fetchCycleLogs(selectedCycleId);
+        }
+    }, [currentView]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchDashboard();
+            fetchCycles();
+            if (currentView === 'logs' && selectedCycleId !== 'Total') {
+                fetchCycleLogs(selectedCycleId);
+            }
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [currentView, selectedCycleId]);
 
   // --- Handlers ---
   const handleSelectCycle = (cycle) => {
@@ -105,7 +114,8 @@ export default function Admin() {
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" sx={headerBtnStyle(false)}>Échange</Button>
+          <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
+
           <Button 
             variant="contained" 
             sx={headerBtnStyle(currentView === 'logs')}
@@ -128,16 +138,23 @@ export default function Admin() {
         {currentView === 'dashboard' && (
             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: 'white' }}>
                 {/* Sidebar Dashboard */}
-                <Box sx={{ width: '250px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', overflowY: 'auto' }}>
+                <Box sx={{ width: '300px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', overflowY: 'auto' }}>
                     <List component="nav" sx={{ p: 0 }}>
-                        {timeSlots.map((time) => (
                         <ListItemButton
-                            key={time}
-                            onClick={() => setSelectedTimeDashboard(time)}
-                            sx={{ borderBottom: '1px solid #999', py: 2, bgcolor: selectedTimeDashboard === time ? 'white' : 'transparent' }}
+                            onClick={() => handleSelectCycle({id: 'Total', label: 'Total'})}
+                            sx={{ borderBottom: '1px solid #999', py: 2, bgcolor: selectedCycleId === 'Total' ? 'white' : 'transparent' }}
                         >
-                            <ListItemText primary={time} primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center' }} />
-                            {time === 'Total' ? <ArrowDropDownIcon /> : <NavigateNextIcon />}
+                            <ListItemText primary="Total" primaryTypographyProps={{ fontSize: '1.2rem', textAlign: 'center' }} />
+                        </ListItemButton>
+
+                        {cyclesList.map((cycle) => (
+                        <ListItemButton
+                            key={cycle.id}
+                            onClick={() => handleSelectCycle(cycle)}
+                            sx={{ borderBottom: '1px solid #999', py: 2, bgcolor: selectedCycleId === cycle.id ? 'white' : 'transparent' }}
+                        >
+                            <ListItemText primary={cycle.label} primaryTypographyProps={{ fontSize: '1.0rem', textAlign: 'center' }} />
+                            <NavigateNextIcon />
                         </ListItemButton>
                         ))}
                     </List>
@@ -147,19 +164,19 @@ export default function Admin() {
                 <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto' }}>
                     <Grid container spacing={2}>
                         {dashboardData.stands.map((stand) => {
-                            const filteredHistory = dashboardData.historique.filter(item => selectedTimeDashboard === 'Total' || item.heure === selectedTimeDashboard);
+                            const filteredHistory = dashboardData.historique.filter(item => selectedCycleId === 'Total' || item.cycle_id === selectedCycleId);
                             
-                            let rawArrivages = filteredHistory.filter(h => h.dest_id === stand.id);
+                            let rawArrivages = filteredHistory.filter(h => h.dest_id === stand.id && h.statut === 'Commande finie');
                             let rawDeparts = filteredHistory.filter(h => h.source_id === stand.id);
 
                             const aggregateItems = (items) => {
                                 const map = new Map();
                                 items.forEach(item => {
                                     const key = `${item.objet}|${item.source_nom}|${item.dest_nom}`;
-                                    if (!map.has(key)) {
-                                        map.set(key, { ...item, count: item.count || 1 });
-                                    } else {
-                                        map.get(key).count += (item.count || 1);
+                                    if (!map.has(key)) { 
+                                        map.set(key, { ...item, count: item.count || 1 }); 
+                                    } else { 
+                                        map.get(key).count += (item.count || 1); 
                                     }
                                 });
                                 return Array.from(map.values());
@@ -198,12 +215,12 @@ export default function Admin() {
 
         {/* VUE LOGS */}
         {currentView === 'logs' && (
-             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
+            <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
                 
-                {/* Sidebar Logs (20 derniers cycles) */}
+                {/* Sidebar Logs (Sans Total) */}
                 <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold' }}>
-                        20 derniers (cycles)
+                        Cycles passés
                     </Box>
                     <List component="nav" sx={{ p: 0 }}>
                         {cyclesList.map((cycle) => (
@@ -216,7 +233,7 @@ export default function Admin() {
                                     '&:hover': { bgcolor: '#bfbfbf' }
                                 }}
                             >
-                                <ListItemText primary={cycle.label} primaryTypographyProps={{ fontSize: '1.1rem', textAlign: 'center' }} />
+                                <ListItemText primary={cycle.label} primaryTypographyProps={{ fontSize: '1.0rem', textAlign: 'center' }} />
                             </ListItemButton>
                         ))}
                     </List>
@@ -224,33 +241,36 @@ export default function Admin() {
 
                 {/* Contenu Log */}
                 <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
-                    {/* Header Log */}
                     <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box sx={{ textAlign: 'center', width: '100%' }}>
-                            <Typography variant="h4">Logs du {selectedCycleLabel.split(' à ')[0]}</Typography>
-                            <Typography variant="h4">à {selectedCycleLabel.split(' à ')[1]}</Typography>
+                            {/* Gestion de l'affichage du titre pour ne jamais afficher "Total" */}
+                            <Typography variant="h4">
+                                {selectedCycleId === 'Total' ? 'Veuillez sélectionner un cycle' : `Logs du ${selectedCycleLabel}`}
+                            </Typography>
                         </Box>
                         <IconButton sx={{ bgcolor: '#d9d9d9', borderRadius: 1 }} onClick={() => setCurrentView('dashboard')}>
                             <ArrowBackIcon />
                         </IconButton>
                     </Box>
+                    
                     <Box sx={{ 
                         flexGrow: 1, m: 4, mt: 0, p: 4, 
                         bgcolor: '#d9d9d9', borderRadius: 4, 
                         overflowY: 'auto', fontFamily: 'monospace', fontSize: '1.1rem' 
                     }}>
-                        {cycleLogs.length > 0 ? (
+                        {selectedCycleId !== 'Total' && cycleLogs.length > 0 ? (
                             cycleLogs.map((line, index) => (
                                 <div key={index} style={{ marginBottom: '8px' }}>{line}</div>
                             ))
                         ) : (
-                            <div>Sélectionnez un cycle pour voir les détails...</div>
+                            <div style={{ fontStyle: 'italic', opacity: 0.6 }}>
+                                {selectedCycleId === 'Total' ? "Cliquez sur un cycle à gauche pour voir les détails." : "Aucune donnée."}
+                            </div>
                         )}
                     </Box>
                 </Paper>
-             </Box>
+            </Box>
         )}
-
       </Box>
     </Box>
   );

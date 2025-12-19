@@ -128,6 +128,21 @@ export default function Base({onApp}) {
   // --- Connexion WebSocket ---
   useEffect(() => {
 
+    // 1. Charger les noms des postes depuis la DB
+    const fetchStands = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/api/stands');
+            if (res.ok) {
+                const names = await res.json();
+                setPosteNames(names);
+                posteNamesRef.current = names; // Mise à jour de la ref pour le WebSocket
+            }
+        } catch (err) {
+            console.error("Erreur chargement des stands:", err);
+        }
+    };
+    fetchStands();
+
     const fetchInitialTasks = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/commandes/en_cours');
