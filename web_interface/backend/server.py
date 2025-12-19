@@ -12,6 +12,7 @@ import os
 import requetes
 from pydantic import BaseModel 
 from sqlalchemy import func
+from update_grid import traiter_fichier_config
 
 logging.basicConfig(level=logging.INFO)
 
@@ -76,6 +77,19 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
+
+class ConfigPayload(BaseModel):
+    posteId: int
+    csv_content: str
+
+@app.post("/api/admin/upload-config")
+async def upload_config(payload: ConfigPayload):
+    db = SessionLocal()
+    try:
+        # On appelle la fonction d'affichage
+        return traiter_fichier_config(payload.csv_content, payload.posteId, db)
+    finally:
+        db.close()
 
 # --- Endpoint HTTP /scan (pour sender.py) ---
 @app.post("/scan")
