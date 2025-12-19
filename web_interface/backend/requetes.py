@@ -105,6 +105,18 @@ def get_all_boites():
     finally:
         db.close()
 
+def incrementer_stock_global():
+    db = SessionLocal()
+    try:
+        db.query(Boite).update({Boite.nbBoite: Boite.nbBoite + 1})
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"Erreur incrémentation stock: {e}")
+        return False
+    finally:
+        db.close()
+
 # ---------- CASES ----------
 def assigner_case(id_boite, id_stand, ligne, colonne):
     db = SessionLocal()
@@ -157,6 +169,20 @@ def supprimer_commande(id_commande):
         return True
     finally:
         db.close()
+
+def declarer_commande_manquante(id_commande):
+    db = SessionLocal()
+    try:
+        commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
+        if not commande:
+            return False
+            
+        commande.statutCommande = "Produit manquant"
+        commande.date_livraison = datetime.now() 
+        db.commit()
+        return True
+    finally:
+        db.close()
         
 def changer_statut_commande(id_commande):
     db = SessionLocal()
@@ -168,6 +194,12 @@ def changer_statut_commande(id_commande):
         if commande.statutCommande == "A récupérer":
             commande.statutCommande = "A déposer"
             commande.date_recuperation = datetime.now() 
+
+            if commande.idBoite:
+                db.query(Boite).filter(Boite.idBoite == commande.idBoite).update(
+                    {Boite.nbBoite: Boite.nbBoite - 1}, 
+                    synchronize_session=False
+                )
             
         elif commande.statutCommande == "A déposer":
             commande.statutCommande = "Commande finie"
