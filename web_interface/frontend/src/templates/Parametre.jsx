@@ -1,35 +1,51 @@
-import React, { useState, useRef } from 'react'; // Ajout de useRef
+import React, { useState, useRef, useEffect } from 'react'; // Ajout de useEffect
 import { 
   Box, 
   Paper, 
   Typography, 
   Button, 
   Divider, 
-  Grid 
+  Grid,
+  CircularProgress
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import UploadFileIcon from '@mui/icons-material/UploadFile'; // Nouveau icône plus adapté
-
-const POSTE_NAMES = {
-  '1': 'Arrêt Poste 1',
-  '2': 'Arrêt Poste 2',
-  '3': 'Arrêt Poste 3',
-  '4': 'Presse à Injecter',
-  '5': 'Presse à Emboutir',
-  '6': 'Tour CN',
-  '7': 'Magasin Externe',
-};
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 export default function Parametre({ onRetourAdmin }) {
   // Référence pour l'input de fichier caché
   const fileInputRef = useRef(null);
   
+  // --- NOUVEAU : État pour stocker les noms des postes venant de la BD ---
+  const [posteNames, setPosteNames] = useState({});
+  const [loading, setLoading] = useState(true);
+
   // État pour savoir quelle machine on est en train de configurer
   const [selectedPoste, setSelectedPoste] = useState(null);
 
-  const handleButtonClick = (id) => {
-    setSelectedPoste({ id, name: POSTE_NAMES[id] });
+  // --- NOUVEAU : Chargement des données au montage ---
+  useEffect(() => {
+    const fetchStands = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/stands');
+        if (res.ok) {
+          const data = await res.json();
+          setPosteNames(data);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des postes :", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStands();
+  }, []);
+
+  const handleButtonClick = (id, name) => {
+    // On utilise le nom passé en paramètre (qui vient de l'état)
+    setSelectedPoste({ id, name: name });
+    
     // On déclenche le clic sur l'input caché
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -99,33 +115,41 @@ export default function Parametre({ onRetourAdmin }) {
         </Typography>
 
         {/* Grille de boutons */}
-        <Grid container spacing={3}>
-          {Object.entries(POSTE_NAMES).map(([id, name]) => (
-            <Grid item xs={12} sm={6} md={4} key={id}>
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                startIcon={<UploadFileIcon />}
-                onClick={() => handleButtonClick(id)}
-                sx={{
-                  py: 3,
-                  fontSize: '1.1rem',
-                  backgroundColor: '#f5f5f5',
-                  color: 'black',
-                  border: '2px solid #1976d2',
-                  boxShadow: 2,
-                  '&:hover': {
-                    backgroundColor: '#e3f2fd',
-                    boxShadow: 4,
-                  }
-                }}
-              >
-                {name}
-              </Button>
+        {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                <CircularProgress />
+            </Box>
+        ) : (
+            <Grid container spacing={3}>
+            {/* On boucle sur l'état posteNames au lieu de la constante */}
+            {Object.entries(posteNames).map(([id, name]) => (
+                <Grid item xs={12} sm={6} md={4} key={id}>
+                <Button
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    startIcon={<UploadFileIcon />}
+                    // On passe 'name' directement ici car il vient de la boucle
+                    onClick={() => handleButtonClick(id, name)}
+                    sx={{
+                    py: 3,
+                    fontSize: '1.1rem',
+                    backgroundColor: '#f5f5f5',
+                    color: 'black',
+                    border: '2px solid #1976d2',
+                    boxShadow: 2,
+                    '&:hover': {
+                        backgroundColor: '#e3f2fd',
+                        boxShadow: 4,
+                    }
+                    }}
+                >
+                    {name}
+                </Button>
+                </Grid>
+            ))}
             </Grid>
-          ))}
-        </Grid>
+        )}
 
         <Box sx={{ mt: 'auto', pt: 2, color: 'gray', textAlign: 'center' }}>
             <Typography variant="body2">
