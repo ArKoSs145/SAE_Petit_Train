@@ -184,6 +184,19 @@ export default function Base({onApp}) {
     };
     fetchCycleStatus();
 
+    const fetchTrainPos = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/api/train/position');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.position) {
+                    setCurrentTrainPoste(data.position);
+                }
+            }
+        } catch (err) { console.error("Erreur récupération train:", err); }
+    }
+    fetchTrainPos();
+
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -261,8 +274,25 @@ export default function Base({onApp}) {
     }
   }
 
-  const handleDeleteTask = (taskId) => {
-    setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cette commande définitivement ?")) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`http://localhost:8000/api/commande/${taskId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            setTasks(prev => prev.filter(t => t.id !== taskId));
+            console.log(`Tâche ${taskId} supprimée.`);
+        } else {
+            alert("Erreur lors de la suppression sur le serveur.");
+        }
+    } catch (err) {
+        console.error("Erreur suppression:", err);
+    }
   }
 
   // Style des cartes (Postes / Machines)
@@ -327,14 +357,22 @@ export default function Base({onApp}) {
   };
 
   // Popup logic
-  const handlePosteClick = (posteId) => {
-    if (posteId !== nextDestination) {
-      console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
-      return;
+  const handlePosteClick = async (posteId) => {
+    if (posteId !== nextDestination) { console.warn(`Action bloquée.`); return; }
+    
+    setCurrentTrainPoste(posteId);
+    setSelectedPosteId(posteId);
+    setIsPopupOpen(true);
+
+    try {
+        await fetch('http://localhost:8000/api/train/position', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ position: posteId })
+        });
+    } catch (err) {
+        console.error("Impossible de sauvegarder la position du train:", err);
     }
-    setCurrentTrainPoste(posteId); 
-    setSelectedPosteId(posteId)
-    setIsPopupOpen(true)
   }
   
   const closePopup = () => setIsPopupOpen(false)
@@ -434,26 +472,6 @@ export default function Base({onApp}) {
               >
                 {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
               </Button>
-              
-              {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
-              <Button 
-                variant="outlined" color="info" size="small" 
-                onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
-              >
-                Sim (M5 - P1)
-              </Button>
-
-              <Button size="small" variant="outlined" 
-                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>
-                Sim (M4 - P2)
-              </Button>
-
-              <Button 
-                 variant="outlined" color="info" size="small" 
-                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}
-              >
-                Sim (F - P3)
-              </Button>
             </Box>
             
             {/* GRILLE DU PLAN */}
@@ -508,7 +526,7 @@ export default function Base({onApp}) {
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
                 }}
               >
-                <img class ="image" src= "../../../images/cart2.png"/>
+                <img className ="image" src= "../../../images/cart2.png"/>
               </Typography>
 
             </Box>

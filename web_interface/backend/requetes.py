@@ -11,6 +11,22 @@ def get_position_train():
     finally:
         db.close()
 
+def update_position_train(nouvelle_position: str):
+    db = SessionLocal()
+    try:
+        train = db.query(Train).first()
+        if not train:
+            train = Train(position=nouvelle_position)
+            db.add(train)
+        else:
+            train.position = nouvelle_position
+            
+        db.commit()
+        db.refresh(train)
+        return train.position
+    finally:
+        db.close()
+
 # ---------- STAND ----------
 def create_stand(nom):
     db = SessionLocal()
@@ -145,9 +161,10 @@ def supprimer_commande(id_commande):
         commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
 
         if not commande:
-            return False  # Commande inexistante
+            return False
 
-        db.delete(commande)
+        commande.statutCommande = "Annulée"
+        commande.date_livraison = datetime.now()
         db.commit()
         return True
     finally:
@@ -301,71 +318,87 @@ def get_boites_recuperees_magasins(debut, fin):
     finally:
         db.close()
 
-# --- backend/requetes.py ---
+## --- backend/requetes.py ---
 def get_commandes_cycle_logs(debut_cycle: datetime):
     db = SessionLocal()
     try:
-        if debut_cycle.tzinfo is not None:
-             debut_cycle = debut_cycle.replace(tzinfo=None)
+        target_id_str = debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
 
-        cycle = db.query(Cycle).filter(
-            func.abs(func.strftime('%s', Cycle.date_debut) - debut_cycle.timestamp()) < 2
-        ).first()
+        cycles = db.query(Cycle).all()
+        found_cycle = None
         
-        if not cycle:
-             cycle = db.query(Cycle).filter(
-                func.strftime('%Y-%m-%d %H:%M:%S', Cycle.date_debut) ==
-                debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
-            ).first()
-
-        if not cycle:
-            return [f"Cycle introuvable pour la date {debut_cycle}"]
-
-        fin_cycle = cycle.date_fin or datetime.now()
-
-        commandes = db.query(Commande).filter(
-            Commande.dateCommande >= cycle.date_debut,
-            Commande.dateCommande <= fin_cycle
-        ).all()
-
-        events = []
+        for c in cycles:
+            if c.date_debut:
+                c_str = c.date_debut.strftime('%Y-%m-%d %H:%M:%S')
+                if c_str == target_id_str:
+                    found_cycle = c
+                    break
         
-        for c in commandes:
-            nom_piece = "Inconnu"
-            if c.boite:
-                if c.boite.piece: nom_piece = c.boite.piece.nomPiece
-                elif c.boite.code_barre: nom_piece = c.boite.code_barre
+        if not found_cycle:
+            return [f"Cycle introuvable : {target_id_str}"]
+
+        debut_safe = found_cycle.date_debut.replace(tzinfo=None)
+        
+        if found_cycle.date_fin:
+            fin_safe = found_cycle.date_fin.replace(tzinfo=None)
+        else:
+            fin_safe = datetime.now().replace(tzinfo=None)
+
+        all_commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
+        
+        logs_events = []
+        
+        for c in all_commandes:
+            if not c.dateCommande: continue
             
-            poste_nom = c.poste.nomStand if c.poste else "?"
-            mag_nom = c.magasin.nomStand if c.magasin else "?"
+            c_date = c.dateCommande.replace(tzinfo=None)
             
+            if debut_safe <= c_date <= fin_safe:
+                
+                # --- Formatage du log ---
+                nom_piece = "Inconnu"
+                if c.boite:
+                    if c.boite.piece: nom_piece = c.boite.piece.nomPiece
+                    elif c.boite.code_barre: nom_piece = c.boite.code_barre
+                
+                poste_nom = c.poste.nomStand if c.poste else "?"
+                mag_nom = c.magasin.nomStand if c.magasin else "?"
 
-            if c.dateCommande:
-                events.append({
-                    "time": c.dateCommande,
-                    "msg": f"[{c.dateCommande.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom})"
+                logs_events.append({
+                    "time": c_date,
+                    "msg": f"[{c_date.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom})"
                 })
 
-            if c.date_recuperation:
-                 events.append({
-                    "time": c.date_recuperation,
-                    "msg": f"[{c.date_recuperation.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom})"
-                })
+                if c.date_recuperation:
+                    r_date = c.date_recuperation.replace(tzinfo=None)
+                    logs_events.append({
+                        "time": r_date,
+                        "msg": f"[{r_date.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom})"
+                    })
 
-            if c.date_livraison:
-                 events.append({
-                    "time": c.date_livraison,
-                    "msg": f"[{c.date_livraison.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
-                })
+                if c.date_livraison:
+                    l_date = c.date_livraison.replace(tzinfo=None)
+                    
+                    if c.statutCommande == "Annulée":
+                        logs_events.append({
+                            "time": l_date,
+                            "msg": f"[{l_date.strftime('%H:%M:%S')}] Annulé  : {nom_piece}"
+                        })
+                    else:
+                        logs_events.append({
+                            "time": l_date,
+                            "msg": f"[{l_date.strftime('%H:%M:%S')}] Livré   : {nom_piece} (au {poste_nom})"
+                        })
 
-        events.sort(key=lambda x: x["time"], reverse=True)
+        logs_events.sort(key=lambda x: x["time"], reverse=True)
         
-        logs = [e["msg"] for e in events]
+        final_logs = [e["msg"] for e in logs_events]
 
-        if not logs:
-            logs.append("Aucune activité dans ce cycle.")
+        if not final_logs:
+            final_logs.append("Aucune activité dans ce cycle (dates vérifiées).")
 
-        return logs
+        return final_logs
+
     finally:
         db.close()
         
