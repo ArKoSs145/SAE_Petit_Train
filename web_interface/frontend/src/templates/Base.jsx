@@ -23,16 +23,6 @@ import PopupLivraison from '../templates/popup/PopupLivraison'
 // Ordre logique du cycle (boucle horaire) : 7 -> 4 -> 5 -> 6 -> 3 -> 2 -> 1
 const CYCLE_PATH = ['4' ,'7', '6', '5', '1', '2', '3'];
 
-const POSTE_NAMES = {
-  '1': 'Arrêt Poste 1',
-  '2': 'Arrêt Poste 2',
-  '3': 'Arrêt Poste 3',
-  '4': 'Presse à Injecter',
-  '5': 'Presse à Emboutir',
-  '6': 'Tour CN',
-  '7': 'Magasin Externe',
-};
-
 // Position du train : Sur la flèche JUSTE AVANT le poste de destination
 const TRAIN_POSITIONS = {
   'null': { gridRow: 5, gridColumn: 5 }, 
@@ -47,27 +37,7 @@ const TRAIN_POSITIONS = {
   '1':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
 };
 
-// --- LOGIQUE MÉTIER ---
-
-const groupTasks = (tasks) => {
-  const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
-  const groups = CYCLE_PATH.reduce((acc, id) => {
-      if (POSTE_NAMES[id]) {
-        acc[POSTE_NAMES[id]] = [];
-      }
-      return acc;
-    }, {});
-
-  activeTasks.forEach(task => {
-    if (task.status === 'A récupérer' && POSTE_NAMES[task.magasinId]) {
-      groups[POSTE_NAMES[task.magasinId]].push(task);
-    }
-    else if (task.status === 'A déposer' && POSTE_NAMES[task.posteId]) {
-      groups[POSTE_NAMES[task.posteId]].push(task);
-    }
-  });
-  return groups;
-}
+// --- LOGIQUE MÉTIER (Fonctions utilitaires) ---
 
 const findNextDestination = (tasks, currentTrainLocation) => {
   const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
@@ -102,33 +72,49 @@ const findNextDestination = (tasks, currentTrainLocation) => {
 // --- COMPOSANT PRINCIPAL ---
 
 export default function Base({onApp}) {
+  // --- ÉTATS ---
   const [tasks, setTasks] = useState([])
+  const [posteNames, setPosteNames] = useState({}) // Remplace la constante POSTE_NAMES
+  const posteNamesRef = useRef({}) // Référence pour accès instantané dans le WebSocket
+
   const [connected, setConnected] = useState(false)
   const wsRef = useRef(null)
   
   const [isPopupOpen, setIsPopupOpen] = useState(false)
   const [selectedPosteId, setSelectedPosteId] = useState(null)
   const [currentTrainPoste, setCurrentTrainPoste] = useState(null);
-
-  const handleStopCycle = async () => {
-    try {
-        await fetch('http://localhost:8000/api/cycle/stop', { 
-            method: 'POST' 
-        });
-        console.log("Cycle arrêté");
-    } catch (err) {
-        console.error("Erreur arrêt cycle:", err);
-    }
-    onApp();
-  }
-
-
   const [cycleActive, setCycleActive] = useState(false);
 
-  // --- Connexion WebSocket ---
+  // --- LOGIQUE MÉTIER DÉPENDANTE DE L'ÉTAT ---
+  
+  // Cette fonction est déplacée ici pour accéder à l'état `posteNames`
+  const groupTasks = (currentTasks) => {
+    const activeTasks = currentTasks.filter(t => t.status !== 'Commande finie');
+    const groups = CYCLE_PATH.reduce((acc, id) => {
+        if (posteNames[id]) {
+          acc[posteNames[id]] = [];
+        }
+        return acc;
+      }, {});
+  
+    activeTasks.forEach(task => {
+      const magName = posteNames[task.magasinId];
+      const posteName = posteNames[task.posteId];
+
+      if (task.status === 'A récupérer' && magName && groups[magName]) {
+        groups[magName].push(task);
+      }
+      else if (task.status === 'A déposer' && posteName && groups[posteName]) {
+        groups[posteName].push(task);
+      }
+    });
+    return groups;
+  }
+
+  // --- CHARGEMENT DES DONNÉES & WEBSOCKET ---
   useEffect(() => {
 
-    // 1. Charger les noms des postes depuis la DB
+    // 1. Charger les noms des postes depuis l'API
     const fetchStands = async () => {
         try {
             const res = await fetch('http://localhost:8000/api/stands');
@@ -143,28 +129,23 @@ export default function Base({onApp}) {
     };
     fetchStands();
 
+    // 2. Charger les tâches initiales
     const fetchInitialTasks = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/commandes/en_cours');
         if (res.ok) {
           const data = await res.json();
-          
-          // On transforme les données DB en format Tâche pour le front
           const initialTasks = data.map(cmd => ({
             id: cmd.id,
             posteId: String(cmd.poste),
             magasinId: String(cmd.magasin_id),
             item: cmd.code_barre,
-            
-            // Mapping des statuts DB vers Front
             status: cmd.statut === 'A récupérer' ? 'A récupérer' : 
                     cmd.statut === 'A déposer' ? 'A déposer' : 'pending',
-            
             gridRow: cmd.ligne,
             gridCol: cmd.colonne,
             ts: new Date(cmd.timestamp).toLocaleString()
           }));
-          
           setTasks(initialTasks);
         }
       } catch (err) {
@@ -173,22 +154,15 @@ export default function Base({onApp}) {
     };
     fetchInitialTasks();
 
+    // 3. Charger le statut du cycle
     const fetchCycleStatus = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/cycles');
         if (res.ok) {
           const cycles = await res.json();
-          
           if (cycles.length > 0) {
             const lastCycle = cycles[0];
-            
-            if (lastCycle.date_fin === null) {
-                console.log("Cycle actif trouvé ID:", lastCycle.idCycle);
-                setCycleActive(true);
-            } else {
-                console.log("Dernier cycle terminé.");
-                setCycleActive(false);
-            }
+            setCycleActive(lastCycle.date_fin === null);
           } else {
             setCycleActive(false);
           }
@@ -199,6 +173,7 @@ export default function Base({onApp}) {
     };
     fetchCycleStatus();
 
+    // 4. WebSocket
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -210,22 +185,21 @@ export default function Base({onApp}) {
       try {
         const data = JSON.parse(ev.data)
         const device = String(data.poste)
+        
         setTasks((prev) => {
             if (prev.some(t => t.id === data.id_commande)) {
                 return prev;
             }
 
-            if (POSTE_NAMES[device]) {
+            // Utilisation de la Ref pour vérifier l'existence du poste
+            if (posteNamesRef.current[device]) {
               const newTask = {
                 id: data.id_commande, 
-                
                 posteId: device,
                 magasinId: data.magasin_id ? String(data.magasin_id) : '7',
                 item: data.nom_piece || data.code_barre,
-                
                 gridRow: parseInt(data.ligne) || 1, 
                 gridCol: parseInt(data.colonne) || 1,
-
                 origin: 'Scan',
                 status: 'A récupérer',
                 ts: new Date().toLocaleString()
@@ -243,6 +217,8 @@ export default function Base({onApp}) {
     return () => ws.close()
   }, [])
 
+  // --- CALCULS & MÉMOS ---
+
   const nextDestination = useMemo(
     () => findNextDestination(tasks, currentTrainPoste), 
     [tasks, currentTrainPoste]
@@ -253,7 +229,22 @@ export default function Base({onApp}) {
     [currentTrainPoste]
   );
   
-  const taskGroups = useMemo(() => groupTasks(tasks), [tasks]);
+  // Recalculer les groupes quand les tâches OU les noms de postes changent
+  const taskGroups = useMemo(() => groupTasks(tasks), [tasks, posteNames]);
+
+  // --- ACTIONS ---
+
+  const handleStopCycle = async () => {
+    try {
+        await fetch('http://localhost:8000/api/cycle/stop', { 
+            method: 'POST' 
+        });
+        console.log("Cycle arrêté");
+    } catch (err) {
+        console.error("Erreur arrêt cycle:", err);
+    }
+    onApp();
+  }
 
   const handleQuitInterface = () => {
     onApp();
@@ -280,68 +271,6 @@ export default function Base({onApp}) {
     setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
   }
 
-  // Style des cartes (Postes / Machines)
-  const getBoxSx = (posteId) => {
-    const isActive = nextDestination === posteId; 
-    
-    return {
-      width: '100%',
-      height: '100%', // Remplissage complet
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      
-      p: 1,
-      textAlign: 'center',
-      cursor: 'pointer',
-      border: '5px solid',
-      borderColor: isActive ? 'primary.main' : 'transparent',
-      transform: isActive ? 'scale(1.02)' : 'scale(1)',
-      boxShadow: isActive ? 6 : 2,
-      transition: 'all 0.2s ease-in-out',
-      borderRadius: 4,
-      
-      overflow: 'hidden',
-      wordBreak: 'break-word',
-      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)',
-      fontWeight: 'bold',
-      backgroundColor: 'white',
-
-      '&:hover': { boxShadow: 6 }
-    };
-  }
-
-  // --- Composant Flèche (Interne) ---
-  const arrowSx = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
-    fontSize: '2.5rem',
-    color: '#000000ff',
-    userSelect: 'none',
-    fontWeight: 'bold'
-  };
-
-  const GridArrow = ({ row, col, symbol }) => {
-    // La flèche disparaît si le train est sur ses coordonnées
-    const isTrainHere = trainGridPosition.gridRow === row && trainGridPosition.gridColumn === col;
-    return (
-      <Typography sx={{
-          ...arrowSx,
-          gridRow: row,
-          gridColumn: col,
-          opacity: isTrainHere ? 0 : 1, 
-          transition: 'opacity 0.2s ease',
-        }}>
-        {symbol}
-      </Typography>
-    );
-  };
-
-  // Popup logic
   const handlePosteClick = (posteId) => {
     if (posteId !== nextDestination) {
       console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
@@ -354,19 +283,15 @@ export default function Base({onApp}) {
   
   const closePopup = () => setIsPopupOpen(false)
   
-  // --- GESTION DU STATUT DES COMMANDES ---
   const handleTaskAction = async (taskId) => {
     const currentTask = tasks.find(t => t.id === taskId);
     if (!currentTask) return;
 
-    let nextStatusDB = "";
     let nextStatusFront = "";
 
     if (currentTask.status === 'A récupérer') {
-      nextStatusDB = "A déposer";
       nextStatusFront = "A déposer";
     } else if (currentTask.status === 'A déposer') {
-      nextStatusDB = "Commande finie";
       nextStatusFront = "Commande finie";
     } else {
       return;
@@ -410,7 +335,64 @@ export default function Base({onApp}) {
     return false;
   });
 
-  // --- Rendu JSX ---
+  // --- RENDU (Styles & JSX) ---
+
+  const getBoxSx = (posteId) => {
+    const isActive = nextDestination === posteId; 
+    
+    return {
+      width: '100%',
+      height: '100%', 
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      p: 1,
+      textAlign: 'center',
+      cursor: 'pointer',
+      border: '5px solid',
+      borderColor: isActive ? 'primary.main' : 'transparent',
+      transform: isActive ? 'scale(1.02)' : 'scale(1)',
+      boxShadow: isActive ? 6 : 2,
+      transition: 'all 0.2s ease-in-out',
+      borderRadius: 4,
+      overflow: 'hidden',
+      wordBreak: 'break-word',
+      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)',
+      fontWeight: 'bold',
+      backgroundColor: 'white',
+
+      '&:hover': { boxShadow: 6 }
+    };
+  }
+
+  const arrowSx = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+    fontSize: '2.5rem',
+    color: '#000000ff',
+    userSelect: 'none',
+    fontWeight: 'bold'
+  };
+
+  const GridArrow = ({ row, col, symbol }) => {
+    const isTrainHere = trainGridPosition.gridRow === row && trainGridPosition.gridColumn === col;
+    return (
+      <Typography sx={{
+          ...arrowSx,
+          gridRow: row,
+          gridColumn: col,
+          opacity: isTrainHere ? 0 : 1, 
+          transition: 'opacity 0.2s ease',
+        }}>
+        {symbol}
+      </Typography>
+    );
+  };
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -446,7 +428,6 @@ export default function Base({onApp}) {
                 {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
               </Button>
               
-              {/* Boutons mis à jour avec : Poste, Magasin, Nom de l'objet */}
               <Button 
                 variant="outlined" color="info" size="small" 
                 onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
@@ -482,29 +463,42 @@ export default function Base({onApp}) {
               }}
             >
               {/* --- LIGNE 1 : HAUT --- */}
-              <Paper id="magasin_externe" sx={{ ...getBoxSx('7'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('7')}>{POSTE_NAMES['7']}</Paper>
+              <Paper id="magasin_externe" sx={{ ...getBoxSx('7'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('7')}>
+                {posteNames['7'] || 'Chargement...'}
+              </Paper>
               <GridArrow row={1} col={2} symbol="←" />
-              <Paper id="tour_cn" sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>{POSTE_NAMES['6']}</Paper>
+              <Paper id="tour_cn" sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>
+                {posteNames['6'] || 'Chargement...'}
+              </Paper>
               <GridArrow row={1} col={4} symbol="←" />
-              <Paper id="presse_emboutir" sx={{ ...getBoxSx('5'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('5')}>{POSTE_NAMES['5']}</Paper>
+              <Paper id="presse_emboutir" sx={{ ...getBoxSx('5'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('5')}>
+                {posteNames['5'] || 'Chargement...'}
+              </Paper>
               
               {/* --- LIGNES VERTICALES --- */}
               {/* Droite (Descend) */}
               <GridArrow row={2} col={5} symbol="↑" />
-              <Paper id="presse_injection" sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>{POSTE_NAMES['4']}</Paper>
+              <Paper id="presse_injection" sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>
+                {posteNames['4'] || 'Chargement...'}
+              </Paper>
               <GridArrow row={4} col={5} symbol="↑" />
 
               {/* Gauche (Monte) */}
               <GridArrow row={2} col={1} symbol="↓" />
-              <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>{POSTE_NAMES['1']}</Paper>
+              <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>
+                {posteNames['1'] || 'Chargement...'}
+              </Paper>
               <GridArrow row={4} col={1} symbol="↓" />
 
               {/* --- LIGNE 5 : BAS --- */}
-              <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>{POSTE_NAMES['2']}</Paper>
+              <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>
+                {posteNames['2'] || 'Chargement...'}
+              </Paper>
               <GridArrow row={5} col={2} symbol="→" />
-              <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>{POSTE_NAMES['3']}</Paper>
+              <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>
+                {posteNames['3'] || 'Chargement...'}
+              </Paper>
               <GridArrow row={5} col={4} symbol="→" />
-              {/* Coin bas-droit (5/5) vide ou pour transition */}
 
               {/* --- LE TRAIN --- */}
               <Typography variant="h4" className="train" sx={{
@@ -519,22 +513,24 @@ export default function Base({onApp}) {
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
                 }}
               >
-                <img class ="image" src= "../../../images/cart2.png"/>
+                <img className="image" src= "../../../images/cart2.png" alt="train"/>
               </Typography>
 
             </Box>
           </Paper>
         </Box>
         
-        {/* --- SIDEBAR (Droite) --- */}
+        {/* --- SIDEBAR (Droite) : À Récupérer --- */}
         <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h4" gutterBottom>À récupérer</Typography>
             
             <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
               {CYCLE_PATH.map(posteId => {
-                const posteName = POSTE_NAMES[posteId];
-                const tasksForPoste = taskGroups[posteName];
+                const posteName = posteNames[posteId];
+                if (!posteName) return null;
+
+                const tasksForPoste = taskGroups[posteName] || [];
                 
                 const tasksToPickUp = tasks.filter(t => 
                     t.magasinId === posteId && 
@@ -557,10 +553,7 @@ export default function Base({onApp}) {
                         >
                           <ListItemText 
                             primary={task.item}
-                            secondary={task.status === 'A récupérer' ? 
-                              `Aller chercher au ${POSTE_NAMES[task.magasinId]}` : 
-                              `Apporter au ${POSTE_NAMES[task.posteId]}`
-                            }
+                            secondary={`Apporter au ${posteNames[task.posteId] || '?'}`}
                           />
                         </ListItem>
                       ))}
@@ -576,15 +569,17 @@ export default function Base({onApp}) {
           </Paper>
         </Box>
 
-        {/* --- SIDEBAR (Droite) --- */}
+        {/* --- SIDEBAR (Droite) : À Déposer --- */}
         <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h4" gutterBottom>À déposer</Typography>
             
             <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
               {CYCLE_PATH.map(posteId => {
-                const posteName = POSTE_NAMES[posteId];
-                const tasksForPoste = taskGroups[posteName];
+                const posteName = posteNames[posteId];
+                if (!posteName) return null;
+
+                const tasksForPoste = taskGroups[posteName] || [];
                 
                 const tasksToDrop = tasks.filter(t => 
                     t.posteId === posteId && 
@@ -607,10 +602,7 @@ export default function Base({onApp}) {
                         >
                           <ListItemText 
                             primary={task.item}
-                            secondary={task.status === 'A récupérer' ? 
-                              `Aller chercher au ${POSTE_NAMES[task.magasinId]}` : 
-                              `Apporter au ${POSTE_NAMES[task.posteId]}`
-                            }
+                            secondary={`Venant de ${posteNames[task.magasinId] || '?'}`}
                           />
                         </ListItem>
                       ))}
@@ -631,7 +623,7 @@ export default function Base({onApp}) {
         open={isPopupOpen}
         onClose={closePopup}
         posteId={selectedPosteId}
-        posteName={POSTE_NAMES[selectedPosteId] || ''} 
+        posteName={posteNames[selectedPosteId] || ''} 
         tasks={tasksForPopup} 
         onDeliver={handleTaskAction}
       />
