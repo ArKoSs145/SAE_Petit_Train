@@ -1,21 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react'; // Ajout de useRef
 import { 
   Box, 
   Paper, 
   Typography, 
   Button, 
   Divider, 
-  Grid, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions 
+  Grid 
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SettingsIcon from '@mui/icons-material/Settings';
+import UploadFileIcon from '@mui/icons-material/UploadFile'; // Nouveau icône plus adapté
 
-// On reprend la liste des postes définie dans Base.jsx
 const POSTE_NAMES = {
   '1': 'Arrêt Poste 1',
   '2': 'Arrêt Poste 2',
@@ -27,21 +22,44 @@ const POSTE_NAMES = {
 };
 
 export default function Parametre({ onRetourAdmin }) {
+  // Référence pour l'input de fichier caché
+  const fileInputRef = useRef(null);
+  
+  // État pour savoir quelle machine on est en train de configurer
   const [selectedPoste, setSelectedPoste] = useState(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
-  const handleOpenPopup = (id) => {
+  const handleButtonClick = (id) => {
     setSelectedPoste({ id, name: POSTE_NAMES[id] });
-    setIsPopupOpen(true);
+    // On déclenche le clic sur l'input caché
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
-  const handleClosePopup = () => {
-    setIsPopupOpen(false);
-    setSelectedPoste(null);
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file && selectedPoste) {
+      console.log(`Fichier sélectionné pour ${selectedPoste.name} (ID: ${selectedPoste.id}) :`, file.name);
+      
+      // Ici, vous pouvez traiter le fichier (lecture FileReader, upload, etc.)
+      
+      // Reset de l'input pour permettre de sélectionner le même fichier deux fois de suite si besoin
+      event.target.value = '';
+    }
   };
 
   return (
     <Box sx={{ display: 'flex', width: '100vw', height: '100vh', bgcolor: '#333', p: 2, boxSizing: 'border-box' }}>
+      
+      {/* INPUT CACHÉ */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+        // accept=".json,.csv,.txt" // Optionnel : limiter les types de fichiers
+      />
+
       <Paper sx={{ 
           flexGrow: 1, 
           bgcolor: 'white', 
@@ -77,10 +95,10 @@ export default function Parametre({ onRetourAdmin }) {
         <Divider />
 
         <Typography variant="h6" sx={{ color: '#1976d2', mb: 1 }}>
-            Sélectionnez un poste ou une machine à configurer :
+            Sélectionnez un poste pour importer sa configuration :
         </Typography>
 
-        {/* Grille de boutons pour chaque poste */}
+        {/* Grille de boutons */}
         <Grid container spacing={3}>
           {Object.entries(POSTE_NAMES).map(([id, name]) => (
             <Grid item xs={12} sm={6} md={4} key={id}>
@@ -88,8 +106,8 @@ export default function Parametre({ onRetourAdmin }) {
                 fullWidth
                 variant="contained"
                 size="large"
-                startIcon={<SettingsIcon />}
-                onClick={() => handleOpenPopup(id)}
+                startIcon={<UploadFileIcon />}
+                onClick={() => handleButtonClick(id)}
                 sx={{
                   py: 3,
                   fontSize: '1.1rem',
@@ -109,43 +127,12 @@ export default function Parametre({ onRetourAdmin }) {
           ))}
         </Grid>
 
-        {/* Section Info bas de page */}
         <Box sx={{ mt: 'auto', pt: 2, color: 'gray', textAlign: 'center' }}>
-            <Typography variant="body2">Cliquez sur un module pour modifier ses paramètres spécifiques (IP, Lecteur, Délais).</Typography>
+            <Typography variant="body2">
+                Cliquez sur un module pour charger un fichier de configuration spécifique.
+            </Typography>
         </Box>
       </Paper>
-
-      {/* Popup de modification (à personnaliser après) */}
-      <Dialog 
-        open={isPopupOpen} 
-        onClose={handleClosePopup}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', fontWeight: 'bold' }}>
-          Configuration : {selectedPoste?.name} (ID: {selectedPoste?.id})
-        </DialogTitle>
-        
-        <DialogContent sx={{ mt: 2 }}>
-          <Typography variant="body1">
-            C'est ici que vous pourrez ajouter les champs spécifiques pour le **{selectedPoste?.name}**.
-          </Typography>
-          <Box sx={{ mt: 3, p: 2, bgcolor: '#f0f0f0', borderRadius: 1 }}>
-            <Typography variant="body2" color="textSecondary">
-                Note : Vous pouvez modifier ici les adresses de destination, les capteurs associés ou les temps de cycle de cette machine.
-            </Typography>
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClosePopup} variant="outlined" color="error">
-            Annuler
-          </Button>
-          <Button onClick={handleClosePopup} variant="contained" color="success">
-            Valider les modifications
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
