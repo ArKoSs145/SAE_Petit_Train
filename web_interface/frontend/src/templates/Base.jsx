@@ -37,10 +37,30 @@ const TRAIN_POSITIONS = {
   '1':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
 };
 
-// --- LOGIQUE MÉTIER (Fonctions utilitaires) ---
+// --- LOGIQUE MÉTIER ---
+
+const groupTasks = (tasks) => {
+  const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
+  const groups = CYCLE_PATH.reduce((acc, id) => {
+      if (POSTE_NAMES[id]) {
+        acc[POSTE_NAMES[id]] = [];
+      }
+      return acc;
+    }, {});
+
+  activeTasks.forEach(task => {
+    if (task.status === 'A récupérer' && POSTE_NAMES[task.magasinId]) {
+      groups[POSTE_NAMES[task.magasinId]].push(task);
+    }
+    else if (task.status === 'A déposer' && POSTE_NAMES[task.posteId]) {
+      groups[POSTE_NAMES[task.posteId]].push(task);
+    }
+  });
+  return groups;
+}
 
 const findNextDestination = (tasks, currentTrainLocation) => {
-  const activeTasks = tasks.filter(t => t.status !== 'Commande finie');
+  const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
 
   if (currentTrainLocation) {
     const hasWorkHere = activeTasks.some(t => {
@@ -144,7 +164,8 @@ export default function Base({onApp}) {
                     cmd.statut === 'A déposer' ? 'A déposer' : 'pending',
             gridRow: cmd.ligne,
             gridCol: cmd.colonne,
-            ts: new Date(cmd.timestamp).toLocaleString()
+            ts: new Date(cmd.timestamp).toLocaleString(),
+            stock: cmd.stock,
           }));
           setTasks(initialTasks);
         }
@@ -173,7 +194,19 @@ export default function Base({onApp}) {
     };
     fetchCycleStatus();
 
-    // 4. WebSocket
+    const fetchTrainPos = async () => {
+        try {
+            const res = await fetch('http://localhost:8000/api/train/position');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.position) {
+                    setCurrentTrainPoste(data.position);
+                }
+            }
+        } catch (err) { console.error("Erreur récupération train:", err); }
+    }
+    fetchTrainPos();
+
     const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':8000/ws/scans'
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -202,7 +235,8 @@ export default function Base({onApp}) {
                 gridCol: parseInt(data.colonne) || 1,
                 origin: 'Scan',
                 status: 'A récupérer',
-                ts: new Date().toLocaleString()
+                ts: new Date().toLocaleString(),
+                stock: data.stock,
               }
               return [newTask, ...prev].slice(0, 100);
             }
@@ -267,18 +301,109 @@ export default function Base({onApp}) {
     }
   }
 
-  const handleDeleteTask = (taskId) => {
-    setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cette commande définitivement ?")) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`http://localhost:8000/api/commande/${taskId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            setTasks(prev => prev.filter(t => t.id !== taskId));
+            console.log(`Tâche ${taskId} supprimée.`);
+        } else {
+            alert("Erreur lors de la suppression sur le serveur.");
+        }
+    } catch (err) {
+        console.error("Erreur suppression:", err);
+    }
   }
 
   const handlePosteClick = (posteId) => {
     if (posteId !== nextDestination) {
       console.warn(`Action bloquée: Prochaine destination est ${nextDestination}.`);
       return;
+  // Style des cartes (Postes / Machines)
+  const getBoxSx = (posteId) => {
+    const isActive = nextDestination === posteId; 
+    
+    return {
+      width: '100%',
+      height: '100%', // Remplissage complet
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      
+      p: 1,
+      textAlign: 'center',
+      cursor: 'pointer',
+      border: '5px solid',
+      borderColor: isActive ? 'primary.main' : 'transparent',
+      transform: isActive ? 'scale(1.02)' : 'scale(1)',
+      boxShadow: isActive ? 6 : 2,
+      transition: 'all 0.2s ease-in-out',
+      borderRadius: 4,
+      
+      overflow: 'hidden',
+      wordBreak: 'break-word',
+      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)',
+      fontWeight: 'bold',
+      backgroundColor: 'white',
+
+      '&:hover': { boxShadow: 6 }
+    };
+  }
+
+  // --- Composant Flèche (Interne) ---
+  const arrowSx = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+    fontSize: '2.5rem',
+    color: '#000000ff',
+    userSelect: 'none',
+    fontWeight: 'bold'
+  };
+
+  const GridArrow = ({ row, col, symbol }) => {
+    // La flèche disparaît si le train est sur ses coordonnées
+    const isTrainHere = trainGridPosition.gridRow === row && trainGridPosition.gridColumn === col;
+    return (
+      <Typography sx={{
+          ...arrowSx,
+          gridRow: row,
+          gridColumn: col,
+          opacity: isTrainHere ? 0 : 1, 
+          transition: 'opacity 0.2s ease',
+        }}>
+        {symbol}
+      </Typography>
+    );
+  };
+
+  // Popup logic
+  const handlePosteClick = async (posteId) => {
+    if (posteId !== nextDestination) { console.warn(`Action bloquée.`); return; }
+    
+    setCurrentTrainPoste(posteId);
+    setSelectedPosteId(posteId);
+    setIsPopupOpen(true);
+
+    try {
+        await fetch('http://localhost:8000/api/train/position', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ position: posteId })
+        });
+    } catch (err) {
+        console.error("Impossible de sauvegarder la position du train:", err);
     }
-    setCurrentTrainPoste(posteId); 
-    setSelectedPosteId(posteId)
-    setIsPopupOpen(true)
   }
   
   const closePopup = () => setIsPopupOpen(false)
@@ -328,8 +453,12 @@ export default function Base({onApp}) {
     setTasks(prev => [newTask, ...prev]);
   }
 
+  const handleMissingTask = (taskId) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  }
+
   const tasksForPopup = tasks.filter(t => {
-    if (t.status === 'Commande finie') return false;
+    if (t.status === 'Commande finie' || t.status === 'Produit manquant') return false;
     if (selectedPosteId === t.magasinId && t.status === 'A récupérer') return true;
     if (selectedPosteId === t.posteId && t.status === 'A déposer') return true;
     return false;
@@ -426,25 +555,6 @@ export default function Base({onApp}) {
                 sx={{ fontWeight: 'bold' }}
               >
                 {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
-              </Button>
-              
-              <Button 
-                variant="outlined" color="info" size="small" 
-                onClick={() => simulerTache('1', '5', 'Vis A (M5->P1)', 2, 1)}
-              >
-                Sim (M5 - P1)
-              </Button>
-
-              <Button size="small" variant="outlined" 
-                onClick={() => simulerTache('2', '4', 'Plastique (M4 -> P2)', 2, 1)}>
-                Sim (M4 - P2)
-              </Button>
-
-              <Button 
-                 variant="outlined" color="info" size="small" 
-                 onClick={() => simulerTache('3', '7', 'Colis (Fourn -> P3)', 1, 1)}
-              >
-                Sim (F - P3)
               </Button>
             </Box>
             
@@ -626,6 +736,7 @@ export default function Base({onApp}) {
         posteName={posteNames[selectedPosteId] || ''} 
         tasks={tasksForPopup} 
         onDeliver={handleTaskAction}
+        onMissing={handleMissingTask}
       />
     </Box>
   )
