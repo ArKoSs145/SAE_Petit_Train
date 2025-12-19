@@ -432,6 +432,20 @@ def update_statut(id_commande: int, update: StatutUpdate):
     except Exception as e:
         print(f"Erreur serveur update statut: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+ 
+@app.get("/api/stands")
+def get_stands():
+    """Récupère la liste de tous les stands (Postes et Magasins)"""
+    db = SessionLocal()
+    try:
+        stands = db.query(Stand).all()
+        # On renvoie un dictionnaire { id: "Nom" } pour faciliter l'usage côté Front
+        return {str(s.idStand): s.nomStand for s in stands}
+    except Exception as e:
+        print(f"Erreur récupération stands: {e}")
+        return {}
+    finally:
+        db.close()
     
 
 @app.put("/api/commande/{id_commande}/manquant")

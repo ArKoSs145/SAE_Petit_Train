@@ -258,10 +258,10 @@ def data_db():
         {"idStand": 1, "nomStand": "Poste 1"},
         {"idStand": 2, "nomStand": "Poste 2"},
         {"idStand": 3, "nomStand": "Poste 3"},
-        {"idStand": 4, "nomStand": "Magasin 1"},
-        {"idStand": 5, "nomStand": "Magasin 2"},
-        {"idStand": 6, "nomStand": "Magasin 3"},
-        {"idStand": 7, "nomStand": "Magasin 4"},
+        {"idStand": 4, "nomStand": "Presse à injecter"},
+        {"idStand": 5, "nomStand": "Presse à emboutir"},
+        {"idStand": 6, "nomStand": "Tour CN"},
+        {"idStand": 7, "nomStand": "Magasin externe"},
         
     ]
 

@@ -4,6 +4,7 @@ import './styles.css'
 import ReactDOM from "react-dom/client";
 import Base from './templates/Base.jsx';
 import Admin from './templates/Admin.jsx';
+import Parametre from './templates/Parametre.jsx';
 
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
@@ -20,7 +21,7 @@ const renderBase = () => {
 const renderAdmin = () => {
     root.render(
       <React.StrictMode>
-        <Admin />
+        <Admin onParametre={renderParametre}/>
       </React.StrictMode>
     );
 };
@@ -33,6 +34,13 @@ const renderApp = () => {
     );
 };
 
+const renderParametre = () => {
+    root.render(
+      <React.StrictMode>
+        <Parametre onRetourAdmin={renderAdmin}/>
+      </React.StrictMode>
+    );
+}
 
 root.render(
   <React.StrictMode>

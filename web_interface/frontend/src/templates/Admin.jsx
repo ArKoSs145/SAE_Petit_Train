@@ -6,7 +6,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-export default function Admin() {
+export default function Admin({onParametre}) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
   
@@ -114,7 +114,8 @@ export default function Admin() {
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" sx={headerBtnStyle(false)}>Échange</Button>
+          <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
+
           <Button 
             variant="contained" 
             sx={headerBtnStyle(currentView === 'logs')}
