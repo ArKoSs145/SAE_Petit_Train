@@ -129,19 +129,23 @@ export default function Base({onApp}) {
     };
     fetchStands();
 
-    // 2. Charger les tâches initiales
     const fetchInitialTasks = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/commandes/en_cours');
         if (res.ok) {
           const data = await res.json();
+
           const initialTasks = data.map(cmd => ({
-            id: cmd.id,
+            id: String(cmd.id), 
             posteId: String(cmd.poste),
             magasinId: String(cmd.magasin_id),
-            item: cmd.code_barre,
-            status: cmd.statut === 'A récupérer' ? 'A récupérer' : 
-                    cmd.statut === 'A déposer' ? 'A déposer' : 'pending',
+            
+            // C'EST ICI : On récupère le code_barre que l'API nous donne maintenant
+            // via la jointure avec la table boite
+            code_barre: cmd.code_barre ? String(cmd.code_barre).trim() : "", 
+            
+            item: cmd.nom_piece || cmd.code_barre || `Boîte ${cmd.id_boite}`,
+            status: cmd.statut || "A récupérer", 
             gridRow: cmd.ligne,
             gridCol: cmd.colonne,
             ts: new Date(cmd.timestamp).toLocaleString(),
@@ -204,13 +208,14 @@ export default function Base({onApp}) {
                 return prev;
             }
 
-            // Utilisation de la Ref pour vérifier l'existence du poste
             if (posteNamesRef.current[device]) {
               const newTask = {
                 id: data.id_commande, 
                 posteId: device,
                 magasinId: data.magasin_id ? String(data.magasin_id) : '7',
+                code_barre: data.code_barre, // <-- La clé indispensable pour PopupLivraison
                 item: data.nom_piece || data.code_barre,
+                nom_piece: data.nom_piece || data.code_barre,
                 gridRow: parseInt(data.ligne) || 1, 
                 gridCol: parseInt(data.colonne) || 1,
                 origin: 'Scan',
@@ -222,7 +227,6 @@ export default function Base({onApp}) {
             }
             return prev;
         })
-
       } catch (err) {
         console.error("Erreur WebSocket :", err)
       }
@@ -373,13 +377,23 @@ export default function Base({onApp}) {
   }
 
   const tasksForPopup = tasks.filter(t => {
-    if (t.status === 'Commande finie' || t.status === 'Produit manquant') return false;
-    if (selectedPosteId === t.magasinId && t.status === 'A récupérer') return true;
-    if (selectedPosteId === t.posteId && t.status === 'A déposer') return true;
+    if (t.status === 'Commande finie') return false;
+    
+    // Normalisation du statut (minuscule + retrait des accents si possible)
+    const statusLower = t.status ? t.status.toLowerCase() : "";
+    
+    // Vérifie si c'est une action de récupération ou de dépôt
+    const isToPickUp = statusLower.includes('récupérer') || statusLower.includes('recuperer');
+    const isToDrop = statusLower.includes('déposer') || statusLower.includes('deposer');
+
+    // Si on est au magasin et qu'il faut ramasser
+    if (selectedPosteId === t.magasinId && isToPickUp) return true;
+    // Si on est au poste de destination et qu'il faut livrer
+    if (selectedPosteId === t.posteId && isToDrop) return true;
+    
     return false;
   });
 
-  // --- RENDU (Styles & JSX) ---
 
   const getBoxSx = (posteId) => {
     const isActive = nextDestination === posteId; 

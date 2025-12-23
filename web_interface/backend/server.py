@@ -389,20 +389,27 @@ def api_get_cycles():
 def get_commandes_en_cours():
     db = SessionLocal()
     try:
-        commandes = db.query(Commande).filter(Commande.statutCommande != "Commande finie",
-                                            Commande.statutCommande != "Annulée" 
+        commandes = db.query(Commande).filter(
+            Commande.statutCommande != "Commande finie",
+            Commande.statutCommande != "Annulée" 
         ).all()
         
         taches = []
         for c in commandes:
             stock = c.boite.nbBoite if c.boite else 0
-            nom_objet = "Inconnu"
-            if c.boite:
-                if c.boite.piece:
-                    nom_objet = c.boite.piece.nomPiece
-                elif c.boite.code_barre:
-                    nom_objet = c.boite.code_barre
             
+            # --- CORRECTION ICI ---
+            # On récupère le VRAI code-barre pour l'affichage des cases
+            vrai_code_barre = c.boite.code_barre if c.boite else "Inconnu"
+            
+            # On récupère le nom de la pièce pour le texte de la liste
+            nom_piece = "Inconnu"
+            if c.boite and c.boite.piece:
+                nom_piece = c.boite.piece.nomPiece
+            else:
+                nom_piece = vrai_code_barre
+            # -----------------------
+
             ligne, colonne = 1, 1
             if c.boite and c.boite.Cases:
                 case = c.boite.Cases[0]
@@ -413,7 +420,8 @@ def get_commandes_en_cours():
                 "id": c.idCommande,
                 "poste": str(c.idPoste),
                 "magasin_id": str(c.idMagasin) if c.idMagasin else "7",
-                "code_barre": nom_objet,
+                "code_barre": vrai_code_barre,
+                "nom_piece": nom_piece,
                 "statut": c.statutCommande,
                 "ligne": ligne,
                 "colonne": colonne,
