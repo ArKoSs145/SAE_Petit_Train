@@ -91,73 +91,73 @@ async def upload_config(payload: ConfigPayload):
     finally:
         db.close()
 
-# --- Endpoint HTTP /scan (pour sender.py) ---
 @app.post("/scan")
 async def recevoir_scan(request: Request):
-    """Réception d’un scan depuis sender.py (HTTP POST)"""
     data = await request.json()
-    poste = data.get("poste")
+    poste_id = data.get("poste")
     code_barre = data.get("code_barre")
 
     db = SessionLocal()
     try:
+        # 1. Recherche de la boîte et du stand actuel
         boite = db.query(Boite).filter_by(code_barre=code_barre).first()
-        if boite:
-            case = db.query(Case).filter_by(idBoite=boite.idBoite).first()
-            if case:
-                magasin = db.query(Stand).filter_by(idStand=case.idStand).first()
-                magasin_nom = magasin.nomStand if magasin else "Inconnu"
-                ligne = case.ligne
-                colonne = case.colonne
-            else:
-                magasin_nom, ligne, colonne = "Non défini", "-", "-"
+        current_stand = db.query(Stand).filter_by(idStand=poste_id).first()
+
+        if not boite or not current_stand:
+            raise HTTPException(status_code=404, detail="Objet ou Poste inconnu")
+
+        # 2. Vérification de l'affectation (Poste demandeur == idPoste de la boîte)
+        if current_stand.categorie == 0: # 0 = Poste
+            if boite.idPoste is not None and boite.idPoste != poste_id:
+                raise HTTPException(status_code=403, detail="Cet objet n'est pas affecté à ce poste")
+
+        # 3. Recherche de la position physique AU MAGASIN assigné
+        case_magasin = db.query(Case).filter_by(
+            idBoite=boite.idBoite, 
+            idStand=boite.idMagasin 
+        ).first()
+
+        if case_magasin:
+            magasin_nom = case_magasin.Stand.nomStand
+            ligne, colonne = case_magasin.ligne, case_magasin.colonne
         else:
-            magasin_nom, ligne, colonne = "Inconnu", "-", "-"
+            magasin_nom, ligne, colonne = "Non localisé", "-", "-"
 
-        id_piece = boite.idPiece
-
+        # 4. Enregistrement de la commande
         nouvelle_commande = Commande(
-            idBoite=boite.idBoite if boite else None,
-            idMagasin=magasin.idStand if 'magasin' in locals() and magasin else None,
-            idPoste=poste,
+            idBoite=boite.idBoite,
+            idMagasin=boite.idMagasin,
+            idPoste=poste_id,
+            statutCommande="A récupérer"
         )
-        
         db.add(nouvelle_commande)
         db.commit()
         db.refresh(nouvelle_commande)
-        print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
         
-        nom_affichage = code_barre 
-        if boite:
-            if boite.piece:
-                nom_affichage = boite.piece.nomPiece
-            elif boite.code_barre:
-                nom_affichage = boite.code_barre
-                
-        # Préparer le message pour le front
+        # 5. Message WebSocket
         message = {
             "id_commande": nouvelle_commande.idCommande,
-            "poste": poste,
+            "poste": poste_id,
             "code_barre": code_barre,
-            "id_piece": id_piece,
-            "nom_piece": nom_affichage,
+            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
             "magasin": magasin_nom,
-            "magasin_id": str(magasin.idStand) if 'magasin' in locals() and magasin else None,
+            "magasin_id": str(boite.idMagasin),
             "ligne": ligne,
             "colonne": colonne,
-            "stock": boite.nbBoite if boite else 0,
+            "stock": boite.nbBoite,
             "timestamp": datetime.now().isoformat()
         }
 
         await manager.broadcast(json.dumps(message))
-
-        print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
         return {"status": "ok", "detail": "scan enregistré"}
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logging.error(f"Erreur lors du scan: {e}")
         return {"status": "error", "detail": str(e)}
     finally:
         db.close()
+
 
 async def simulation_apport_boites():
     """Augmente le stock de 1 pour toutes les boîtes toutes les 2 minutes"""

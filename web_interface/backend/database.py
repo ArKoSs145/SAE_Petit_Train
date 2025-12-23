@@ -4,13 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime, timezone
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'train.db')}"
-
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-Base = declarative_base()
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
@@ -22,47 +17,43 @@ class Piece(Base):
     idPiece = Column(Integer, primary_key=True, index=True)
     nomPiece = Column(String)
     description = Column(String)
-
     boite = relationship("Boite", back_populates="piece", uselist=False)
 
-
-# Table des boites
 class Boite(Base):
     __tablename__ = "boites"
     idBoite = Column(Integer, primary_key=True, index=True)
     idPiece = Column(Integer, ForeignKey("pieces.idPiece"))
     code_barre = Column(String, index=True)
     nbBoite = Column(Integer)
-    idMagasin = Column(Integer, ForeignKey("stands.idStand"))  # <-- magasin de stockage
+    
+    # On autorise explicitement le NULL (None en Python) par défaut
+    idMagasin = Column(Integer, ForeignKey("stands.idStand"), nullable=True)
+    idPoste = Column(Integer, ForeignKey("stands.idStand"), nullable=True) 
 
     piece = relationship("Piece", back_populates="boite")
     Cases = relationship("Case", back_populates="boite")
-    magasin = relationship("Stand")  # relation pour connaître où est stockée la boîte
-
+    magasin = relationship("Stand", foreign_keys=[idMagasin])
+    poste = relationship("Stand", foreign_keys=[idPoste])
 
 # Table des stands / magasins
 class Stand(Base):
     __tablename__ = "stands"
     idStand = Column(Integer, primary_key=True)
     nomStand = Column(String)
+    categorie = Column(Integer, default=0) # 0 = Poste, 1 = Magasin
 
     Cases = relationship("Case", back_populates="Stand")
 
-    # Commandes où le stand est le poste (scan)
     commandes_poste = relationship(
         "Commande",
         back_populates="poste",
         foreign_keys="Commande.idPoste"
     )
-
-    # Commandes où le stand est le magasin
     commandes_magasin = relationship(
         "Commande",
         back_populates="magasin",
         foreign_keys="Commande.idMagasin"
     )
-
-
 
 # Table des cases
 class Case(Base):
@@ -80,59 +71,36 @@ class Case(Base):
     boite = relationship("Boite", back_populates="Cases")
     Stand = relationship("Stand", back_populates="Cases")
 
-
 # Table des commandes
 class Commande(Base):
     __tablename__ = "commandes"
-
-
     idCommande = Column(Integer, primary_key=True, index=True)
     idBoite = Column(Integer, ForeignKey("boites.idBoite"))
     idPoste = Column(Integer, ForeignKey("stands.idStand"))
     idMagasin = Column(Integer, ForeignKey("stands.idStand"))
-
     dateCommande = Column(DateTime, default=datetime.now)
     date_recuperation = Column(DateTime, nullable=True)
     date_livraison = Column(DateTime, nullable=True)
-
-    # Statut de la commande :
-    # - "A récupérer"
-    # - "A déposer"
-    # - "Commande finie"
     statutCommande = Column(String, default="A récupérer")
 
     boite = relationship("Boite")
-
-    # Relation vers le stand qui a scanné la commande
-    poste = relationship(
-        "Stand",
-        back_populates="commandes_poste",
-        foreign_keys=[idPoste]
-    )
-
-    # Relation vers le magasin où la boîte est stockée
-    magasin = relationship(
-        "Stand",
-        back_populates="commandes_magasin",
-        foreign_keys=[idMagasin]
-    )
+    poste = relationship("Stand", back_populates="commandes_poste", foreign_keys=[idPoste])
+    magasin = relationship("Stand", back_populates="commandes_magasin", foreign_keys=[idMagasin])
 
 # Table Cycle
 class Cycle(Base):
     __tablename__ = "cycles"
-    
     idCycle = Column(Integer, primary_key=True, autoincrement=True)
     date_debut = Column(DateTime, default=datetime.now)
-    date_fin = Column(DateTime, nullable=True)  # nullable=True sert pour le cycle en cours
+    date_fin = Column(DateTime, nullable=True)
     
 # Table Login
 class Login(Base):
     __tablename__ = "login"
     idLogin = Column(Integer, primary_key=True, index=True)
     username = Column(String)
-    password = Column(String)  # hashé en sha256
+    password = Column(String)
     email = Column(String)
-
 
 # Table Train
 class Train(Base):
@@ -154,15 +122,12 @@ class Train(Base):
             db.close()
 
     def get_position(self):
-        """Retourne la position actuelle du train (idStand)."""
         return self.position
     
     def move_forward(self):
-        """Déplace le train vers le Stand suivant."""
         self.index = (self.index + 1) % len(self.postes)
         self.position = self.postes[self.index]
         return self.position
-
 
 def init_db():
     Base.metadata.create_all(bind=engine)
@@ -177,7 +142,7 @@ def reset_db():
 def data_db():
     db = SessionLocal()
 
-    # Piece du excel
+    # Initialisation des Pièces
     pieces_a_creer = [
         {"idPiece": 4141, "nomPiece": "Pièce Test (Cahier)", "description": "Objet de test"},
         {"idPiece": 1, "nomPiece": "Phare Bas de Gamme", "description": ""},
@@ -221,17 +186,11 @@ def data_db():
         {"idPiece": 39, "nomPiece": "Fil", "description": ""},
     ]
 
-    nouvelles = [
-        Piece(**p) for p in pieces_a_creer
-        if not db.query(Piece).filter_by(idPiece=p["idPiece"]).first()
-    ]
+    for p in pieces_a_creer:
+        if not db.query(Piece).filter_by(idPiece=p["idPiece"]).first():
+            db.add(Piece(**p))
 
-    if nouvelles:
-        db.bulk_save_objects(nouvelles)
-        print(f"{len(nouvelles)} pièces ajoutées.")
-    else:
-        print("Toutes les pièces existent déjà.")
-
+    # Initialisation des Boîtes (avec magasin et poste par défaut pour l'exemple)
     boites_a_creer = [
         {"idBoite": 6767, "idPiece": 4141, "code_barre": "3601020016223", "nbBoite": 10},
         *[
@@ -240,180 +199,37 @@ def data_db():
         ]
     ]
 
-    nouvelles = [
-        Boite(**b) for b in boites_a_creer
-        if not db.query(Boite).filter_by(idBoite=b["idBoite"]).first()
-    ]
-
-    if nouvelles:
-        db.bulk_save_objects(nouvelles)
-        print(f"{len(nouvelles)} boîtes ajoutées.")
-    else:
-        print("Toutes les boîtes existent déjà.")
-
+    for b in boites_a_creer:
+        if not db.query(Boite).filter_by(idBoite=b["idBoite"]).first():
+            db.add(Boite(**b))
 
     db.commit()
 
+    # Initialisation des Stands avec catégories
     Stand_a_creer = [
-        {"idStand": 1, "nomStand": "Poste 1"},
-        {"idStand": 2, "nomStand": "Poste 2"},
-        {"idStand": 3, "nomStand": "Poste 3"},
-        {"idStand": 4, "nomStand": "Presse à injecter"},
-        {"idStand": 5, "nomStand": "Presse à emboutir"},
-        {"idStand": 6, "nomStand": "Tour CN"},
-        {"idStand": 7, "nomStand": "Magasin externe"},
-        
+        {"idStand": 1, "nomStand": "Poste 1", "categorie": 0},
+        {"idStand": 2, "nomStand": "Poste 2", "categorie": 0},
+        {"idStand": 3, "nomStand": "Poste 3", "categorie": 0},
+        {"idStand": 4, "nomStand": "Presse à injecter", "categorie": 1},
+        {"idStand": 7, "nomStand": "Presse à emboutir", "categorie": 1},
+        {"idStand": 6, "nomStand": "Tour CN", "categorie": 1},
+        {"idStand": 5, "nomStand": "Magasin externe", "categorie": 1},
     ]
 
-    nouveaux = [
-        Stand(**s) for s in Stand_a_creer
-        if not db.query(Stand).filter_by(idStand=s["idStand"]).first()
-    ]
-
-    if nouveaux:
-        db.bulk_save_objects(nouveaux)
-        print(f"{len(nouveaux)} stands ajoutés.")
-    else:
-        print("Tous les stands existent déjà.")
+    for s in Stand_a_creer:
+        if not db.query(Stand).filter_by(idStand=s["idStand"]).first():
+            db.add(Stand(**s))
 
     db.commit()
     
-    # Création du train au Stand 1 s'il n'existe pas déja
-    train_existant = db.query(Train).first()
-    if not train_existant:
-        train = Train(position=1)
-        db.add(train)
-        db.commit()
-        db.refresh(train)
-        print(f"Train créé au Stand {train.position}")
-    else:
-        print("Un train existe déjà dans la base de données.")
+    # Création du train
+    if not db.query(Train).first():
+        db.add(Train(position=4))
 
-    db.commit()
+    # Création de l'utilisateur
+    if not db.query(Login).filter_by(username="test").first():
+        db.add(Login(username="test", password="password123", email="test@example.com"))
 
-
-    # Création des Cases dans chaque Stand
-    Case_a_creer = [
-        # -------- Magasin 1 --------
-        {"idCase": 1, "idStand": 4, "idBoite": 6767, "ligne": 1, "colonne": 1},
-        {"idCase": 2, "idStand": 4, "idBoite": 2, "ligne": 1, "colonne": 2},
-        {"idCase": 3, "idStand": 4, "idBoite": 3, "ligne": 2, "colonne": 1},
-        {"idCase": 4, "idStand": 4, "idBoite": 4, "ligne": 2, "colonne": 2},
-        {"idCase": 5, "idStand": 4, "idBoite": 5, "ligne": 3, "colonne": 1},
-        {"idCase": 6, "idStand": 4, "idBoite": 6, "ligne": 3, "colonne": 2},
-        {"idCase": 7, "idStand": 4, "idBoite": 7, "ligne": 4, "colonne": 1},
-        {"idCase": 8, "idStand": 4, "idBoite": 8, "ligne": 4, "colonne": 2},
-        {"idCase": 9, "idStand": 4, "idBoite": 9, "ligne": 5, "colonne": 1},
-        {"idCase": 10, "idStand": 4, "idBoite": 10, "ligne": 5, "colonne": 2},
-        {"idCase": 11, "idStand": 4, "idBoite": 11, "ligne": 6, "colonne": 1},
-        {"idCase": 12, "idStand": 4, "idBoite": 12, "ligne": 6, "colonne": 2},
-        {"idCase": 13, "idStand": 4, "idBoite": 13, "ligne": 7, "colonne": 1},
-        {"idCase": 14, "idStand": 4, "idBoite": 14, "ligne": 7, "colonne": 2},
-        {"idCase": 15, "idStand": 4, "idBoite": 15, "ligne": 8, "colonne": 1},
-        {"idCase": 16, "idStand": 4, "idBoite": 16, "ligne": 8, "colonne": 2},
-        {"idCase": 17, "idStand": 4, "idBoite": 17, "ligne": 9, "colonne": 1},
-        {"idCase": 18, "idStand": 4, "idBoite": 18, "ligne": 9, "colonne": 2},
-
-        # -------- Magasin 2 --------
-        {"idCase": 19, "idStand": 5, "idBoite": 19, "ligne": 1, "colonne": 1},
-        {"idCase": 20, "idStand": 5, "idBoite": 20, "ligne": 1, "colonne": 2},
-        {"idCase": 21, "idStand": 5, "idBoite": 21, "ligne": 2, "colonne": 1},
-        {"idCase": 22, "idStand": 5, "idBoite": 22, "ligne": 2, "colonne": 2},
-        {"idCase": 23, "idStand": 5, "idBoite": 23, "ligne": 3, "colonne": 1},
-        {"idCase": 24, "idStand": 5, "idBoite": 24, "ligne": 3, "colonne": 2},
-        {"idCase": 25, "idStand": 5, "idBoite": 25, "ligne": 4, "colonne": 1},
-        {"idCase": 26, "idStand": 5, "idBoite": 26, "ligne": 4, "colonne": 2},
-        {"idCase": 27, "idStand": 5, "idBoite": 27, "ligne": 5, "colonne": 1},
-        {"idCase": 28, "idStand": 5, "idBoite": 28, "ligne": 5, "colonne": 2},
-        {"idCase": 29, "idStand": 5, "idBoite": 29, "ligne": 6, "colonne": 1},
-        {"idCase": 30, "idStand": 5, "idBoite": 30, "ligne": 6, "colonne": 2},
-        {"idCase": 31, "idStand": 5, "idBoite": 31, "ligne": 7, "colonne": 1},
-        {"idCase": 32, "idStand": 5, "idBoite": 32, "ligne": 7, "colonne": 2},
-        {"idCase": 33, "idStand": 5, "idBoite": 33, "ligne": 8, "colonne": 1},
-        {"idCase": 34, "idStand": 5, "idBoite": 34, "ligne": 8, "colonne": 2},
-        {"idCase": 35, "idStand": 5, "idBoite": 35, "ligne": 9, "colonne": 1},
-        {"idCase": 36, "idStand": 5, "idBoite": 36, "ligne": 9, "colonne": 2},
-
-        # -------- Magasin 3 --------
-        {"idCase": 37, "idStand": 6, "idBoite": 37, "ligne": 1, "colonne": 1},
-        {"idCase": 38, "idStand": 6, "idBoite": 38, "ligne": 1, "colonne": 2},
-        {"idCase": 39, "idStand": 6, "idBoite": 39, "ligne": 2, "colonne": 1},
-        {"idCase": 41, "idStand": 6, "idBoite": 1, "ligne": 2, "colonne": 2},
-        
-        # -------- Poste 1 --------
-        {"idCase": 40, "idStand": 1, "idBoite": 6767, "ligne": 1, "colonne": 1},
-         
-    ]
-
-    # Création des Cases
-    nouveaux_Cases = []
-    for e in Case_a_creer:
-        if not db.query(Case).filter_by(idCase=e["idCase"]).first():
-            nouveaux_Cases.append(Case(
-                idCase=e["idCase"],
-                idStand=e["idStand"],
-                idBoite=e["idBoite"],
-                ligne=e["ligne"],
-                colonne=e["colonne"]
-            ))
-
-    if nouveaux_Cases:
-        db.bulk_save_objects(nouveaux_Cases)
-        print(f"{len(nouveaux_Cases)} Cases créés.")
-    else:
-        print("Toutes les Cases existent déjà.")
-
-    db.commit()
-
-    # ---------- Mise à jour des idMagasin pour chaque boîte en fonction de sa case ----------
-    for case in db.query(Case).all():
-        if case.boite:  # si la boîte existe
-            case.boite.idMagasin = case.idStand  # on affecte le stand de la case comme magasin
-    db.commit()
     
-    # Création d'un utilisateur de test
-    existing_user = db.query(Login).filter_by(username="test_user").first()
-    if not existing_user:
-        new_user = Login(
-            username="test",
-            password="password123",
-            email="test@example.com"
-        )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        print(f"Utilisateur créé avec id : {new_user.idLogin}")
-    else:
-        print("L'utilisateur existe déjà.")
-
+    db.commit()
     db.close()
-
-    # # Création de commandes exemples
-    # commandes_a_creer = [
-    #     {"idCommande": 1, "idBoite": 1, "idStand": 1},
-    #     {"idCommande": 2, "idBoite": 2, "idStand": 1},
-    #     {"idCommande": 3, "idBoite": 3, "idStand": 2},
-    #     {"idCommande": 4, "idBoite": 4, "idStand": 3},
-    #     {"idCommande": 5, "idBoite": 5, "idStand": 3},
-    # ]
-
-    # nouvelle_commandes = []
-
-    # for c in commandes_a_creer:
-    #     exist = db.query(Commande).filter_by(idCommande=c["idCommande"]).first()
-    #     if not exist:
-    #         nouvelle_commandes.append(Commande(
-    #             idCommande=c["idCommande"],
-    #             idBoite=c["idBoite"],
-    #             idStand=c["idStand"]
-
-    #         ))
-
-    # if nouvelle_commandes:
-    #     db.bulk_save_objects(nouvelle_commandes)
-    #     print(f"{len(nouvelle_commandes)} commandes créées.")
-    # else:
-    #     print("Toutes les commandes existent déjà.")
-
-    # db.commit()
-    # db.close()

@@ -21,20 +21,20 @@ import PopupLivraison from '../templates/popup/PopupLivraison'
 // --- CONSTANTES DE CONFIGURATION ---
 
 // Ordre logique du cycle (boucle horaire) : 7 -> 4 -> 5 -> 6 -> 3 -> 2 -> 1
-const CYCLE_PATH = ['4' ,'7', '6', '5', '1', '2', '3'];
+const CYCLE_PATH = ['4' ,'5', '6', '7', '1', '2', '3'];
 
 // Position du train : Sur la flèche JUSTE AVANT le poste de destination
 const TRAIN_POSITIONS = {
   'null': { gridRow: 5, gridColumn: 5 }, 
   
   // Destination : Position de la flèche d'entrée
-  '7':    { gridRow: 2, gridColumn: 5 }, // Flèche ↑ (Avant Fournisseur)
-  '4':    { gridRow: 4, gridColumn: 5 }, // Flèche → (Avant Presse)
-  '5':    { gridRow: 1, gridColumn: 2 }, // Flèche → (Avant Machine X)
-  '6':    { gridRow: 1, gridColumn: 4 }, // Flèche ↓ (Avant Machine Y)
-  '3':    { gridRow: 5, gridColumn: 2 }, // Flèche ← (Avant Poste 3)
-  '2':    { gridRow: 4, gridColumn: 1 }, // Flèche ← (Avant Poste 2)
-  '1':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
+  '5':    { gridRow: 2, gridColumn: 5 }, 
+  '6':    { gridRow: 1, gridColumn: 4 },
+  '7':    { gridRow: 1, gridColumn: 2 }, 
+  '4':    { gridRow: 4, gridColumn: 5 },
+  '3':    { gridRow: 5, gridColumn: 2 }, 
+  '2':    { gridRow: 4, gridColumn: 1 }, 
+  '1':    { gridRow: 2, gridColumn: 1 },
 };
 
 // --- LOGIQUE MÉTIER ---
@@ -488,7 +488,7 @@ export default function Base({onApp}) {
               }}
             >
               {/* --- LIGNE 1 : HAUT --- */}
-              <Paper id="magasin_externe" sx={{ ...getBoxSx('7'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('7')}>
+              <Paper id="presse_emboutir" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>
                 {posteNames['7'] || 'Chargement...'}
               </Paper>
               <GridArrow row={1} col={2} symbol="←" />
@@ -496,9 +496,10 @@ export default function Base({onApp}) {
                 {posteNames['6'] || 'Chargement...'}
               </Paper>
               <GridArrow row={1} col={4} symbol="←" />
-              <Paper id="presse_emboutir" sx={{ ...getBoxSx('5'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('5')}>
+              <Paper id="magasin_externe" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>
                 {posteNames['5'] || 'Chargement...'}
               </Paper>
+              
               
               {/* --- LIGNES VERTICALES --- */}
               {/* Droite (Descend) */}
