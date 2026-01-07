@@ -21,20 +21,20 @@ import PopupLivraison from '../templates/popup/PopupLivraison'
 // --- CONSTANTES DE CONFIGURATION ---
 
 // Ordre logique du cycle (boucle horaire) : 7 -> 4 -> 5 -> 6 -> 3 -> 2 -> 1
-const CYCLE_PATH = ['4' ,'7', '6', '5', '1', '2', '3'];
+const CYCLE_PATH = ['4' ,'5', '6', '7', '1', '2', '3'];
 
 // Position du train : Sur la flèche JUSTE AVANT le poste de destination
 const TRAIN_POSITIONS = {
   'null': { gridRow: 5, gridColumn: 5 }, 
   
   // Destination : Position de la flèche d'entrée
-  '7':    { gridRow: 2, gridColumn: 5 }, // Flèche ↑ (Avant Fournisseur)
-  '4':    { gridRow: 4, gridColumn: 5 }, // Flèche → (Avant Presse)
-  '5':    { gridRow: 1, gridColumn: 2 }, // Flèche → (Avant Machine X)
-  '6':    { gridRow: 1, gridColumn: 4 }, // Flèche ↓ (Avant Machine Y)
-  '3':    { gridRow: 5, gridColumn: 2 }, // Flèche ← (Avant Poste 3)
-  '2':    { gridRow: 4, gridColumn: 1 }, // Flèche ← (Avant Poste 2)
-  '1':    { gridRow: 2, gridColumn: 1 }, // Flèche ↑ (Avant Poste 1)
+  '5':    { gridRow: 2, gridColumn: 5 }, 
+  '6':    { gridRow: 1, gridColumn: 4 },
+  '7':    { gridRow: 1, gridColumn: 2 }, 
+  '4':    { gridRow: 4, gridColumn: 5 },
+  '3':    { gridRow: 5, gridColumn: 2 }, 
+  '2':    { gridRow: 4, gridColumn: 1 }, 
+  '1':    { gridRow: 2, gridColumn: 1 },
 };
 
 // --- LOGIQUE MÉTIER ---
@@ -129,19 +129,23 @@ export default function Base({onApp}) {
     };
     fetchStands();
 
-    // 2. Charger les tâches initiales
     const fetchInitialTasks = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/commandes/en_cours');
         if (res.ok) {
           const data = await res.json();
+
           const initialTasks = data.map(cmd => ({
-            id: cmd.id,
+            id: String(cmd.id), 
             posteId: String(cmd.poste),
             magasinId: String(cmd.magasin_id),
-            item: cmd.code_barre,
-            status: cmd.statut === 'A récupérer' ? 'A récupérer' : 
-                    cmd.statut === 'A déposer' ? 'A déposer' : 'pending',
+            
+            // C'EST ICI : On récupère le code_barre que l'API nous donne maintenant
+            // via la jointure avec la table boite
+            code_barre: cmd.code_barre ? String(cmd.code_barre).trim() : "", 
+            
+            item: cmd.nom_piece || cmd.code_barre || `Boîte ${cmd.id_boite}`,
+            status: cmd.statut || "A récupérer", 
             gridRow: cmd.ligne,
             gridCol: cmd.colonne,
             ts: new Date(cmd.timestamp).toLocaleString(),
@@ -204,13 +208,14 @@ export default function Base({onApp}) {
                 return prev;
             }
 
-            // Utilisation de la Ref pour vérifier l'existence du poste
             if (posteNamesRef.current[device]) {
               const newTask = {
                 id: data.id_commande, 
                 posteId: device,
                 magasinId: data.magasin_id ? String(data.magasin_id) : '7',
+                code_barre: data.code_barre, // <-- La clé indispensable pour PopupLivraison
                 item: data.nom_piece || data.code_barre,
+                nom_piece: data.nom_piece || data.code_barre,
                 gridRow: parseInt(data.ligne) || 1, 
                 gridCol: parseInt(data.colonne) || 1,
                 origin: 'Scan',
@@ -222,7 +227,6 @@ export default function Base({onApp}) {
             }
             return prev;
         })
-
       } catch (err) {
         console.error("Erreur WebSocket :", err)
       }
@@ -373,13 +377,23 @@ export default function Base({onApp}) {
   }
 
   const tasksForPopup = tasks.filter(t => {
-    if (t.status === 'Commande finie' || t.status === 'Produit manquant') return false;
-    if (selectedPosteId === t.magasinId && t.status === 'A récupérer') return true;
-    if (selectedPosteId === t.posteId && t.status === 'A déposer') return true;
+    if (t.status === 'Commande finie') return false;
+    
+    // Normalisation du statut (minuscule + retrait des accents si possible)
+    const statusLower = t.status ? t.status.toLowerCase() : "";
+    
+    // Vérifie si c'est une action de récupération ou de dépôt
+    const isToPickUp = statusLower.includes('récupérer') || statusLower.includes('recuperer');
+    const isToDrop = statusLower.includes('déposer') || statusLower.includes('deposer');
+
+    // Si on est au magasin et qu'il faut ramasser
+    if (selectedPosteId === t.magasinId && isToPickUp) return true;
+    // Si on est au poste de destination et qu'il faut livrer
+    if (selectedPosteId === t.posteId && isToDrop) return true;
+    
     return false;
   });
 
-  // --- RENDU (Styles & JSX) ---
 
   const getBoxSx = (posteId) => {
     const isActive = nextDestination === posteId; 
@@ -488,7 +502,7 @@ export default function Base({onApp}) {
               }}
             >
               {/* --- LIGNE 1 : HAUT --- */}
-              <Paper id="magasin_externe" sx={{ ...getBoxSx('7'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('7')}>
+              <Paper id="presse_emboutir" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>
                 {posteNames['7'] || 'Chargement...'}
               </Paper>
               <GridArrow row={1} col={2} symbol="←" />
@@ -496,9 +510,10 @@ export default function Base({onApp}) {
                 {posteNames['6'] || 'Chargement...'}
               </Paper>
               <GridArrow row={1} col={4} symbol="←" />
-              <Paper id="presse_emboutir" sx={{ ...getBoxSx('5'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('5')}>
+              <Paper id="magasin_externe" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>
                 {posteNames['5'] || 'Chargement...'}
               </Paper>
+              
               
               {/* --- LIGNES VERTICALES --- */}
               {/* Droite (Descend) */}

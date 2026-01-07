@@ -12,6 +12,7 @@ import os
 import requetes
 from pydantic import BaseModel 
 from sqlalchemy import func
+from update_grid import traiter_fichier_config
 
 logging.basicConfig(level=logging.INFO)
 
@@ -77,73 +78,86 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
 
-# --- Endpoint HTTP /scan (pour sender.py) ---
+class ConfigPayload(BaseModel):
+    posteId: int
+    csv_content: str
+
+@app.post("/api/admin/upload-config")
+async def upload_config(payload: ConfigPayload):
+    db = SessionLocal()
+    try:
+        # On appelle la fonction d'affichage
+        return traiter_fichier_config(payload.csv_content, payload.posteId, db)
+    finally:
+        db.close()
+
 @app.post("/scan")
 async def recevoir_scan(request: Request):
-    """Réception d’un scan depuis sender.py (HTTP POST)"""
     data = await request.json()
-    poste = data.get("poste")
+    poste_id = data.get("poste")
     code_barre = data.get("code_barre")
 
     db = SessionLocal()
     try:
+        # 1. Recherche de la boîte et du stand actuel
         boite = db.query(Boite).filter_by(code_barre=code_barre).first()
-        if boite:
-            case = db.query(Case).filter_by(idBoite=boite.idBoite).first()
-            if case:
-                magasin = db.query(Stand).filter_by(idStand=case.idStand).first()
-                magasin_nom = magasin.nomStand if magasin else "Inconnu"
-                ligne = case.ligne
-                colonne = case.colonne
-            else:
-                magasin_nom, ligne, colonne = "Non défini", "-", "-"
+        current_stand = db.query(Stand).filter_by(idStand=poste_id).first()
+
+        if not boite or not current_stand:
+            raise HTTPException(status_code=404, detail="Objet ou Poste inconnu")
+
+        # 2. Vérification de l'affectation (Poste demandeur == idPoste de la boîte)
+        if current_stand.categorie == 0: # 0 = Poste
+            if boite.idPoste is not None and boite.idPoste != poste_id:
+                raise HTTPException(status_code=403, detail="Cet objet n'est pas affecté à ce poste")
+
+        # 3. Recherche de la position physique AU MAGASIN assigné
+        case_magasin = db.query(Case).filter_by(
+            idBoite=boite.idBoite, 
+            idStand=boite.idMagasin 
+        ).first()
+
+        if case_magasin:
+            magasin_nom = case_magasin.Stand.nomStand
+            ligne, colonne = case_magasin.ligne, case_magasin.colonne
         else:
-            magasin_nom, ligne, colonne = "Inconnu", "-", "-"
+            magasin_nom, ligne, colonne = "Non localisé", "-", "-"
 
-        id_piece = boite.idPiece
-
+        # 4. Enregistrement de la commande
         nouvelle_commande = Commande(
-            idBoite=boite.idBoite if boite else None,
-            idMagasin=magasin.idStand if 'magasin' in locals() and magasin else None,
-            idPoste=poste,
+            idBoite=boite.idBoite,
+            idMagasin=boite.idMagasin,
+            idPoste=poste_id,
+            statutCommande="A récupérer"
         )
-        
         db.add(nouvelle_commande)
         db.commit()
         db.refresh(nouvelle_commande)
-        print(f"[DB] Commande créée : Boite {boite.idBoite if boite else '?'} pour Poste {poste}")
         
-        nom_affichage = code_barre 
-        if boite:
-            if boite.piece:
-                nom_affichage = boite.piece.nomPiece
-            elif boite.code_barre:
-                nom_affichage = boite.code_barre
-                
-        # Préparer le message pour le front
+        # 5. Message WebSocket
         message = {
             "id_commande": nouvelle_commande.idCommande,
-            "poste": poste,
+            "poste": poste_id,
             "code_barre": code_barre,
-            "id_piece": id_piece,
-            "nom_piece": nom_affichage,
+            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
             "magasin": magasin_nom,
-            "magasin_id": str(magasin.idStand) if 'magasin' in locals() and magasin else None,
+            "magasin_id": str(boite.idMagasin),
             "ligne": ligne,
             "colonne": colonne,
-            "stock": boite.nbBoite if boite else 0,
+            "stock": boite.nbBoite,
             "timestamp": datetime.now().isoformat()
         }
 
         await manager.broadcast(json.dumps(message))
-
-        print(f"[SCAN] Poste {poste} → {code_barre} ({magasin_nom}, L{ligne}, C{colonne})")
         return {"status": "ok", "detail": "scan enregistré"}
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logging.error(f"Erreur lors du scan: {e}")
         return {"status": "error", "detail": str(e)}
     finally:
         db.close()
+
 
 async def simulation_apport_boites():
     """Augmente le stock de 1 pour toutes les boîtes toutes les 2 minutes"""
@@ -375,20 +389,27 @@ def api_get_cycles():
 def get_commandes_en_cours():
     db = SessionLocal()
     try:
-        commandes = db.query(Commande).filter(Commande.statutCommande != "Commande finie",
-                                            Commande.statutCommande != "Annulée" 
+        commandes = db.query(Commande).filter(
+            Commande.statutCommande != "Commande finie",
+            Commande.statutCommande != "Annulée" 
         ).all()
         
         taches = []
         for c in commandes:
             stock = c.boite.nbBoite if c.boite else 0
-            nom_objet = "Inconnu"
-            if c.boite:
-                if c.boite.piece:
-                    nom_objet = c.boite.piece.nomPiece
-                elif c.boite.code_barre:
-                    nom_objet = c.boite.code_barre
             
+            # --- CORRECTION ICI ---
+            # On récupère le VRAI code-barre pour l'affichage des cases
+            vrai_code_barre = c.boite.code_barre if c.boite else "Inconnu"
+            
+            # On récupère le nom de la pièce pour le texte de la liste
+            nom_piece = "Inconnu"
+            if c.boite and c.boite.piece:
+                nom_piece = c.boite.piece.nomPiece
+            else:
+                nom_piece = vrai_code_barre
+            # -----------------------
+
             ligne, colonne = 1, 1
             if c.boite and c.boite.Cases:
                 case = c.boite.Cases[0]
@@ -399,7 +420,8 @@ def get_commandes_en_cours():
                 "id": c.idCommande,
                 "poste": str(c.idPoste),
                 "magasin_id": str(c.idMagasin) if c.idMagasin else "7",
-                "code_barre": nom_objet,
+                "code_barre": vrai_code_barre,
+                "nom_piece": nom_piece,
                 "statut": c.statutCommande,
                 "ligne": ligne,
                 "colonne": colonne,

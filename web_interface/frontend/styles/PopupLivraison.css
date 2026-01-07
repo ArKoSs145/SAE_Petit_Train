@@ -31,11 +31,10 @@
 /* --- 1. La grille Magasin --- */
 .storage-grid {
   display: grid;
-  grid-template-rows: repeat(8, 1fr); /* 8 lignes de hauteur égale */
-  grid-template-columns: repeat(2, 1fr); /* 2 colonnes de largeur égale */
-  gap: 4px; /* Espace entre les cellules */
-  border: 3px solid #666; /* Bordure extérieure de la grille */
-  background-color: #666; /* Fond pour voir les gaps */
+  /* Supprimer grid-template-rows et grid-template-columns ici */
+  gap: 8px;
+  border: 3px solid #666;
+  background-color: #666;
 }
 
 .grid-cell {
