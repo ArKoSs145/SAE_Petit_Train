@@ -5,10 +5,17 @@ import ReactDOM from "react-dom/client";
 import Base from './templates/Base.jsx';
 import Admin from './templates/Admin.jsx';
 import Parametre from './templates/Parametre.jsx';
-
+import Approvisionnement from './templates/Approvisionnement.jsx';
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
+const renderApprovisionnement = () => {
+    root.render(
+      <React.StrictMode>
+        <Approvisionnement onRetourAdmin={renderAdmin}/>
+      </React.StrictMode>
+    );
+}
 
 const renderBase = () => {
   root.render(
@@ -21,7 +28,10 @@ const renderBase = () => {
 const renderAdmin = () => {
     root.render(
       <React.StrictMode>
-        <Admin onParametre={renderParametre}/>
+        <Admin 
+            onParametre={renderParametre} 
+            onApprovisionnement={renderApprovisionnement} 
+        />
       </React.StrictMode>
     );
 };
