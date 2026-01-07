@@ -15,12 +15,10 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 export default function Parametre({ onRetourAdmin }) {
   const fileInputRef = useRef(null);
   
-  // États pour la gestion des données et du chargement
   const [posteNames, setPosteNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedPoste, setSelectedPoste] = useState(null);
 
-  // --- FONCTION DE CHARGEMENT DES NOMS (REUTILISABLE) ---
   const fetchStands = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/stands');
@@ -35,7 +33,6 @@ export default function Parametre({ onRetourAdmin }) {
     }
   };
 
-  // Chargement initial au montage du composant
   useEffect(() => {
     fetchStands();
   }, []);
@@ -49,6 +46,7 @@ export default function Parametre({ onRetourAdmin }) {
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
+    // On vérifie qu'on a bien un fichier et un poste sélectionné
     if (file && selectedPoste) {
       const reader = new FileReader();
       
@@ -60,19 +58,17 @@ export default function Parametre({ onRetourAdmin }) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              posteId: parseInt(selectedPoste.id), 
+              posteId: parseInt(selectedPoste.id, 10), // Correction 3: Base 10 ajoutée
               csv_content: csvContent 
             }),
           });
 
-          const result = await response.json(); // Récupération du JSON de réponse
+          const result = await response.json();
 
           if (response.ok) {
-            // Message de succès dynamique venant de update_grid.py
             alert(`Importation Réussie : ${result.message}`);
-            fetchStands(); // Actualisation des noms sur les boutons
+            fetchStands();
           } else {
-            // Message d'erreur détaillé (ex: Stand introuvable)
             alert(`Échec de l'importation : ${result.detail || result.message}`);
           }
         } catch (err) {
@@ -107,7 +103,7 @@ export default function Parametre({ onRetourAdmin }) {
           flexDirection: 'column',
           gap: 3
       }}>
-        {/* Header */}
+        {/* Header - Correction 1: Fermeture des Box et structure JSX */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button 
@@ -120,18 +116,11 @@ export default function Parametre({ onRetourAdmin }) {
             </Button>
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Configuration des Postes</Typography>
           </Box>
-          <Button 
-            variant="contained" 
-            startIcon={<SaveIcon />}
-            sx={{ bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
-          >
-            Enregistrer Global
-          </Button>
         </Box>
 
         <Divider />
 
-        <Typography variant="h6" sx={{ color: '#1976d2', mb: 1 }}>
+        <Typography variant="h6" sx={{ color: '#1976d2' }}>
             Sélectionnez un poste pour importer sa configuration :
         </Typography>
 
