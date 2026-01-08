@@ -3,10 +3,16 @@ import {
   Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
+} from '@mui/material';
 
-export default function Admin({onParametre}) {
+export default function Admin({ onParametre }) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
   
@@ -20,6 +26,10 @@ export default function Admin({onParametre}) {
   const [selectedCycleId, setSelectedCycleId] = useState(null);
   const [selectedCycleLabel, setSelectedCycleLabel] = useState("");
   const [cycleLogs, setCycleLogs] = useState([]);
+
+  // --- Vider la BD ---
+  const [openClearDialog, setOpenClearDialog] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   // --- Chargement Données ---
 
@@ -58,33 +68,58 @@ export default function Admin({onParametre}) {
     } catch(err) { console.error(err); }
   }
 
-    useEffect(() => {
-        fetchCycles();
-        fetchDashboard();
-        if (currentView === 'logs' && selectedCycleId !== 'Total') {
-            fetchCycleLogs(selectedCycleId);
-        }
-    }, [currentView]);
+  useEffect(() => {
+      fetchCycles();
+      fetchDashboard();
+      if (currentView === 'logs' && selectedCycleId && selectedCycleId !== 'Total') {
+          fetchCycleLogs(selectedCycleId);
+      }
+  }, [currentView]);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            fetchDashboard();
-            fetchCycles();
-            if (currentView === 'logs' && selectedCycleId !== 'Total') {
-                fetchCycleLogs(selectedCycleId);
-            }
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [currentView, selectedCycleId]);
+  useEffect(() => {
+      const interval = setInterval(() => {
+          fetchDashboard();
+          fetchCycles();
+          if (currentView === 'logs' && selectedCycleId && selectedCycleId !== 'Total') {
+              fetchCycleLogs(selectedCycleId);
+          }
+      }, 5000);
+      return () => clearInterval(interval);
+  }, [currentView, selectedCycleId]);
 
   // --- Handlers ---
   const handleSelectCycle = (cycle) => {
       setSelectedCycleId(cycle.id);
       setSelectedCycleLabel(cycle.label);
-      fetchCycleLogs(cycle.id);
+      if (cycle.id !== 'Total') {
+        fetchCycleLogs(cycle.id);
+      }
   }
 
   const handleQuit = () => { window.location.href = "/"; };
+
+  const handleClearDatabase = async () => {
+    setClearing(true);
+    try {
+        const res = await fetch('http://localhost:8000/api/admin/clear', {
+            method: 'POST'
+        });
+
+        if (res.ok) {
+            // Reset UI
+            setCycleLogs([]);
+            setSelectedCycleId(null);
+            setSelectedCycleLabel("");
+            fetchDashboard();
+            fetchCycles();
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        setClearing(false);
+        setOpenClearDialog(false);
+    }
+  };
 
   // --- Styles ---
   const headerBtnStyle = (active) => ({
@@ -114,6 +149,18 @@ export default function Admin({onParametre}) {
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button 
+              variant="contained" 
+              onClick={() => setOpenClearDialog(true)} 
+              sx={{
+                backgroundColor: '#d9d9d9', color: 'black', textTransform: 'none',
+                boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
+                '&:hover': { backgroundColor: '#d9d9d9' }
+              }}
+            >
+              Vider la BD
+            </Button>
+
           <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
 
           <Button 
@@ -128,6 +175,7 @@ export default function Admin({onParametre}) {
               backgroundColor: '#cc0000', color: 'white', minWidth: '50px', fontWeight: 'bold', fontSize: '1.2rem',
               borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#a00000' }
             }}>X</Button>
+            
         </Box>
       </Box>
 
@@ -137,7 +185,6 @@ export default function Admin({onParametre}) {
         {/* VUE DASHBOARD */}
         {currentView === 'dashboard' && (
             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: 'white' }}>
-                {/* Sidebar Dashboard */}
                 <Box sx={{ width: '300px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', overflowY: 'auto' }}>
                     <List component="nav" sx={{ p: 0 }}>
                         <ListItemButton
@@ -160,7 +207,6 @@ export default function Admin({onParametre}) {
                     </List>
                 </Box>
 
-                {/* Grille Dashboard */}
                 <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto' }}>
                     <Grid container spacing={2}>
                         {dashboardData.stands.map((stand) => {
@@ -190,7 +236,6 @@ export default function Admin({onParametre}) {
                                     <Paper sx={{ backgroundColor: getCardColor(stand.nom), p: 2, minHeight: '180px' }}>
                                         <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>{stand.nom}</Typography>
                                         
-                                        {/* Affichage avec gestion du (xN) */}
                                         {arrivages.map((i, idx) => (
                                             <div key={idx}>
                                                 • {i.objet} {i.count > 1 && <strong>(x{i.count})</strong>} <small>(de {i.source_nom})</small>
@@ -216,8 +261,6 @@ export default function Admin({onParametre}) {
         {/* VUE LOGS */}
         {currentView === 'logs' && (
             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
-                
-                {/* Sidebar Logs (Sans Total) */}
                 <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold' }}>
                         Cycles passés
@@ -239,11 +282,9 @@ export default function Admin({onParametre}) {
                     </List>
                 </Paper>
 
-                {/* Contenu Log */}
                 <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
                     <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box sx={{ textAlign: 'center', width: '100%' }}>
-                            {/* Gestion de l'affichage du titre pour ne jamais afficher "Total" */}
                             <Typography variant="h4">
                                 {selectedCycleId === 'Total' ? 'Veuillez sélectionner un cycle' : `Logs du ${selectedCycleLabel}`}
                             </Typography>
@@ -272,6 +313,35 @@ export default function Admin({onParametre}) {
             </Box>
         )}
       </Box>
+
+      {/* ================= DIALOG CONFIRMATION ================= */}
+      <Dialog
+        open={openClearDialog}
+        onClose={() => setOpenClearDialog(false)}
+      >
+        <DialogTitle>Confirmation</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ⚠️ Cette action va supprimer définitivement toutes les données de la base (Pièces, Boîtes, Commandes, Cycles, etc.).
+            <br />
+            Voulez-vous vraiment continuer ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenClearDialog(false)} disabled={clearing}>
+            Annuler
+          </Button>
+          <Button
+            onClick={handleClearDatabase}
+            color="error"
+            variant="contained"
+            disabled={clearing}
+          >
+            {clearing ? "Suppression..." : "Confirmer"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
     </Box>
   );
 }

@@ -436,3 +436,28 @@ def get_all_cycles():
         return cycles
     finally:
         db.close()
+
+# ---------- Reset donnée ----------
+
+def clear_production_data():
+    """
+    Vide les tables liées à la production et aux cycles 
+    tout en conservant la configuration (Stands, Train, Logins).
+    """
+    db = SessionLocal()
+    try:
+        # L'ordre est important si vous avez des clés étrangères actives
+        db.query(Commande).delete()
+        db.query(Case).delete()
+        db.query(Boite).delete()
+        db.query(Piece).delete()
+        db.query(Cycle).delete()
+        
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"Erreur lors du vidage des tables : {e}")
+        db.rollback()
+        return False
+    finally:
+        db.close()
