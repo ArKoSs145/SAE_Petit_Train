@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Button, Typography, Paper } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
-import LoginPopup from '../templates/popup/LoginPopup.jsx';
+import LoginPopup from './popup/LoginPopup.jsx';
 
 export default function App({ onContinue, onAdminLogin }) {
     const [showLogin, setShowLogin] = useState(false);

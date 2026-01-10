@@ -11,6 +11,8 @@ import {
 } from '@mui/material'
 import '../../../styles/PopupLivraison.css';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+const apiUrl = import.meta.env.VITE_API_URL;
+
 
 const getPosteColor = (id) => {
   const colors = {
@@ -86,7 +88,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
   const handleMissing = async () => {
     for (let taskId of clickedTasks) {
       try {
-        await fetch(`http://127.0.0.1:8000/api/commande/${taskId}/manquant`, { method: 'PUT' });
+        await fetch(`${apiUrl}/api/commande/${taskId}/manquant`, { method: 'PUT' });
         if (onMissing) onMissing(taskId);
       } catch (err) { console.error(err); }
     }
