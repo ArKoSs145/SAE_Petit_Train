@@ -85,6 +85,7 @@ class Commande(Base):
     date_recuperation = Column(DateTime, nullable=True)
     date_livraison = Column(DateTime, nullable=True)
     statutCommande = Column(String, default="A récupérer")
+    typeCommande = Column(String, default="Normal")  # "Normal" ou "Personnalisé"
 
     boite = relationship("Boite")
     poste = relationship("Stand", back_populates="commandes_poste", foreign_keys=[idPoste])
@@ -96,6 +97,7 @@ class Cycle(Base):
     idCycle = Column(Integer, primary_key=True, autoincrement=True)
     date_debut = Column(DateTime, default=datetime.now)
     date_fin = Column(DateTime, nullable=True)
+    type_cycle = Column(String, default="Normal")  # "Normal" ou "Personnalisé"
     
 # Table Login
 class Login(Base):
@@ -110,19 +112,21 @@ class Train(Base):
     __tablename__ = "train"
     idTrain = Column(Integer, primary_key=True)
     position = Column(Integer, ForeignKey("stands.idStand"))
+    statut_train = Column(String) # "Normal" (pour l'application de base) ou "Personnalisé" (pour un départ personnalisé)
     
-    def __init__(self, position):
-        db = SessionLocal()
-        try:
-            Stands = db.query(Stand).order_by(Stand.idStand).all()
-            self.postes = [m.idStand for m in Stands]
-            if position in self.postes:
-                self.index = self.postes.index(position)
-            else:
-                self.index = 0
-            self.position = self.postes[self.index]
-        finally:
-            db.close()
+    def __init__(self, position, statut_train="Normal"):
+            db = SessionLocal()
+            try:
+                Stands = db.query(Stand).order_by(Stand.idStand).all()
+                self.postes = [m.idStand for m in Stands]
+                if position in self.postes:
+                    self.index = self.postes.index(position)
+                else:
+                    self.index = 0
+                self.position = self.postes[self.index]
+                self.statut_train = statut_train 
+            finally:
+                db.close()
 
     def get_position(self):
         return self.position
@@ -225,9 +229,12 @@ def data_db():
 
     db.commit()
     
-    # Création du train
-    if not db.query(Train).first():
-        db.add(Train(position=4))
+
+    # Création des deux trains avec des IDs fixes
+    if not db.query(Train).filter_by(idTrain=1).first():
+        db.add(Train(position=4, statut_train="Normal"))
+    if not db.query(Train).filter_by(idTrain=2).first():
+        db.add(Train(position=1, statut_train="Personnalisé"))
 
     # Création de l'utilisateur
     if not db.query(Login).filter_by(username="test").first():

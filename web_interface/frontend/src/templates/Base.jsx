@@ -71,7 +71,7 @@ const findNextDestination = (tasks, currentTrainLocation) => {
 
 // --- COMPOSANT PRINCIPAL ---
 
-export default function Base({onApp}) {
+export default function Base({mode, onApp}) {
   // --- ÉTATS ---
   const [tasks, setTasks] = useState([])
   const [posteNames, setPosteNames] = useState({}) // Remplace la constante POSTE_NAMES
@@ -131,7 +131,7 @@ export default function Base({onApp}) {
 
     const fetchInitialTasks = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/commandes/en_cours');
+        const res = await fetch(`http://localhost:8000/api/commandes/en_cours?mode=${mode}`);
         if (res.ok) {
           const data = await res.json();
 
@@ -162,7 +162,7 @@ export default function Base({onApp}) {
     // 3. Charger le statut du cycle
     const fetchCycleStatus = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/cycles');
+        const res = await fetch(`http://localhost:8000/api/cycles?mode=${mode}`);
         if (res.ok) {
           const cycles = await res.json();
           if (cycles.length > 0) {
@@ -180,7 +180,7 @@ export default function Base({onApp}) {
 
     const fetchTrainPos = async () => {
         try {
-            const res = await fetch('http://localhost:8000/api/train/position');
+            const res = await fetch(`http://localhost:8000/api/train/position?mode=${mode}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.position) {
@@ -233,7 +233,7 @@ export default function Base({onApp}) {
     })
 
     return () => ws.close()
-  }, [])
+  }, [mode])
 
   // --- CALCULS & MÉMOS ---
 
@@ -251,6 +251,7 @@ export default function Base({onApp}) {
   const taskGroups = useMemo(() => groupTasks(tasks), [tasks, posteNames]);
 
   // --- ACTIONS ---
+
 
   const handleStopCycle = async () => {
     try {
@@ -271,13 +272,24 @@ export default function Base({onApp}) {
   const handleToggleCycle = async () => {
     try {
         if (cycleActive) {
+            // Arrêt du cycle
             await fetch('http://localhost:8000/api/cycle/stop', { method: 'POST' });
             console.log("Cycle arrêté");
             setCycleActive(false);
         } else {
-            await fetch('http://localhost:8000/api/cycle/start', { method: 'POST' });
-            console.log("Cycle démarré");
-            setCycleActive(true);
+            
+            const url = `http://localhost:8000/api/cycle/start?mode=${mode}`;
+            console.log("Tentative de démarrage cycle sur :", url);
+            
+            const response = await fetch(url, { method: 'POST' });
+            const data = await response.json();
+
+            if (data.status === "ok") {
+                console.log("Cycle démarré en mode :", mode);
+                setCycleActive(true);
+            } else {
+                alert(data.message);
+            }
         }
     } catch (err) {
         console.error("Erreur cycle:", err);
@@ -315,7 +327,7 @@ export default function Base({onApp}) {
     setIsPopupOpen(true);
 
     try {
-        await fetch('http://localhost:8000/api/train/position', {
+        await fetch(`http://localhost:8000/api/train/position?mode=${mode}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ position: posteId })

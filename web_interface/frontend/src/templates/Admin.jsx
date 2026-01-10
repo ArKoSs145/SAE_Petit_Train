@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton
+  Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -15,52 +15,68 @@ import {
 export default function Admin({ onParametre }) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
+  const [filtreMode, setFiltreMode] = useState('Normal');
+  const [cyclesList, setCyclesList] = useState([]);
   
   // États Dashboard
   const [dashboardData, setDashboardData] = useState({ stands: [], historique: [] });
-  const [selectedTimeDashboard, setSelectedTimeDashboard] = useState('Total');
-  const [timeSlots, setTimeSlots] = useState(['Total']);
-
-  // États Logs
-  const [cyclesList, setCyclesList] = useState([]);
-  const [selectedCycleId, setSelectedCycleId] = useState(null);
-  const [selectedCycleLabel, setSelectedCycleLabel] = useState("");
+  const [selectedCycleId, setSelectedCycleId] = useState('Total');
+  const [selectedCycleLabel, setSelectedCycleLabel] = useState("Total");
   const [cycleLogs, setCycleLogs] = useState([]);
 
   // --- Vider la BD ---
   const [openClearDialog, setOpenClearDialog] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  // --- Chargement Données ---
+  // --- Styles ---
+  const headerBtnStyle = (active) => ({
+    backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
+    color: 'black', 
+    textTransform: 'none',
+    boxShadow: 'none', 
+    borderRadius: 0, 
+    fontSize: '1.1rem', 
+    px: 3,
+    height: '100%', // Pour remplir la hauteur du toggle group
+    border: 'none',
+    '&.Mui-selected': {
+        backgroundColor: '#a0a0a0',
+        color: 'black',
+        '&:hover': { backgroundColor: '#a0a0a0' }
+    },
+    '&:hover': { backgroundColor: '#c0c0c0' }
+  });
 
-  const fetchDashboard = async () => {
-    try {
-      const res = await fetch('http://localhost:8000/api/admin/dashboard');
-      if (res.ok) {
-        const data = await res.json();
-        setDashboardData(data);
-        const times = [...new Set(data.historique.map(h => h.heure))];
-        setTimeSlots(['Total', ...times]);
-      }
-    } catch (err) { console.error(err); }
+  const getCardColor = (nom) => {
+    if (nom.includes('Poste 1')) return '#9fc3f1';
+    if (nom.includes('Poste 2')) return '#b6fcce';
+    if (nom.includes('Poste 3')) return '#ffb6b6';
+    return '#e0e0e0';
   };
 
-  const fetchCycles = async () => {
+  // --- Chargement Données ---
+
+  const fetchDashboardData = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/cycles');
-      if (res.ok) {
-        const data = await res.json();
-        setCyclesList(data);
-        if (data.length > 0 && !selectedCycleId) {
-            handleSelectCycle(data[0]);
+        const resDash = await fetch(`http://localhost:8000/api/admin/dashboard?mode=${filtreMode}`);
+        if (resDash.ok) {
+            const dataDash = await resDash.json();
+            setDashboardData(dataDash);
         }
-      }
-    } catch (err) { console.error(err); }
-  }
+
+        const resCycles = await fetch(`http://localhost:8000/api/admin/cycles?mode=${filtreMode}`);
+        if (resCycles.ok) {
+            const dataCycles = await resCycles.json();
+            setCyclesList(dataCycles);
+        }
+    } catch (e) {
+        console.error("Erreur chargement admin:", e);
+    }
+  };
 
   const fetchCycleLogs = async (id) => {
     try {
-        const res = await fetch(`http://localhost:8000/api/admin/logs/${id}`);
+        const res = await fetch(`http://localhost:8000/api/admin/logs/${id}?mode=${filtreMode}`);
         if(res.ok) {
             const data = await res.json();
             setCycleLogs(data.logs);
@@ -69,23 +85,18 @@ export default function Admin({ onParametre }) {
   }
 
   useEffect(() => {
-      fetchCycles();
-      fetchDashboard();
-      if (currentView === 'logs' && selectedCycleId && selectedCycleId !== 'Total') {
-          fetchCycleLogs(selectedCycleId);
-      }
-  }, [currentView]);
+    fetchDashboardData();
+  }, [filtreMode]);
 
   useEffect(() => {
       const interval = setInterval(() => {
-          fetchDashboard();
-          fetchCycles();
+          fetchDashboardData();
           if (currentView === 'logs' && selectedCycleId && selectedCycleId !== 'Total') {
               fetchCycleLogs(selectedCycleId);
           }
       }, 5000);
       return () => clearInterval(interval);
-  }, [currentView, selectedCycleId]);
+  }, [currentView, selectedCycleId, filtreMode]);
 
   // --- Handlers ---
   const handleSelectCycle = (cycle) => {
@@ -98,84 +109,84 @@ export default function Admin({ onParametre }) {
 
   const handleQuit = () => { window.location.href = "/"; };
 
+  const handleModeChange = (event, nextMode) => {
+      if (nextMode !== null) {
+          setFiltreMode(nextMode);
+          setSelectedCycleId('Total'); // Reset selection au changement de mode
+      }
+  };
+
   const handleClearDatabase = async () => {
     setClearing(true);
     try {
         const res = await fetch('http://localhost:8000/api/admin/clear', {
             method: 'POST'
         });
-
         if (res.ok) {
-            // Reset UI
             setCycleLogs([]);
-            setSelectedCycleId(null);
-            setSelectedCycleLabel("");
-            fetchDashboard();
-            fetchCycles();
+            setSelectedCycleId('Total');
+            fetchDashboardData();
         }
-    } catch (err) {
-        console.error(err);
-    } finally {
+    } catch (err) { console.error(err); } 
+    finally {
         setClearing(false);
         setOpenClearDialog(false);
     }
   };
 
-  // --- Styles ---
-  const headerBtnStyle = (active) => ({
-    backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
-    color: 'black', textTransform: 'none',
-    boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
-    '&:hover': { backgroundColor: '#c0c0c0' }
-  });
-
-  const getCardColor = (nom) => {
-    if (nom.includes('Poste 1')) return '#9fc3f1';
-    if (nom.includes('Poste 2')) return '#b6fcce';
-    if (nom.includes('Poste 3')) return '#ffb6b6';
-    return '#e0e0e0';
-  };
-
-  // --- RENDER ---
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#333', overflow: 'hidden' }}>
       
       {/* HEADER (Commun) */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pt: 3, bgcolor: 'white' }}>
-        <Button variant="contained" sx={headerBtnStyle(false)}>Télécharger</Button>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', p: 2, bgcolor: 'white' }}>
         
-        <Typography variant="h3" sx={{ fontWeight: 400, color: 'black' }}>
+        {/* BLOC GAUCHE */}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="contained" sx={headerBtnStyle(false)}>Télécharger</Button>
+            <ToggleButtonGroup
+                value={filtreMode}
+                exclusive
+                onChange={handleModeChange}
+                sx={{ border: 'none', borderRadius: 0, gap: 1 }}
+            >
+                <ToggleButton value="Normal" sx={headerBtnStyle(filtreMode === 'Normal')}>
+                    Logs Normaux
+                </ToggleButton>
+                <ToggleButton value="Personnalisé" sx={headerBtnStyle(filtreMode === 'Personnalisé')}>
+                    Logs Perso
+                </ToggleButton>
+            </ToggleButtonGroup>
+        </Box>
+        
+        {/* BLOC CENTRE */}
+        <Typography variant="h3" sx={{ fontWeight: 400, color: 'black', textAlign: 'center' }}>
           {currentView === 'dashboard' ? 'Historique' : 'Page log'}
         </Typography>
         
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        {/* BLOC DROITE */}
+        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
             <Button 
               variant="contained" 
               onClick={() => setOpenClearDialog(true)} 
-              sx={{
-                backgroundColor: '#d9d9d9', color: 'black', textTransform: 'none',
-                boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
-                '&:hover': { backgroundColor: '#d9d9d9' }
-              }}
+              sx={headerBtnStyle(false)}
             >
               Vider la BD
             </Button>
 
-          <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
+            <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
 
-          <Button 
-            variant="contained" 
-            sx={headerBtnStyle(currentView === 'logs')}
-            onClick={() => setCurrentView(currentView === 'dashboard' ? 'logs' : 'dashboard')}
-          >
-            {currentView === 'dashboard' ? 'Log' : 'Historique'}
-          </Button>
+            <Button 
+                variant="contained" 
+                sx={headerBtnStyle(currentView === 'logs')}
+                onClick={() => setCurrentView(currentView === 'dashboard' ? 'logs' : 'dashboard')}
+            >
+                {currentView === 'dashboard' ? 'Log' : 'Historique'}
+            </Button>
 
-          <Button variant="contained" onClick={handleQuit} sx={{ 
-              backgroundColor: '#cc0000', color: 'white', minWidth: '50px', fontWeight: 'bold', fontSize: '1.2rem',
-              borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#a00000' }
-            }}>X</Button>
-            
+            <Button variant="contained" onClick={handleQuit} sx={{ 
+                backgroundColor: '#cc0000', color: 'white', minWidth: '50px', fontWeight: 'bold', fontSize: '1.2rem',
+                borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#a00000' }
+                }}>X</Button>
         </Box>
       </Box>
 
@@ -233,7 +244,7 @@ export default function Admin({ onParametre }) {
 
                             return (
                                 <Grid item xs={12} sm={6} md={4} key={stand.id}>
-                                    <Paper sx={{ backgroundColor: getCardColor(stand.nom), p: 2, minHeight: '180px' }}>
+                                    <Paper sx={{ backgroundColor: getCardColor(stand.nom), p: 2, minHeight: '180px', borderRadius: 0, boxShadow: 1 }}>
                                         <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>{stand.nom}</Typography>
                                         
                                         {arrivages.map((i, idx) => (
@@ -262,8 +273,8 @@ export default function Admin({ onParametre }) {
         {currentView === 'logs' && (
             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
                 <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
-                    <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold' }}>
-                        Cycles passés
+                    <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold', textAlign: 'center' }}>
+                        Cycles passés ({filtreMode})
                     </Box>
                     <List component="nav" sx={{ p: 0 }}>
                         {cyclesList.map((cycle) => (
@@ -282,21 +293,21 @@ export default function Admin({ onParametre }) {
                     </List>
                 </Paper>
 
-                <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
+                <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 0, overflow: 'hidden' }}>
                     <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box sx={{ textAlign: 'center', width: '100%' }}>
                             <Typography variant="h4">
                                 {selectedCycleId === 'Total' ? 'Veuillez sélectionner un cycle' : `Logs du ${selectedCycleLabel}`}
                             </Typography>
                         </Box>
-                        <IconButton sx={{ bgcolor: '#d9d9d9', borderRadius: 1 }} onClick={() => setCurrentView('dashboard')}>
+                        <IconButton sx={{ bgcolor: '#d9d9d9', borderRadius: 0 }} onClick={() => setCurrentView('dashboard')}>
                             <ArrowBackIcon />
                         </IconButton>
                     </Box>
                     
                     <Box sx={{ 
                         flexGrow: 1, m: 4, mt: 0, p: 4, 
-                        bgcolor: '#d9d9d9', borderRadius: 4, 
+                        bgcolor: '#d9d9d9', borderRadius: 0, 
                         overflowY: 'auto', fontFamily: 'monospace', fontSize: '1.1rem' 
                     }}>
                         {selectedCycleId !== 'Total' && cycleLogs.length > 0 ? (
@@ -305,7 +316,7 @@ export default function Admin({ onParametre }) {
                             ))
                         ) : (
                             <div style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                                {selectedCycleId === 'Total' ? "Cliquez sur un cycle à gauche pour voir les détails." : "Aucune donnée."}
+                                {selectedCycleId === 'Total' ? "Cliquez sur un cycle à gauche pour voir les détails." : "Aucune donnée pour ce mode."}
                             </div>
                         )}
                     </Box>
@@ -314,34 +325,22 @@ export default function Admin({ onParametre }) {
         )}
       </Box>
 
-      {/* ================= DIALOG CONFIRMATION ================= */}
-      <Dialog
-        open={openClearDialog}
-        onClose={() => setOpenClearDialog(false)}
-      >
+      {/* DIALOG CONFIRMATION */}
+      <Dialog open={openClearDialog} onClose={() => setOpenClearDialog(false)}>
         <DialogTitle>Confirmation</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Cette action va supprimer définitivement toutes les données de la base (Pièces, Boîtes, Commandes, Cycles, etc.). Les logs seront perdus et il faudra recréer toutes les pièces ainsi que leur boites.
-            <br />
+            Cette action va supprimer définitivement toutes les Commandes et tous les cycles de la base ({filtreMode}).
             Voulez-vous vraiment continuer ?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenClearDialog(false)} disabled={clearing}>
-            Annuler
-          </Button>
-          <Button
-            onClick={handleClearDatabase}
-            color="error"
-            variant="contained"
-            disabled={clearing}
-          >
+          <Button onClick={() => setOpenClearDialog(false)}>Annuler</Button>
+          <Button onClick={handleClearDatabase} color="error" variant="contained" disabled={clearing}>
             {clearing ? "Suppression..." : "Confirmer"}
           </Button>
         </DialogActions>
       </Dialog>
-      
     </Box>
   );
 }

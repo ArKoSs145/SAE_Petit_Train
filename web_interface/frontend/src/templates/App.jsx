@@ -3,13 +3,10 @@ import { Box, Button, Typography, Paper } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import LoginPopup from '../templates/popup/LoginPopup.jsx';
 
-export default function App({ onContinue, onAdminLogin }) {
+export default function App({ onContinue, onAdminLogin, onCustomStart }) {
     const [showLogin, setShowLogin] = useState(false);
 
     // --- Actions ---
-    function buttonPersonalisé() {
-        console.log("Avec un départ personnalisé");
-    }
 
     function quit() {
         window.open("about:blank", "_self");
@@ -104,7 +101,7 @@ export default function App({ onContinue, onAdminLogin }) {
 
                     <Button 
                         variant="contained" 
-                        onClick={buttonPersonalisé}
+                        onClick={onCustomStart}
                         sx={mainButtonStyle}
                     >
                         Avec un départ personnalisé
