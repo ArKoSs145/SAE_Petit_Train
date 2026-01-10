@@ -160,12 +160,69 @@ async def recevoir_scan(request: Request):
 
 
 async def simulation_apport_boites():
-    """Augmente le stock de 1 pour toutes les boîtes toutes les 2 minutes"""
+    """
+    Simulation optimisée : incrémente le stock selon le délai 'approvisionnement'
+    défini en base de données pour chaque boîte.
+    """
+    timers = {} # Dictionnaire local : {id_boite: secondes_restantes}
+    
+    logging.info("[APPRO] Simulation d'approvisionnement démarrée.")
+
     while True:
-        await asyncio.sleep(120)
-        print("[STOCK] Lancement simulation réapprovisionnement...")
-        requetes.incrementer_stock_global()
-        print("[STOCK] Stock incrémenté (+1) pour toutes les boîtes.")
+        await asyncio.sleep(1) # Tick de 1 seconde
+        
+        # --- ÉTAPE 1 : GESTION DU SIGNAL (MISE À JOUR DÉLAIS) ---
+        if update_signal.is_set():
+            logging.info("[APPRO] Signal reçu : Synchronisation des nouveaux délais...")
+            
+            # On demande à requetes.py le nouveau délai pour chaque boîte suivie
+            for bid in list(timers.keys()):
+                nouveau_delai = requetes.get_approvisionnement_boite(bid)
+                if nouveau_delai is not None:
+                    # Si le nouveau délai est plus court que le temps restant, on ajuste
+                    if timers[bid] > nouveau_delai:
+                        timers[bid] = nouveau_delai
+            
+            update_signal.clear() # On baisse le flag
+            logging.info("[APPRO] Synchronisation terminée.")
+
+        # --- ÉTAPE 2 : DÉCOMPTE ET MISE À JOUR DU STOCK ---
+        db_update_needed = False
+        ids_finis = []
+
+        # On parcourt les compteurs en mémoire
+        for boite_id in list(timers.keys()):
+            timers[boite_id] -= 1
+            if timers[boite_id] <= 0:
+                ids_finis.append(boite_id)
+                db_update_needed = True
+
+        # On n'ouvre la base de données QUE si nécessaire
+        if db_update_needed or not timers:
+            db = SessionLocal()
+            try:
+                # Récupération des boîtes pour incrémentation ou initialisation
+                boites = db.query(Boite).all()
+                
+                for b in boites:
+                    # Initialisation des nouvelles boîtes arrivées en BD
+                    if b.idBoite not in timers:
+                        timers[b.idBoite] = b.approvisionnement
+                    
+                    # Si le délai est expiré pour cette boîte
+                    if b.idBoite in ids_finis:
+                        b.nbBoite += 1 # Incrémentation du stock
+                        timers[b.idBoite] = b.approvisionnement # Reset du compteur avec la valeur BD
+                        
+                        nom = b.piece.nomPiece if b.piece else b.code_barre
+                        logging.info(f"[APPRO] +1 stock pour {nom} (ID:{b.idBoite})")
+
+                db.commit() # Sauvegarde globale des stocks incrémentés
+            except Exception as e:
+                logging.error(f"[APPRO] Erreur lors de l'incrémentation : {e}")
+                db.rollback()
+            finally:
+                db.close()
 
 # --- Démarrage serveur ---
 @app.on_event("startup")
@@ -212,6 +269,41 @@ def login(creds: LoginRequest):
     finally:
         if conn:
             conn.close()
+
+class MultiDelayUpdate(BaseModel):
+    updates: List[dict] # Liste de {idBoite: int, delai: int}
+
+@app.get("/api/admin/boites-delais")
+def get_boites_delais():
+    db = SessionLocal()
+    try:
+        boites = db.query(Boite).all()
+        return [
+            {
+                "idBoite": b.idBoite,
+                "code_barre": b.code_barre,
+                "delai_actuel": b.approvisionnement, # On récupère le délai
+                "nom_piece": b.piece.nomPiece if b.piece else "Sans nom"
+            } for b in boites
+        ]
+    finally:
+        db.close()
+
+update_signal = asyncio.Event()
+
+@app.post("/api/admin/update-delais-appro")
+def update_delais_appro(payload: MultiDelayUpdate):
+    try:
+        for item in payload.updates:
+            # Appel de votre fonction dans requetes.py
+            requetes.update_approvisionnement_boite(item["idBoite"], item["delai"])
+        
+        update_signal.set() 
+        
+        return {"status": "ok", "message": "Délais mis à jour"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # --- backend/server.py ---
 @app.get("/api/admin/dashboard")

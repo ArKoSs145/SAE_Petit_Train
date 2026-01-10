@@ -36,7 +36,7 @@ class Boite(Base):
     magasin = relationship("Stand", foreign_keys=[idMagasin])
     poste = relationship("Stand", foreign_keys=[idPoste])
     # Temps de préparation de la boîte en secondes
-    temps_prep = Column(Integer, default=0, nullable=False)
+    approvisionnement = Column(Integer, default=0, nullable=False)
 
 # Table des stands / magasins
 class Stand(Base):
@@ -193,11 +193,11 @@ def data_db():
         if not db.query(Piece).filter_by(idPiece=p["idPiece"]).first():
             db.add(Piece(**p))
 
-    # Initialisation des Boîtes (avec magasin et poste par défaut pour l'exemple)
+    # Initialisation des Boîtes avec approvisionnement à 120
     boites_a_creer = [
-        {"idBoite": 6767, "idPiece": 4141, "code_barre": "3601020016223", "nbBoite": 10},
+        {"idBoite": 6767, "idPiece": 4141, "code_barre": "3601020016223", "nbBoite": 10, "approvisionnement": 120},
         *[
-            {"idBoite": i, "idPiece": i, "code_barre": f"TEST{i}", "nbBoite": 10}
+            {"idBoite": i, "idPiece": i, "code_barre": f"TEST{i}", "nbBoite": 10, "approvisionnement": 120}
             for i in range(1, 40)
         ]
     ]

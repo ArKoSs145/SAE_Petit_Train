@@ -4,6 +4,7 @@ import {
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import {
   Dialog,
   DialogTitle,
@@ -12,7 +13,7 @@ import {
   DialogActions
 } from '@mui/material';
 
-export default function Admin({ onParametre }) {
+export default function Admin({onParametre, onApprovisionnement}) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
   
@@ -27,6 +28,13 @@ export default function Admin({ onParametre }) {
   const [selectedCycleLabel, setSelectedCycleLabel] = useState("");
   const [cycleLogs, setCycleLogs] = useState([]);
 
+
+  const headerBtnStyleAppro = (active) => ({
+    backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
+    color: 'black', textTransform: 'none',
+    boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
+    '&:hover': { backgroundColor: '#c0c0c0' }
+    });
   // --- Vider la BD ---
   const [openClearDialog, setOpenClearDialog] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -150,6 +158,14 @@ export default function Admin({ onParametre }) {
         
         <Box sx={{ display: 'flex', gap: 2 }}>
             <Button 
+            variant="contained" 
+            onClick={onApprovisionnement} 
+            sx={headerBtnStyle(false)} // Même style que les autres
+            startIcon={<LocalShippingIcon />} // Optionnel
+          >
+            Approvisionnement
+          </Button>
+          <Button
               variant="contained" 
               onClick={() => setOpenClearDialog(true)} 
               sx={{
