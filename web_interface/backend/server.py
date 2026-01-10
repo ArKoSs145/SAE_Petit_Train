@@ -606,3 +606,23 @@ def update_train_position(update: TrainPosUpdate):
     except Exception as e:
         print(f"Erreur update train: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/api/admin/clear")
+async def clear_database_endpoint():
+    """
+    Appelle la fonction de nettoyage définie dans requetes.py
+    Cette route est appelée par le bouton "Vider la BD" du dashboard Admin.
+    """
+    try:
+        # On utilise l'alias 'requetes' que vous avez déjà dans vos imports
+        success = requetes.clear_production_data()
+        
+        if success:
+            logging.info("La base de données a été vidée par l'administrateur.")
+            return {"status": "ok", "message": "La base de données de production a été vidée."}
+        else:
+            raise HTTPException(status_code=500, detail="Erreur technique lors du vidage")
+            
+    except Exception as e:
+        logging.error(f"Erreur lors de l'appel clear_database: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
