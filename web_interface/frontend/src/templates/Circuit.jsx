@@ -17,7 +17,7 @@ import StopIcon from '@mui/icons-material/Stop';
 
 import '../../styles/Base.css'
 import PopupLivraison from './popup/PopupLivraison'
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 
 // --- CONSTANTES DE CONFIGURATION ---
@@ -271,22 +271,26 @@ export default function Base({mode, onApp}) {
     onApp();
   }
 
-  const handleToggleCycle = async () => {
+const handleToggleCycle = async () => {
     try {
         if (cycleActive) {
+            // Utilisation de apiUrl pour l'arrêt
             await fetch(`${apiUrl}/api/cycle/stop`, { method: 'POST' });
             console.log("Cycle arrêté");
             setCycleActive(false);
         } else {
-            await fetch(`${apiUrl}/api/cycle/start`, { method: 'POST' });
+            // CORRECTION : Définir l'URL AVANT de l'utiliser
+            const url = `${apiUrl}/api/cycle/start?mode=${mode}`;
             console.log("Tentative de démarrage cycle sur :", url);
+            
             const response = await fetch(url, { method: 'POST' });
             const data = await response.json();
+
             if (data.status === "ok") {
                 console.log("Cycle démarré en mode :", mode);
                 setCycleActive(true);
             } else {
-                  alert(data.message);
+                alert(data.message);
             }
         }
     } catch (err) {
