@@ -12,6 +12,7 @@ import {
   DialogContentText,
   DialogActions
 } from '@mui/material';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 export default function Admin({onParametre, onApprovisionnement}) {
   // --- États ---
@@ -43,7 +44,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/dashboard');
+      const res = await fetch(`${apiUrl}/api/admin/dashboard`);
       if (res.ok) {
         const data = await res.json();
         setDashboardData(data);
@@ -55,7 +56,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
 
   const fetchCycles = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/cycles');
+      const res = await fetch(`${apiUrl}/api/admin/cycles`);
       if (res.ok) {
         const data = await res.json();
         setCyclesList(data);
@@ -68,7 +69,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
 
   const fetchCycleLogs = async (id) => {
     try {
-        const res = await fetch(`http://localhost:8000/api/admin/logs/${id}`);
+        const res = await fetch(`${apiUrl}/api/admin/logs/${id}`);
         if(res.ok) {
             const data = await res.json();
             setCycleLogs(data.logs);
@@ -109,7 +110,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
   const handleClearDatabase = async () => {
     setClearing(true);
     try {
-        const res = await fetch('http://localhost:8000/api/admin/clear', {
+        const res = await fetch(`${apiUrl}/api/admin/clear`, {
             method: 'POST'
         });
 

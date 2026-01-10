@@ -7,6 +7,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import TimerIcon from '@mui/icons-material/Timer';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 export default function Approvisionnement({ onRetourAdmin }) {
   const [boites, setBoites] = useState([]);
@@ -20,7 +21,7 @@ export default function Approvisionnement({ onRetourAdmin }) {
 
   const fetchBoites = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/boites-delais');
+      const res = await fetch(`${apiUrl}/api/admin/boites-delais`);
       if (res.ok) {
         const data = await res.json();
         // On initialise 'nouveauDelai' avec la valeur actuelle 'delai_actuel'
@@ -50,7 +51,7 @@ export default function Approvisionnement({ onRetourAdmin }) {
     }));
 
     try {
-      const res = await fetch('http://localhost:8000/api/admin/update-delais-appro', {
+      const res = await fetch(`${apiUrl}/api/admin/update-delais-appro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates })

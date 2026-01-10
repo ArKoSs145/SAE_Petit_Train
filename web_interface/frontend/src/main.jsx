@@ -1,8 +1,8 @@
 import React from 'react'
-import App from './templates/App.jsx'
+import Accueil from './templates/Accueil.jsx'
 import './styles.css'
 import ReactDOM from "react-dom/client";
-import Base from './templates/Base.jsx';
+import Circuit from './templates/Circuit.jsx';
 import Admin from './templates/Admin.jsx';
 import Parametre from './templates/Parametre.jsx';
 import Approvisionnement from './templates/Approvisionnement.jsx';
@@ -17,10 +17,10 @@ const renderApprovisionnement = () => {
     );
 }
 
-const renderBase = () => {
+const renderCircuit = () => {
   root.render(
     <React.StrictMode>
-      <Base onApp={renderApp}/>
+      <Circuit onApp={renderAccueil}/>
     </React.StrictMode>
   );
 };
@@ -36,10 +36,10 @@ const renderAdmin = () => {
     );
 };
 
-const renderApp = () => {
+const renderAccueil = () => {
     root.render(
       <React.StrictMode>
-        <App onContinue={renderBase} onAdminLogin={renderAdmin}/>
+        <Accueil onContinue={renderCircuit} onAdminLogin={renderAdmin}/>
       </React.StrictMode>
     );
 };
@@ -54,6 +54,6 @@ const renderParametre = () => {
 
 root.render(
   <React.StrictMode>
-    <App onContinue={renderBase} onAdminLogin={renderAdmin} />
+    <Accueil onContinue={renderCircuit} onAdminLogin={renderAdmin} />
   </React.StrictMode>
 );

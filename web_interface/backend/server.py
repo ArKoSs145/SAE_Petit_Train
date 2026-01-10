@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from update_grid import traiter_fichier_config
 
+update_signal = asyncio.Event()
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
@@ -25,11 +26,12 @@ origins = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.1.14:8000"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -289,7 +291,7 @@ def get_boites_delais():
     finally:
         db.close()
 
-update_signal = asyncio.Event()
+
 
 @app.post("/api/admin/update-delais-appro")
 def update_delais_appro(payload: MultiDelayUpdate):

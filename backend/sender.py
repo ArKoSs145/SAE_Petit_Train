@@ -15,7 +15,7 @@ import traceback
 import requests
 
 # === CONFIGURATION ===
-SERVER_HOST = "http://127.0.0.1:8000"     # à adapter si le serveur est distant
+SERVER_HOST = "http://192.168.1.14:8000"     # à adapter si le serveur est distant
 SCAN_ENDPOINT = f"{SERVER_HOST}/scan"      # endpoint FastAPI
 READ_TIMEOUT = 1.0                         # timeout de lecture série
 RECONNECT_DELAY = 2.0                      # délai de reconnexion
