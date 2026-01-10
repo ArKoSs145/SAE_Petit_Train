@@ -1,43 +1,51 @@
-  import React from 'react'
-  import App from './templates/App.jsx'
-  import './styles.css'
-  import ReactDOM from "react-dom/client";
-  import Base from './templates/Base.jsx';
-  import Admin from './templates/Admin.jsx';
-  import Parametre from './templates/Parametre.jsx';
-  import ChoixDepart from './templates/ChoixDepart.jsx';
-  import ConfigDepartPerso from './templates/ConfigDepartPerso';
+import React from 'react'
+import Accueil from './templates/Accueil.jsx'
+import './styles.css'
+import ReactDOM from "react-dom/client";
+import Circuit from './templates/Circuit.jsx';
+import Admin from './templates/Admin.jsx';
+import Parametre from './templates/Parametre.jsx';
+import Approvisionnement from './templates/Approvisionnement.jsx';
+import ChoixDepart from './templates/ChoixDepart.jsx';
+import ConfigDepartPerso from './templates/ConfigDepartPerso';
+
 
   const root = ReactDOM.createRoot(document.getElementById("root"));
 
-
-  const renderBase = (mode = "Normal") => {
+const renderApprovisionnement = () => {
     root.render(
       <React.StrictMode>
-        <Base mode={mode} onApp={renderApp} />
+        <Approvisionnement onRetourAdmin={renderAdmin}/>
       </React.StrictMode>
     );
-  };
+}
 
-  const renderAdmin = () => {
-      root.render(
-        <React.StrictMode>
-          <Admin onParametre={renderParametre}/>
-        </React.StrictMode>
-      );
-  };
+const renderCircuit = (mode = "Normal") => {
+  root.render(
+    <React.StrictMode>
+      <Circuit mode={mode} onApp={renderAccueil}/>
+    </React.StrictMode>
+  );
+};
 
-  const renderApp = () => {
-      root.render(
-        <React.StrictMode>
-          <App 
-            onContinue={() => renderBase("Normal")} // Force le mode Normal ici
-            onAdminLogin={renderAdmin} 
-            onCustomStart={renderChoixDepart}
-          />
-        </React.StrictMode>
-      );
-  };
+const renderAdmin = () => {
+    root.render(
+      <React.StrictMode>
+        <Admin 
+        onParametre={renderParametre}
+        onApprovisionnement={renderApprovisionnement} 
+        />
+      </React.StrictMode>
+    );
+};
+
+const renderAccueil = () => {
+    root.render(
+      <React.StrictMode>
+        <Accueil onContinue={() => renderCircuit("Normal")} onAdminLogin={renderAdmin} onCustomStart={renderChoixDepart}/>
+      </React.StrictMode>
+    );
+};
 
   const renderParametre = () => {
       root.render(
@@ -61,15 +69,11 @@
   };
 
 
-  root.render(
-    <React.StrictMode>
-      <App 
-        onContinue={() => renderBase("Normal")} 
-        onAdminLogin={renderAdmin} 
-        onCustomStart={renderChoixDepart} // <-- Correction du nom ici
-      />
-    </React.StrictMode>
-  );
+root.render(
+  <React.StrictMode>
+    <Accueil onContinue={() => renderCircuit("Normal")} onAdminLogin={renderAdmin} onCustomStart={renderChoixDepart} />
+  </React.StrictMode>
+);
 
   const renderConfiguration = () => {
       root.render(

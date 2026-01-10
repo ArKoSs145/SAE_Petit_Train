@@ -11,6 +11,7 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 export default function Parametre({ onRetourAdmin }) {
   const fileInputRef = useRef(null);
@@ -21,7 +22,7 @@ export default function Parametre({ onRetourAdmin }) {
 
   const fetchStands = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/stands');
+      const res = await fetch(`${apiUrl}/api/stands`);
       if (res.ok) {
         const data = await res.json();
         setPosteNames(data);
@@ -54,7 +55,7 @@ export default function Parametre({ onRetourAdmin }) {
         const csvContent = e.target.result;
         
         try {
-          const response = await fetch('http://localhost:8000/api/admin/upload-config', {
+          const response = await fetch(`${apiUrl}/api/admin/upload-config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

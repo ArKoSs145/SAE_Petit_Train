@@ -458,7 +458,37 @@ def get_all_cycles(mode="Normal"):
     finally:
         db.close()
 
-# ---------- RESET DONNEE ----------
+def update_approvisionnement_boite(id_boite, nouveau_delai):
+    """Met à jour le délai d'approvisionnement d'une boîte spécifique"""
+    db = SessionLocal()
+    try:
+        boite = db.query(Boite).filter(Boite.idBoite == id_boite).first()
+        if not boite:
+            return False
+
+        # Utilisation de la colonne 'approvisionnement' au lieu de 'temps_prep'
+        boite.approvisionnement = nouveau_delai
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"Erreur requete update_approvisionnement: {e}")
+        db.rollback()
+        return False
+    finally:
+        db.close()
+
+def get_approvisionnement_boite(id_boite):
+    """Récupère uniquement le délai d'approvisionnement pour une boîte donnée"""
+    db = SessionLocal()
+    try:
+        # On sélectionne uniquement la colonne souhaitée pour optimiser la performance
+        result = db.query(Boite.approvisionnement).filter(Boite.idBoite == id_boite).first()
+        # .first() renvoie un tuple (valeur,), on retourne donc le premier élément
+        return result[0] if result else None
+    finally:
+      db.close()
+      
+# ---------- Reset donnée ----------
 
 def clear_production_data():
     """

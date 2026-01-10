@@ -4,6 +4,7 @@ import {
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import {
   Dialog,
   DialogTitle,
@@ -11,8 +12,9 @@ import {
   DialogContentText,
   DialogActions
 } from '@mui/material';
+const apiUrl = import.meta.env.VITE_API_URL;
 
-export default function Admin({ onParametre }) {
+export default function Admin({onParametre, onApprovisionnement}) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
   const [filtreMode, setFiltreMode] = useState('Normal');
@@ -24,6 +26,13 @@ export default function Admin({ onParametre }) {
   const [selectedCycleLabel, setSelectedCycleLabel] = useState("Total");
   const [cycleLogs, setCycleLogs] = useState([]);
 
+
+  const headerBtnStyleAppro = (active) => ({
+    backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
+    color: 'black', textTransform: 'none',
+    boxShadow: 'none', borderRadius: 0, fontSize: '1.1rem', px: 3,
+    '&:hover': { backgroundColor: '#c0c0c0' }
+    });
   // --- Vider la BD ---
   const [openClearDialog, setOpenClearDialog] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -58,17 +67,23 @@ export default function Admin({ onParametre }) {
 
   const fetchDashboardData = async () => {
     try {
-        const resDash = await fetch(`http://localhost:8000/api/admin/dashboard?mode=${filtreMode}`);
-        if (resDash.ok) {
-            const dataDash = await resDash.json();
-            setDashboardData(dataDash);
-        }
+      const res = await fetch('http://localhost:8000/api/admin/dashboard');
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardData(data);
+        const times = [...new Set(data.historique.map(h => h.heure))];
+        setTimeSlots(['Total', ...times]);
+      }
+    } catch (err) { console.error(err); }
+  };
 
-        const resCycles = await fetch(`http://localhost:8000/api/admin/cycles?mode=${filtreMode}`);
-        if (resCycles.ok) {
-            const dataCycles = await resCycles.json();
-            setCyclesList(dataCycles);
-        }
+  const fetchCycles = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/cycles?mode=${filtreMode}`);
+      if (res.ok) {
+        const dataCycles = await resCycles.json();
+        setCyclesList(dataCycles);
+      }
     } catch (e) {
         console.error("Erreur chargement admin:", e);
     }
@@ -76,7 +91,7 @@ export default function Admin({ onParametre }) {
 
   const fetchCycleLogs = async (id) => {
     try {
-        const res = await fetch(`http://localhost:8000/api/admin/logs/${id}?mode=${filtreMode}`);
+        const res = await fetch(`${apiUrl}/api/admin/logs/${id}?mode=${filtreMode}`);
         if(res.ok) {
             const data = await res.json();
             setCycleLogs(data.logs);
@@ -119,7 +134,7 @@ export default function Admin({ onParametre }) {
   const handleClearDatabase = async () => {
     setClearing(true);
     try {
-        const res = await fetch('http://localhost:8000/api/admin/clear', {
+        const res = await fetch(`${apiUrl}/api/admin/clear`, {
             method: 'POST'
         });
         if (res.ok) {
@@ -163,8 +178,15 @@ export default function Admin({ onParametre }) {
           {currentView === 'dashboard' ? 'Historique' : 'Page log'}
         </Typography>
         
-        {/* BLOC DROITE */}
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button 
+              variant="contained" 
+              onClick={onApprovisionnement} 
+              sx={headerBtnStyle(false)} // Même style que les autres
+              startIcon={<LocalShippingIcon />} // Optionnel
+            >
+              Approvisionnement
+            </Button>
             <Button 
               variant="contained" 
               onClick={() => setOpenClearDialog(true)} 

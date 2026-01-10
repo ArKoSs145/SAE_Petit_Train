@@ -10,6 +10,8 @@ import {
   Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+const apiUrl = import.meta.env.VITE_API_URL;
+
 
 // Ajout de la prop 'onLoginSuccess'
 export default function LoginPopup({ open, onClose, onLoginSuccess }) {
@@ -26,7 +28,7 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
     
     try {
       // Assurez-vous que l'URL pointe bien vers votre serveur Python (port 8000)
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
