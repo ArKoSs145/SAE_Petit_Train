@@ -322,7 +322,7 @@ export default function Admin({ onParametre }) {
         <DialogTitle>Confirmation</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            ⚠️ Cette action va supprimer définitivement toutes les données de la base (Pièces, Boîtes, Commandes, Cycles, etc.).
+            Cette action va supprimer définitivement toutes les données de la base (Pièces, Boîtes, Commandes, Cycles, etc.). Les logs seront perdus et il faudra recréer toutes les pièces ainsi que leur boites.
             <br />
             Voulez-vous vraiment continuer ?
           </DialogContentText>
