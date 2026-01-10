@@ -436,3 +436,19 @@ def get_all_cycles():
         return cycles
     finally:
         db.close()
+
+# ---------- TEMPS DES BOITES ----------
+def update_temps_prep_boite(id_boite, temps_secondes):
+    db = SessionLocal()
+    try:
+        boite = db.query(Boite).filter(Boite.idBoite == id_boite).first()
+        if not boite:
+            return False
+
+        boite.temps_prep = temps_secondes
+        db.commit()
+        db.refresh(boite)
+        return boite
+    finally:
+        db.close()
+
