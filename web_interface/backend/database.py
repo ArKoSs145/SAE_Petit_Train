@@ -34,6 +34,8 @@ class Boite(Base):
     Cases = relationship("Case", back_populates="boite")
     magasin = relationship("Stand", foreign_keys=[idMagasin])
     poste = relationship("Stand", foreign_keys=[idPoste])
+    # Temps de préparation de la boîte en secondes
+    temps_prep = Column(Integer, default=0, nullable=False)
 
 # Table des stands / magasins
 class Stand(Base):
