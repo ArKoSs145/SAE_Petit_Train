@@ -385,7 +385,7 @@ const handleToggleCycle = async () => {
     };
     setTasks(prev => [newTask, ...prev]);
   }
-
+  
   const handleMissingTask = (taskId) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }
@@ -407,6 +407,22 @@ const handleToggleCycle = async () => {
     
     return false;
   });
+  
+  useEffect(() => {
+      const syncMode = async () => {
+          try {
+              await fetch(`${apiUrl}/api/set-active-mode`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ mode: mode })
+              });
+              console.log("Serveur synchronisé sur le mode :", mode);
+          } catch (err) {
+              console.error("Erreur de synchro mode:", err);
+          }
+      };
+      syncMode();
+  }, [mode, apiUrl]);
 
 
   const getBoxSx = (posteId) => {

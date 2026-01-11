@@ -18,6 +18,7 @@ update_signal = asyncio.Event()
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
+current_app_mode = "Normal"
 
 # --- Autoriser le front React ---
 origins = [
@@ -94,7 +95,8 @@ async def upload_config(payload: ConfigPayload):
         db.close()
 
 @app.post("/scan")
-async def recevoir_scan(request: Request, mode: str = "Normal"):
+async def recevoir_scan(request: Request):
+    global current_app_mode # On utilise bien la variable globale
     data = await request.json()
     poste_id = data.get("poste")
     code_barre = data.get("code_barre")
@@ -108,16 +110,13 @@ async def recevoir_scan(request: Request, mode: str = "Normal"):
         if not boite or not current_stand:
             raise HTTPException(status_code=404, detail="Objet ou Poste inconnu")
 
-        # 2. Vérification de l'affectation (Poste demandeur == idPoste de la boîte)
-        if current_stand.categorie == 0: # 0 = Poste
+        # 2. Vérification de l'affectation
+        if current_stand.categorie == 0:
             if boite.idPoste is not None and boite.idPoste != poste_id:
                 raise HTTPException(status_code=403, detail="Cet objet n'est pas affecté à ce poste")
 
-        # 3. Recherche de la position physique AU MAGASIN assigné
-        case_magasin = db.query(Case).filter_by(
-            idBoite=boite.idBoite, 
-            idStand=boite.idMagasin 
-        ).first()
+        # 3. Recherche de la position physique
+        case_magasin = db.query(Case).filter_by(idBoite=boite.idBoite, idStand=boite.idMagasin).first()
 
         if case_magasin:
             magasin_nom = case_magasin.Stand.nomStand
@@ -131,16 +130,16 @@ async def recevoir_scan(request: Request, mode: str = "Normal"):
             idMagasin=boite.idMagasin,
             idPoste=poste_id,
             statutCommande="A récupérer",
-            typeCommande=mode
+            typeCommande=current_app_mode # <--- Utilise bien le mode global
         )
         db.add(nouvelle_commande)
         db.commit()
         db.refresh(nouvelle_commande)
         
-        # 5. Message WebSocket
+        # 5. Message WebSocket (CORRECTION ICI : "mode": current_app_mode)
         message = {
             "id_commande": nouvelle_commande.idCommande,
-            "mode": mode,
+            "mode": current_app_mode, # <--- Corrigé (ne pas mettre 'mode' tout court)
             "poste": poste_id,
             "code_barre": code_barre,
             "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
@@ -161,6 +160,13 @@ async def recevoir_scan(request: Request, mode: str = "Normal"):
         return {"status": "error", "detail": str(e)}
     finally:
         db.close()
+
+@app.post("/api/set-active-mode")
+async def set_active_mode(request: Request):
+    global current_app_mode
+    data = await request.json()
+    current_app_mode = data.get("mode", "Normal")
+    return {"status": "ok", "current_mode": current_app_mode}
 
 
 async def simulation_apport_boites():
