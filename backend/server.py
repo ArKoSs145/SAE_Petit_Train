@@ -13,11 +13,26 @@ import requetes
 from pydantic import BaseModel 
 from sqlalchemy import func
 from update_grid import traiter_fichier_config
+from contextlib import asynccontextmanager
 
 update_signal = asyncio.Event()
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logging.info("Initialisation de la base de données...")
+    init_db()
+    data_db()
+
+    task = asyncio.create_task(simulation_apport_boites())
+    logging.info("Base prête")
+    
+    yield
+    
+    logging.info("Arrêt du serveur...")
+    task.cancel() 
+
+app = FastAPI(lifespan=lifespan)
 
 # --- Autoriser le front React ---
 origins = [
@@ -101,64 +116,36 @@ async def recevoir_scan(request: Request, mode: str = "Normal"):
 
     db = SessionLocal()
     try:
-        # 1. Recherche de la boîte et du stand actuel
         boite = db.query(Boite).filter_by(code_barre=code_barre).first()
         current_stand = db.query(Stand).filter_by(idStand=poste_id).first()
 
         if not boite or not current_stand:
             raise HTTPException(status_code=404, detail="Objet ou Poste inconnu")
 
-        # 2. Vérification de l'affectation (Poste demandeur == idPoste de la boîte)
-        if current_stand.categorie == 0: # 0 = Poste
+        if current_stand.categorie == 0: 
             if boite.idPoste is not None and boite.idPoste != poste_id:
                 raise HTTPException(status_code=403, detail="Cet objet n'est pas affecté à ce poste")
 
-        # 3. Recherche de la position physique AU MAGASIN assigné
-        case_magasin = db.query(Case).filter_by(
-            idBoite=boite.idBoite, 
-            idStand=boite.idMagasin 
-        ).first()
+        case_magasin = db.query(Case).filter_by(idBoite=boite.idBoite, idStand=boite.idMagasin).first()
+        magasin_nom, ligne, colonne = (case_magasin.Stand.nomStand, case_magasin.ligne, case_magasin.colonne) if case_magasin else ("Non localisé", "-", "-")
 
-        if case_magasin:
-            magasin_nom = case_magasin.Stand.nomStand
-            ligne, colonne = case_magasin.ligne, case_magasin.colonne
-        else:
-            magasin_nom, ligne, colonne = "Non localisé", "-", "-"
-
-        # 4. Enregistrement de la commande
-        nouvelle_commande = Commande(
-            idBoite=boite.idBoite,
-            idMagasin=boite.idMagasin,
-            idPoste=poste_id,
-            statutCommande="A récupérer",
-            typeCommande=mode
-        )
+        nouvelle_commande = Commande(idBoite=boite.idBoite, idMagasin=boite.idMagasin, idPoste=poste_id, statutCommande="A récupérer", typeCommande=mode)
         db.add(nouvelle_commande)
         db.commit()
         db.refresh(nouvelle_commande)
         
-        # 5. Message WebSocket
         message = {
-            "id_commande": nouvelle_commande.idCommande,
-            "mode": mode,
-            "poste": poste_id,
-            "code_barre": code_barre,
-            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
-            "magasin": magasin_nom,
-            "magasin_id": str(boite.idMagasin),
-            "ligne": ligne,
-            "colonne": colonne,
-            "stock": boite.nbBoite,
-            "timestamp": datetime.now().isoformat()
+            "id_commande": nouvelle_commande.idCommande, "mode": mode, "poste": poste_id, "code_barre": code_barre,
+            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre, "magasin": magasin_nom, "magasin_id": str(boite.idMagasin),
+            "ligne": ligne, "colonne": colonne, "stock": boite.nbBoite, "timestamp": datetime.now().isoformat()
         }
-
         await manager.broadcast(json.dumps(message))
         return {"status": "ok", "detail": "scan enregistré"}
 
     except HTTPException as he:
-        raise he
+        raise he # On laisse remonter l'erreur 404 ou 403 telle quelle
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
 
@@ -228,15 +215,6 @@ async def simulation_apport_boites():
             finally:
                 db.close()
 
-# --- Démarrage serveur ---
-@app.on_event("startup")
-async def startup_event():
-    logging.info("Initialisation de la base de données...")
-    init_db()
-    data_db()
-
-    asyncio.create_task(simulation_apport_boites())
-    logging.info("Base prête ✅")
 
 @app.get("/")
 async def root():
@@ -548,16 +526,13 @@ def update_statut(id_commande: int, update: StatutUpdate):
     try:
         resultat = requetes.changer_statut_commande(id_commande)
         
-        if resultat["status"] == "error":
-            raise HTTPException(status_code=404, detail=resultat["message"])
+        if resultat.get("status") == "error":
+            raise HTTPException(status_code=404, detail=resultat.get("message", "Commande introuvable"))
             
-        print(f"[STATUT] {resultat['message']}")
-        
-        if "commande" in resultat:
-            return {"status": "ok", "nouveau_statut": resultat["commande"]["nouveau_statut"]}
-        else:
-            return {"status": "ok", "message": resultat["message"]}
+        return {"status": "ok", "nouveau_statut": resultat["commande"]["nouveau_statut"]}
 
+    except HTTPException as he:
+        raise he # Empêche le bloc Exception de transformer la 404 en 500
     except Exception as e:
         print(f"Erreur serveur update statut: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -583,24 +558,24 @@ def set_commande_manquant(id_commande: int):
         succes = requetes.declarer_commande_manquante(id_commande)
         if not succes:
             raise HTTPException(status_code=404, detail="Commande introuvable")
-            
-        print(f"[MANQUANT] Commande {id_commande} marquée manquante")
         return {"status": "ok"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Erreur manquant: {e}")
-
+        raise HTTPException(status_code=500, detail=str(e))
         
 @app.delete("/api/commande/{id_commande}")
 def delete_commande_endpoint(id_commande: int):
     try:
         succes = requetes.supprimer_commande(id_commande)
-        
         if not succes:
             raise HTTPException(status_code=404, detail="Commande introuvable")
             
-        print(f"[DELETE] Commande {id_commande} supprimée")
         return {"status": "ok", "message": f"Commande {id_commande} supprimée"}
         
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Erreur suppression: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -625,19 +600,11 @@ def update_train_position(update: TrainPosUpdate, mode: str = "Normal"): # On aj
     
 @app.post("/api/admin/clear")
 async def clear_database_endpoint():
-    """
-    Appelle la fonction de nettoyage définie dans requetes.py
-    Cette route est appelée par le bouton "Vider la BD" du dashboard Admin.
-    """
     try:
-        # On utilise l'alias 'requetes' que vous avez déjà dans vos imports
         success = requetes.clear_production_data()
-        
-        if success:
-            logging.info("La base de données a été vidée par l'administrateur.")
-            return {"status": "ok", "message": "La base de données de production a été vidée."}
-        else:
+        if not success:
             raise HTTPException(status_code=500, detail="Erreur technique lors du vidage")
+        return {"status": "ok", "message": "La base de données de production a été vidée."}
             
     except Exception as e:
         logging.error(f"Erreur lors de l'appel clear_database: {e}")

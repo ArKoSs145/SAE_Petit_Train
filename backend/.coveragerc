@@ -1,7 +1,6 @@
 [run]
 # Liste des fichiers à ignorer dans le calcul du score global
 omit =
-    server.py
     fake_zap.py
     sender.py
     update_grid.py
@@ -14,3 +13,4 @@ omit =
 include =
     requetes.py
     database.py
+    server.py
