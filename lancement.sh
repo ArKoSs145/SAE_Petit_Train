@@ -1,44 +1,52 @@
 #!/bin/bash
 
-# Nettoyage à l'arrêt du script
+# Fonction pour arrêter proprement tous les processus au Ctrl+C
 cleanup() {
-    echo -e "\nArrêt des services en cours..."
+    echo -e "\n[INFO] Arrêt des services..."
     kill 0
 }
 trap cleanup EXIT
 
 echo "=========================================="
-echo "  INSTALLATION ET LANCEMENT (LINUX / RPI) "
+echo "  INSTALLATION ET LANCEMENT (LINUX / RPI)"
 echo "=========================================="
 
-# --- BACKEND ---
-echo "[1/5] Installation des dépendances Python..."
-cd web_interface/backend
-source ../../venv/bin/activate
-pip install -r requirements.txt
+# --- ÉTAPE 1 : INSTALLATION BACKEND ---
+echo "[1/5] Activation du venv et installation Python..."
+cd backend || exit
+# Sous Linux, le chemin du script d'activation est différent 
+source ../venv/bin/activate
+pip install -r ../requirements.txt
 
-# --- FRONTEND ---
-echo "[2/5] Installation des modules npm..."
-cd ../frontend
+# --- ÉTAPE 2 : INSTALLATION FRONTEND ---
+echo "[2/5] Installation des modules Node.js (npm install)..."
+cd ../frontend || exit
 npm install
 
-# --- EXECUTION ---
-echo "[3/5] Démarrage du Backend..."
-cd ../backend
-# Lancement avec host 0.0.0.0 pour la visibilité réseau
+echo "=========================================="
+echo "       LANCEMENT DES SERVICES"
+echo "=========================================="
+
+# --- ÉTAPE 3 : LANCEMENT BACKEND (ARRIÈRE-PLAN) ---
+echo "[3/5] Démarrage du Backend FastAPI..."
+cd ../backend || exit
+# Utilisation de l'hôte 0.0.0.0 pour l'accès réseau 
 uvicorn server:app --host 0.0.0.0 --port 8000 & 
 
-echo "[4/5] Démarrage du Frontend..."
-cd ../frontend
+# --- ÉTAPE 4 : LANCEMENT FRONTEND (ARRIÈRE-PLAN) ---
+echo "[4/5] Démarrage du Frontend React..."
+cd ../frontend || exit
 npm run dev &
 
-echo "[5/5] Démarrage du Sender..."
-cd ../backend
-python3 sender.py &
-
+# --- ÉTAPE 5 : LANCEMENT SENDER (PREMIER PLAN) ---
+echo "[5/5] Lancement du script Sender (fake_zap.py)..."
+cd ../backend || exit
 echo "------------------------------------------"
-echo "Services démarrés. Accès tablette possible via l'IP du RPi."
-echo "Appuyez sur Ctrl+C pour tout couper."
+echo "SYSTÈME PRÊT : Appuyez sur Ctrl+C pour tout arrêter."
 echo "------------------------------------------"
 
+# On lance le script final au premier plan
+python3 fake_zap.py
+
+# Attendre la fin des processus en arrière-plan
 wait

@@ -1,38 +1,39 @@
 @echo off
-TITLE Kanban Unifie - Installation et Lancement
+TITLE Kanban Numérique - Setup et Sender
 COLOR 0A
 
 echo ==========================================
-echo   INSTALLATION DES DEPENDANCES ET LANCEMENT
+echo   INSTALLATION DES DEPENDANCES (FENETRE PRINCIPALE)
 echo ==========================================
 
-:: --- PARTIE BACKEND ---
+:: --- ÉTAPE 1 : INSTALLATION BACKEND ---
 echo [1/5] Activation du venv et installation Python...
-cd web_interface/backend
-call ..\..\venv\Scripts\activate
-pip install -r requirements.txt
+cd backend
+call ..\venv\Scripts\activate
+pip install -r ../requirements.txt
 
-:: --- PARTIE FRONTEND ---
+:: --- ÉTAPE 2 : INSTALLATION FRONTEND ---
 echo [2/5] Installation des modules Node.js (npm install)...
 cd ../frontend
 call npm install
 
-:: --- LANCEMENT DES SERVICES ---
-echo [3/5] Demarrage du Backend FastAPI...
-cd ../backend
-:: On lance avec l'hote 0.0.0.0 pour l'acces tablette
-start /b cmd /c "uvicorn server:app --host 0.0.0.0 --port 8000"
+echo ==========================================
+echo   OUVERTURE DES TERMINAUX DE SERVICE
+echo ==========================================
 
-echo [4/5] Demarrage du Frontend React...
-cd ../frontend
-start /b cmd /c "npm run dev"
+:: --- ÉTAPE 3 : LANCEMENT BACKEND (NOUVELLE FENETRE) ---
+:: /k permet de garder la fenêtre ouverte même en cas d'erreur
+echo [3/5] Ouverture du terminal Backend FastAPI...
+start "BACKEND - FastAPI" cmd /k "cd ../backend && call ..\venv\Scripts\activate && uvicorn server:app --host 0.0.0.0 --port 8000"
 
-:: --- SCRIPT SENDER ---
-echo [5/5] Lancement du script Sender...
+:: --- ÉTAPE 4 : LANCEMENT FRONTEND (NOUVELLE FENETRE) ---
+echo [4/5] Ouverture du terminal Frontend React...
+start "FRONTEND - React" cmd /k "cd ../frontend && npm run dev"
+
+:: --- ÉTAPE 5 : LANCEMENT SENDER (FENETRE ACTUELLE) ---
+echo [5/5] Lancement du script Sender ...
 cd ../backend
-echo ------------------------------------------
-echo SYSTEME PRET : Appuyez sur Ctrl+C ou fermez pour arreter.
-echo ------------------------------------------
-python sender.py
+
+python fake_zap.py
 
 pause
