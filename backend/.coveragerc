@@ -1,0 +1,16 @@
+[run]
+# Liste des fichiers à ignorer dans le calcul du score global
+omit =
+    server.py
+    fake_zap.py
+    sender.py
+    update_grid.py
+    test_train.py
+    venv/*
+    tests/*
+
+[report]
+# Affiche uniquement les fichiers qui nous intéressent
+include =
+    requetes.py
+    database.py

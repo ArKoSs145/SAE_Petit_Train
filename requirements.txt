@@ -6,3 +6,5 @@ sqlalchemy
 pydantic
 requests
 pytest
+pytest-cov
+httpx
