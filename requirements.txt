@@ -3,5 +3,3 @@ uvicorn[standard]
 pyserial
 hidapi
 sqlalchemy
-requests
-pydantic

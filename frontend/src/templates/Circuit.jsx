@@ -17,7 +17,7 @@ import StopIcon from '@mui/icons-material/Stop';
 
 import '../../styles/Base.css'
 import PopupLivraison from './popup/PopupLivraison'
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 
 // --- CONSTANTES DE CONFIGURATION ---
@@ -73,7 +73,7 @@ const findNextDestination = (tasks, currentTrainLocation) => {
 
 // --- COMPOSANT PRINCIPAL ---
 
-export default function Base({onApp}) {
+export default function Base({mode, onApp}) {
   // --- ÉTATS ---
   const [tasks, setTasks] = useState([])
   const [posteNames, setPosteNames] = useState({}) // Remplace la constante POSTE_NAMES
@@ -133,7 +133,7 @@ export default function Base({onApp}) {
 
     const fetchInitialTasks = async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/commandes/en_cours`);
+        const res = await fetch(`${apiUrl}/api/commandes/en_cours?mode=${mode}`);
         if (res.ok) {
           const data = await res.json();
 
@@ -164,7 +164,7 @@ export default function Base({onApp}) {
     // 3. Charger le statut du cycle
     const fetchCycleStatus = async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/cycles`);
+        const res = await fetch(`${apiUrl}/api/cycles?mode=${mode}`);
         if (res.ok) {
           const cycles = await res.json();
           if (cycles.length > 0) {
@@ -182,7 +182,7 @@ export default function Base({onApp}) {
 
     const fetchTrainPos = async () => {
         try {
-            const res = await fetch(`${apiUrl}/api/train/position`);
+            const res = await fetch(`${apiUrl}/api/train/position?mode=${mode}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.position) {
@@ -235,7 +235,7 @@ export default function Base({onApp}) {
     })
 
     return () => ws.close()
-  }, [])
+  }, [mode])
 
   // --- CALCULS & MÉMOS ---
 
@@ -254,6 +254,7 @@ export default function Base({onApp}) {
 
   // --- ACTIONS ---
 
+
   const handleStopCycle = async () => {
     try {
         await fetch(`${apiUrl}/api/cycle/stop`, { 
@@ -270,16 +271,27 @@ export default function Base({onApp}) {
     onApp();
   }
 
-  const handleToggleCycle = async () => {
+const handleToggleCycle = async () => {
     try {
         if (cycleActive) {
+            // Utilisation de apiUrl pour l'arrêt
             await fetch(`${apiUrl}/api/cycle/stop`, { method: 'POST' });
             console.log("Cycle arrêté");
             setCycleActive(false);
         } else {
-            await fetch(`${apiUrl}/api/cycle/start`, { method: 'POST' });
-            console.log("Cycle démarré");
-            setCycleActive(true);
+            // CORRECTION : Définir l'URL AVANT de l'utiliser
+            const url = `${apiUrl}/api/cycle/start?mode=${mode}`;
+            console.log("Tentative de démarrage cycle sur :", url);
+            
+            const response = await fetch(url, { method: 'POST' });
+            const data = await response.json();
+
+            if (data.status === "ok") {
+                console.log("Cycle démarré en mode :", mode);
+                setCycleActive(true);
+            } else {
+                alert(data.message);
+            }
         }
     } catch (err) {
         console.error("Erreur cycle:", err);
@@ -317,7 +329,7 @@ export default function Base({onApp}) {
     setIsPopupOpen(true);
 
     try {
-        await fetch(`${apiUrl}/api/train/position`, {
+        await fetch(`${apiUrl}/api/train/position?mode=${mode}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ position: posteId })
