@@ -3,3 +3,6 @@ uvicorn[standard]
 pyserial
 hidapi
 sqlalchemy
+pydantic
+requests
+pytest

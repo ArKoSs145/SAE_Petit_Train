@@ -14,6 +14,8 @@ import {
   Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 
 export default function LoginPopup({ open, onClose, onLoginSuccess }) {
   // États pour stocker les données du formulaire et les messages d'erreur
@@ -34,7 +36,8 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
     e.preventDefault();
     
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      // Assurez-vous que l'URL pointe bien vers votre serveur Python (port 8000)
+      const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

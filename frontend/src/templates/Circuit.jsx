@@ -20,7 +20,9 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 
 import '../../styles/Base.css'
-import PopupLivraison from '../templates/popup/PopupLivraison'
+import PopupLivraison from './popup/PopupLivraison'
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 
 // --- CONSTANTES DE CONFIGURATION ---
 
@@ -76,7 +78,7 @@ const findNextDestination = (tasks, currentTrainLocation) => {
 
 // --- COMPOSANT PRINCIPAL ---
 
-export default function Base({onApp}) {
+export default function Base({mode, onApp}) {
   // --- ÉTATS ---
   const [tasks, setTasks] = useState([])
   const [posteNames, setPosteNames] = useState({}) // Remplace la constante POSTE_NAMES
@@ -122,7 +124,7 @@ export default function Base({onApp}) {
     // 1. Charger les noms des postes depuis l'API
     const fetchStands = async () => {
         try {
-            const res = await fetch('http://localhost:8000/api/stands');
+            const res = await fetch(`${apiUrl}/api/stands`);
             if (res.ok) {
                 const names = await res.json();
                 setPosteNames(names);
@@ -137,7 +139,7 @@ export default function Base({onApp}) {
     // 2. Charger la liste des commandes en cours
     const fetchInitialTasks = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/commandes/en_cours');
+        const res = await fetch(`${apiUrl}/api/commandes/en_cours?mode=${mode}`);
         if (res.ok) {
           const data = await res.json();
 
@@ -167,7 +169,7 @@ export default function Base({onApp}) {
     // 3. Charger le statut du cycle
     const fetchCycleStatus = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/cycles');
+        const res = await fetch(`${apiUrl}/api/cycles?mode=${mode}`);
         if (res.ok) {
           const cycles = await res.json();
           if (cycles.length > 0) {
@@ -186,7 +188,7 @@ export default function Base({onApp}) {
     // 4. Charger la position du train
     const fetchTrainPos = async () => {
         try {
-            const res = await fetch('http://localhost:8000/api/train/position');
+            const res = await fetch(`${apiUrl}/api/train/position?mode=${mode}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.position) {
@@ -239,7 +241,7 @@ export default function Base({onApp}) {
     })
 
     return () => ws.close()
-  }, [])
+  }, [mode])
 
   // --- CALCULS & MÉMOS --- De la prochaine destination du train ou du train
 
@@ -261,7 +263,7 @@ export default function Base({onApp}) {
   // Arrête le cycle --> obsolète
   const handleStopCycle = async () => {
     try {
-        await fetch('http://localhost:8000/api/cycle/stop', { 
+        await fetch(`${apiUrl}/api/cycle/stop`, { 
             method: 'POST' 
         });
         console.log("Cycle arrêté");
@@ -276,17 +278,28 @@ export default function Base({onApp}) {
     onApp();
   }
 
-  // Regarde le status actuel du cycle et l'arrête/ le commence
-  const handleToggleCycle = async () => {
+// Regarde le status actuel du cycle et l'arrête/ le commence
+const handleToggleCycle = async () => {
     try {
         if (cycleActive) {
-            await fetch('http://localhost:8000/api/cycle/stop', { method: 'POST' });
+            // Utilisation de apiUrl pour l'arrêt
+            await fetch(`${apiUrl}/api/cycle/stop`, { method: 'POST' });
             console.log("Cycle arrêté");
             setCycleActive(false);
         } else {
-            await fetch('http://localhost:8000/api/cycle/start', { method: 'POST' });
-            console.log("Cycle démarré");
-            setCycleActive(true);
+            // CORRECTION : Définir l'URL AVANT de l'utiliser
+            const url = `${apiUrl}/api/cycle/start?mode=${mode}`;
+            console.log("Tentative de démarrage cycle sur :", url);
+            
+            const response = await fetch(url, { method: 'POST' });
+            const data = await response.json();
+
+            if (data.status === "ok") {
+                console.log("Cycle démarré en mode :", mode);
+                setCycleActive(true);
+            } else {
+                alert(data.message);
+            }
         }
     } catch (err) {
         console.error("Erreur cycle:", err);
@@ -301,7 +314,7 @@ export default function Base({onApp}) {
     }
 
     try {
-        const res = await fetch(`http://localhost:8000/api/commande/${taskId}`, {
+        const res = await fetch(`${apiUrl}/api/commande/${taskId}`, {
             method: 'DELETE'
         });
 
@@ -325,7 +338,7 @@ export default function Base({onApp}) {
     setIsPopupOpen(true);
 
     try {
-        await fetch('http://localhost:8000/api/train/position', {
+        await fetch(`${apiUrl}/api/train/position?mode=${mode}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ position: posteId })
@@ -356,7 +369,7 @@ export default function Base({onApp}) {
 
     // Requête à la base de données
     try {
-      await fetch(`http://localhost:8000/api/commande/${taskId}/statut`, {
+      await fetch(`${apiUrl}/api/commande/${taskId}/statut`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nouveau_statut: "ignored" })
@@ -386,7 +399,7 @@ export default function Base({onApp}) {
     };
     setTasks(prev => [newTask, ...prev]);
   }
-
+  
   const handleMissingTask = (taskId) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }
@@ -413,6 +426,22 @@ export default function Base({onApp}) {
     
     return false;
   });
+  
+  useEffect(() => {
+      const syncMode = async () => {
+          try {
+              await fetch(`${apiUrl}/api/set-active-mode`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ mode: mode })
+              });
+              console.log("Serveur synchronisé sur le mode :", mode);
+          } catch (err) {
+              console.error("Erreur de synchro mode:", err);
+          }
+      };
+      syncMode();
+  }, [mode, apiUrl]);
 
   /**
    * Génère le style dynamique pour les cases des stands sur le plan.

@@ -18,9 +18,11 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from update_grid import traiter_fichier_config
 
+update_signal = asyncio.Event()
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
+current_app_mode = "Normal"
 
 # --- Autoriser le front React ---
 origins = [
@@ -29,11 +31,12 @@ origins = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.1.14:8000"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -109,6 +112,7 @@ async def recevoir_scan(request: Request):
     Identifie la boîte scannée, vérifie si elle appartient au bon poste, 
     enregistre la commande en base et notifie le front via WebSocket.
     """
+    global current_app_mode # On utilise bien la variable globale
     data = await request.json()
     poste_id = data.get("poste")
     code_barre = data.get("code_barre")
@@ -122,16 +126,13 @@ async def recevoir_scan(request: Request):
         if not boite or not current_stand:
             raise HTTPException(status_code=404, detail="Objet ou Poste inconnu")
 
-        # 2. Vérification de l'affectation (Poste demandeur == idPoste de la boîte)
-        if current_stand.categorie == 0: # 0 = Poste
+        # 2. Vérification de l'affectation
+        if current_stand.categorie == 0:
             if boite.idPoste is not None and boite.idPoste != poste_id:
                 raise HTTPException(status_code=403, detail="Cet objet n'est pas affecté à ce poste")
 
-        # 3. Recherche de la position physique AU MAGASIN assigné
-        case_magasin = db.query(Case).filter_by(
-            idBoite=boite.idBoite, 
-            idStand=boite.idMagasin 
-        ).first()
+        # 3. Recherche de la position physique
+        case_magasin = db.query(Case).filter_by(idBoite=boite.idBoite, idStand=boite.idMagasin).first()
 
         if case_magasin:
             magasin_nom = case_magasin.Stand.nomStand
@@ -144,15 +145,17 @@ async def recevoir_scan(request: Request):
             idBoite=boite.idBoite,
             idMagasin=boite.idMagasin,
             idPoste=poste_id,
-            statutCommande="A récupérer"
+            statutCommande="A récupérer",
+            typeCommande=current_app_mode # <--- Utilise bien le mode global
         )
         db.add(nouvelle_commande)
         db.commit()
         db.refresh(nouvelle_commande)
         
-        # 5. Message WebSocket
+        # 5. Message WebSocket (CORRECTION ICI : "mode": current_app_mode)
         message = {
             "id_commande": nouvelle_commande.idCommande,
+            "mode": current_app_mode, # <--- Corrigé (ne pas mettre 'mode' tout court)
             "poste": poste_id,
             "code_barre": code_barre,
             "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
@@ -173,6 +176,13 @@ async def recevoir_scan(request: Request):
         return {"status": "error", "detail": str(e)}
     finally:
         db.close()
+
+@app.post("/api/set-active-mode")
+async def set_active_mode(request: Request):
+    global current_app_mode
+    data = await request.json()
+    current_app_mode = data.get("mode", "Normal")
+    return {"status": "ok", "current_mode": current_app_mode}
 
 
 async def simulation_apport_boites():
@@ -315,7 +325,7 @@ def get_boites_delais():
     finally:
         db.close()
 
-update_signal = asyncio.Event()
+
 
 @app.post("/api/admin/update-delais-appro")
 def update_delais_appro(payload: MultiDelayUpdate):
@@ -336,7 +346,7 @@ def update_delais_appro(payload: MultiDelayUpdate):
 
 # --- backend/server.py ---
 @app.get("/api/admin/dashboard")
-def get_admin_dashboard():
+def get_admin_dashboard(mode: str = "Normal"):
     """
     Récupère et agrège les données nécessaires à l'affichage de l'historique.
     """
@@ -345,12 +355,12 @@ def get_admin_dashboard():
         stands = db.query(Stand).all()
         stands_map = {s.idStand: s.nomStand for s in stands}
 
-        cycles = db.query(Cycle).all()
+        cycles = db.query(Cycle).filter(Cycle.type_cycle == mode).all()
         
         if not cycles:
              return {"stands": [{"id": s.idStand, "nom": s.nomStand} for s in stands], "historique": []}
 
-        commandes = db.query(Commande).order_by(Commande.dateCommande.desc()).all()
+        commandes = db.query(Commande).filter(Commande.typeCommande == mode).order_by(Commande.dateCommande.desc()).all()
         
         now = datetime.now().replace(tzinfo=None)
 
@@ -423,23 +433,31 @@ def get_admin_dashboard():
         db.close()
 
 @app.get("/api/admin/cycles")
-def get_cycles_list():
+def get_cycles_list(mode: str = "Normal"): # On récupère le mode
     """
     Récupère la liste des cycles dans la base de données.
     """
     db = SessionLocal()
     try:
-        cycles_db = db.query(Cycle).order_by(Cycle.date_debut.desc()).limit(20).all()
+        # On filtre les cycles par le mode (Normal ou Personnalisé)
+        cycles_db = db.query(Cycle).filter(Cycle.type_cycle == mode).order_by(Cycle.date_debut.desc()).limit(20).all()
+        
         cycles_fmt = []
         for c in cycles_db:
             if c.date_debut:
                 cycle_id = c.date_debut.strftime("%Y-%m-%d %H:%M:%S")
                 start_str = c.date_debut.strftime("%d/%m à %Hh%M")
+                
+                # On prépare le label
                 if c.date_fin:
                     end_str = c.date_fin.strftime("%Hh%M")
                     label = f"{start_str} - {end_str}"
                 else:
                     label = f"{start_str} (En cours)"
+                
+                # Si c'est personnalisé, on peut même l'ajouter au label ici pour l'admin
+                if mode == "Personnalisé":
+                    label += " (Personnalisé)"
                 
                 cycles_fmt.append({"id": cycle_id, "label": label})
         return cycles_fmt
@@ -451,7 +469,7 @@ def get_cycles_list():
 
 
 @app.get("/api/admin/logs/{cycle_id}")
-def get_cycle_logs(cycle_id: str):
+def get_cycle_logs(cycle_id: str, mode: str = "Normal"):
     """
     Récupère les commandes contenues dans le cycle cycle_id.
     """
@@ -459,72 +477,77 @@ def get_cycle_logs(cycle_id: str):
         if cycle_id == "Total":
             return {"logs": []}
         
+        # On convertit l'ID en date
         date_obj = datetime.strptime(cycle_id, "%Y-%m-%d %H:%M:%S")
-        logs = requetes.get_commandes_cycle_logs(date_obj)
+        
+        # On appelle la fonction de requetes en passant le mode
+        logs = requetes.get_commandes_cycle_logs(date_obj, mode=mode)
         return {"logs": logs}
     except Exception as e:
-        print(f"Erreur Logs Route: {e}")
-        return {"logs": [f"Erreur: {str(e)}"]}
+        print(f"Erreur Logs: {e}")
+        return {"logs": []}
 
 @app.post("/api/cycle/start")
-def start_cycle():
-    """Démarre un nouveau cycle si aucun n'est actif"""
+def start_cycle(mode: str = "Normal"):
     db = SessionLocal()
-    print("DB URL =", db.bind.url)
     try:
-        actif = db.query(Cycle).filter(Cycle.date_fin == None).first()
+        # On vérifie s'il y a déjà un cycle actif pour le mode précis
+        actif = db.query(Cycle).filter(Cycle.date_fin == None, Cycle.type_cycle == mode).first()
         if actif:
-            return {"status": "error", "message": "Un cycle est déjà en cours"}
+            return {"status": "error", "message": f"Un cycle {mode} est déjà en cours"}
         
-        nouveau = Cycle(date_debut=datetime.now())
+        nouveau = Cycle(
+            date_debut=datetime.now(),
+            type_cycle=mode
+        )
         db.add(nouveau)
         db.commit()
-        print(f"[CYCLE] Démarré à {nouveau.date_debut}")
         return {"status": "ok", "date_debut": nouveau.date_debut}
     finally:
         db.close()
 
 @app.post("/api/cycle/stop")
 def stop_cycle():
-    """Arrête le cycle en cours"""
     db = SessionLocal()
-    print("DB URL =", db.bind.url)
     try:
+        # On cherche n'importe quel cycle qui n'a pas de date_fin
         actif = db.query(Cycle).filter(Cycle.date_fin == None).first()
         if not actif:
             return {"status": "error", "message": "Aucun cycle actif"}
         
         actif.date_fin = datetime.now()
         db.commit()
-        print(f"[CYCLE] Arrêté à {actif.date_fin}")
         return {"status": "ok"}
     finally:
         db.close()
 
 @app.get("/api/cycles")
-def api_get_cycles():
-    """Récupère l'id et la date de tous les cycles"""
-    cycles = requetes.get_all_cycles()
+def api_get_cycles(mode: str = "Normal"): # On récupère le mode
+    """Récupère l'historique de tous les cycles filtrés par mode"""
+    cycles = requetes.get_all_cycles(mode=mode)
     
     return [
         {
             "idCycle": c.idCycle,
             "date_debut": c.date_debut,
-            "date_fin": c.date_fin
+            "date_fin": c.date_fin,
+            "type_cycle": c.type_cycle
         }
         for c in cycles
     ]
 
 @app.get("/api/commandes/en_cours")
-def get_commandes_en_cours():
+def get_commandes_en_cours(mode: str = "Normal"): # On récupère le mode du fetch
     """
     Récupère toutes les commandes de la base de données qui n'ont pas le statut Commande finie ou Annulée
     """
     db = SessionLocal()
     try:
+        #On ajoute le filtre sur le type de commande (Normal ou Personnalisé)
         commandes = db.query(Commande).filter(
             Commande.statutCommande != "Commande finie",
-            Commande.statutCommande != "Annulée" 
+            Commande.statutCommande != "Annulée",
+            Commande.typeCommande == mode
         ).all()
         
         taches = []
@@ -534,13 +557,12 @@ def get_commandes_en_cours():
             # On récupère le code-barre pour l'affichage des cases
             vrai_code_barre = c.boite.code_barre if c.boite else "Inconnu"
             
-            # On récupère le nom de la pièce pour le texte de la liste
+            # Récupération du nom de la pièce
             nom_piece = "Inconnu"
             if c.boite and c.boite.piece:
                 nom_piece = c.boite.piece.nomPiece
             else:
                 nom_piece = vrai_code_barre
-            # -----------------------
 
             ligne, colonne = 1, 1
             if c.boite and c.boite.Cases:
@@ -643,20 +665,21 @@ class TrainPosUpdate(BaseModel):
     position: str
 
 @app.get("/api/train/position")
-def get_train_position():
+def get_train_position(mode: str = "Normal"):
     """
     Renvoie la position du train
     """
-    pos = requetes.get_position_train()
+    pos = requetes.get_position_train(mode=mode)
     return {"position": pos}
 
 @app.put("/api/train/position")
-def update_train_position(update: TrainPosUpdate):
+def update_train_position(update: TrainPosUpdate, mode: str = "Normal"): # On ajoute mode ici
     """
     Appelle la requête qui change la change la position du train à update.position
     """
     try:
-        nouvelle_pos = requetes.update_position_train(update.position)
+        # On passe update.position ET le mode à ta fonction de requête
+        nouvelle_pos = requetes.update_position_train(update.position, mode=mode)
         return {"status": "ok", "position": nouvelle_pos}
     except Exception as e:
         print(f"Erreur update train: {e}")
@@ -681,3 +704,37 @@ async def clear_database_endpoint():
     except Exception as e:
         logging.error(f"Erreur lors de l'appel clear_database: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+class CustomOrderPayload(BaseModel):
+    idBoite: int
+    idPoste: int  # FastAPI attend cet entier
+    statut: str
+
+@app.post("/api/admin/custom-order")
+def post_custom_order(payload: CustomOrderPayload):
+    # On appelle la fonction de requetes.py
+    res = requetes.creer_commande_personnalisee(
+        payload.idBoite, 
+        payload.idPoste, 
+        payload.statut
+    )
+    if not res:
+        raise HTTPException(status_code=400, detail="Erreur lors de la création")
+    return {"status": "ok"}
+
+@app.get("/api/admin/stocks")
+def get_admin_stocks():
+    """Route appelée par le Frontend pour remplir la liste des objets"""
+    try:
+        # On appelle la fonction de requetes.py
+        data = requetes.get_stocks_disponibles()
+        return data
+    except Exception as e:
+        print(f"Erreur dans la route admin/stocks: {e}")
+        return []
+    
+@app.delete("/api/admin/custom-order/all")
+def clear_custom_orders():
+    if requetes.supprimer_commandes_personnalisees():
+        return {"status": "ok"}
+    raise HTTPException(status_code=500, detail="Erreur lors du vidage")
