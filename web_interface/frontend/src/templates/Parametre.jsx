@@ -1,3 +1,8 @@
+/**
+ * Page de configuration des postes et magasins.
+ * Cette interface permet à l'administrateur de sélectionner un stand (poste ou magasin)
+ * et d'importer un fichier CSV pour définir son nom et sa disposition physique (grille).
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Box, 
@@ -15,10 +20,12 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 export default function Parametre({ onRetourAdmin }) {
   const fileInputRef = useRef(null);
   
+  // États pour gérer les noms des postes, l'affichage du chargement et le poste sélectionné
   const [posteNames, setPosteNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedPoste, setSelectedPoste] = useState(null);
 
+  // Récupère la liste des stands (ID et noms) depuis le serveur.
   const fetchStands = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/stands');
@@ -37,6 +44,7 @@ export default function Parametre({ onRetourAdmin }) {
     fetchStands();
   }, []);
 
+  // Enregistre le poste cible et déclenche l'ouverture de l'explorateur de fichiers.
   const handleButtonClick = (id, name) => {
     setSelectedPoste({ id, name });
     if (fileInputRef.current) {
@@ -44,6 +52,7 @@ export default function Parametre({ onRetourAdmin }) {
     }
   };
 
+  // Gère la lecture du fichier CSV et son envoi au backend.
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     // On vérifie qu'on a bien un fichier et un poste sélectionné
@@ -58,7 +67,7 @@ export default function Parametre({ onRetourAdmin }) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              posteId: parseInt(selectedPoste.id, 10), // Correction 3: Base 10 ajoutée
+              posteId: parseInt(selectedPoste.id, 10),
               csv_content: csvContent 
             }),
           });
@@ -103,7 +112,7 @@ export default function Parametre({ onRetourAdmin }) {
           flexDirection: 'column',
           gap: 3
       }}>
-        {/* Header - Correction 1: Fermeture des Box et structure JSX */}
+        {/* Entête avec bouton de retour et titre */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button 

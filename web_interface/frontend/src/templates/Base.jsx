@@ -1,3 +1,7 @@
+/**
+ * Page principale 
+ * Gère le plan interactif, l'automate de déplacement du train et le suivi des tâches en temps réel.
+ */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
@@ -39,6 +43,7 @@ const TRAIN_POSITIONS = {
 
 // --- LOGIQUE MÉTIER ---
 
+// Cherche dans CYCLE_PATH le prochain stand qui possède une tâche en attente.
 const findNextDestination = (tasks, currentTrainLocation) => {
   const activeTasks = tasks.filter(t => t.status !== 'Commande finie' && t.status !== 'Produit manquant');
 
@@ -129,6 +134,7 @@ export default function Base({onApp}) {
     };
     fetchStands();
 
+    // 2. Charger la liste des commandes en cours
     const fetchInitialTasks = async () => {
       try {
         const res = await fetch('http://localhost:8000/api/commandes/en_cours');
@@ -140,8 +146,7 @@ export default function Base({onApp}) {
             posteId: String(cmd.poste),
             magasinId: String(cmd.magasin_id),
             
-            // C'EST ICI : On récupère le code_barre que l'API nous donne maintenant
-            // via la jointure avec la table boite
+            // On récupère le code_barre que l'API nous donne maintenant via la jointure avec la table boite
             code_barre: cmd.code_barre ? String(cmd.code_barre).trim() : "", 
             
             item: cmd.nom_piece || cmd.code_barre || `Boîte ${cmd.id_boite}`,
@@ -178,6 +183,7 @@ export default function Base({onApp}) {
     };
     fetchCycleStatus();
 
+    // 4. Charger la position du train
     const fetchTrainPos = async () => {
         try {
             const res = await fetch('http://localhost:8000/api/train/position');
@@ -213,7 +219,7 @@ export default function Base({onApp}) {
                 id: data.id_commande, 
                 posteId: device,
                 magasinId: data.magasin_id ? String(data.magasin_id) : '7',
-                code_barre: data.code_barre, // <-- La clé indispensable pour PopupLivraison
+                code_barre: data.code_barre,
                 item: data.nom_piece || data.code_barre,
                 nom_piece: data.nom_piece || data.code_barre,
                 gridRow: parseInt(data.ligne) || 1, 
@@ -235,7 +241,7 @@ export default function Base({onApp}) {
     return () => ws.close()
   }, [])
 
-  // --- CALCULS & MÉMOS ---
+  // --- CALCULS & MÉMOS --- De la prochaine destination du train ou du train
 
   const nextDestination = useMemo(
     () => findNextDestination(tasks, currentTrainPoste), 
@@ -252,6 +258,7 @@ export default function Base({onApp}) {
 
   // --- ACTIONS ---
 
+  // Arrête le cycle --> obsolète
   const handleStopCycle = async () => {
     try {
         await fetch('http://localhost:8000/api/cycle/stop', { 
@@ -264,10 +271,12 @@ export default function Base({onApp}) {
     onApp();
   }
 
+  // Renvoie à la page d'accueil
   const handleQuitInterface = () => {
     onApp();
   }
 
+  // Regarde le status actuel du cycle et l'arrête/ le commence
   const handleToggleCycle = async () => {
     try {
         if (cycleActive) {
@@ -285,6 +294,7 @@ export default function Base({onApp}) {
     }
   }
 
+  // Supprimer une tâche des listes à droite
   const handleDeleteTask = async (taskId) => {
     if (!window.confirm("Voulez-vous vraiment supprimer cette commande définitivement ?")) {
         return;
@@ -306,7 +316,7 @@ export default function Base({onApp}) {
     }
   }
 
-  // Popup logic
+  // Chnage la position du train et ouvre la popup
   const handlePosteClick = async (posteId) => {
     if (posteId !== nextDestination) { console.warn(`Action bloquée.`); return; }
     
@@ -325,14 +335,17 @@ export default function Base({onApp}) {
     }
   }
   
+  // Ferme la popup
   const closePopup = () => setIsPopupOpen(false)
   
+  // Change le statut d'une commande pour le front et envoie une requête de changement de statut pour la base de données
   const handleTaskAction = async (taskId) => {
     const currentTask = tasks.find(t => t.id === taskId);
     if (!currentTask) return;
 
     let nextStatusFront = "";
 
+    // Front
     if (currentTask.status === 'A récupérer') {
       nextStatusFront = "A déposer";
     } else if (currentTask.status === 'A déposer') {
@@ -341,6 +354,7 @@ export default function Base({onApp}) {
       return;
     }
 
+    // Requête à la base de données
     try {
       await fetch(`http://localhost:8000/api/commande/${taskId}/statut`, {
         method: 'PUT',
@@ -357,6 +371,7 @@ export default function Base({onApp}) {
     }
   }
 
+  // Fonction pour les boutons de simultation de commandes --> obsolète
   const simulerTache = (posteId, magasinId, item, row = 1, col = 1) => {
     const newTask = {
       id: Date.now(),
@@ -376,6 +391,11 @@ export default function Base({onApp}) {
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }
 
+  /**
+   * Filtre les tâches à afficher dans la popup selon l'arrêt actuel du train.
+   * Détermine si le train doit effectuer une récupération (si l'arrêt est un magasin)
+   * ou un dépôt (si l'arrêt est le poste de destination)
+   */
   const tasksForPopup = tasks.filter(t => {
     if (t.status === 'Commande finie') return false;
     
@@ -394,7 +414,10 @@ export default function Base({onApp}) {
     return false;
   });
 
-
+  /**
+   * Génère le style dynamique pour les cases des stands sur le plan.
+   * Met en relief visuellement la destination actuelle du train
+  */
   const getBoxSx = (posteId) => {
     const isActive = nextDestination === posteId; 
     
@@ -424,6 +447,7 @@ export default function Base({onApp}) {
     };
   }
 
+  // Style des flèches du plan
   const arrowSx = {
     display: 'flex',
     alignItems: 'center',
@@ -436,6 +460,10 @@ export default function Base({onApp}) {
     fontWeight: 'bold'
   };
 
+  /**
+   * Affiche une flèche sur le plan à une position précise.
+   * La flèche devient invisible si le train se trouve exactement sur sa case
+   */
   const GridArrow = ({ row, col, symbol }) => {
     const isTrainHere = trainGridPosition.gridRow === row && trainGridPosition.gridColumn === col;
     return (

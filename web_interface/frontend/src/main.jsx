@@ -1,3 +1,8 @@
+/**
+ * Point d'entrée principal de l'application React.
+ * Gère le routage de l'application en définissant des fonctions 
+ * de rendu pour basculer entre les différentes vues
+ */
 import React from 'react'
 import App from './templates/App.jsx'
 import './styles.css'
@@ -7,6 +12,7 @@ import Admin from './templates/Admin.jsx';
 import Parametre from './templates/Parametre.jsx';
 import Approvisionnement from './templates/Approvisionnement.jsx';
 
+// Initialisation du noeud racine React sur l'élément HTML avec l'ID "root"
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 const renderApprovisionnement = () => {
@@ -52,6 +58,7 @@ const renderParametre = () => {
     );
 }
 
+// Rendu initial de l'application sur l'écran d'accueil
 root.render(
   <React.StrictMode>
     <App onContinue={renderBase} onAdminLogin={renderAdmin} />

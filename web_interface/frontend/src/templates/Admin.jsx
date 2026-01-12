@@ -1,3 +1,8 @@
+/**
+ * Permet de visualiser l'historique et les logs détaillés
+ * par cycle de production. Permet aussi des de vider la base 
+ * de données et charger les fichiers de configuration
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton
@@ -17,12 +22,12 @@ export default function Admin({onParametre, onApprovisionnement}) {
   // --- États ---
   const [currentView, setCurrentView] = useState('dashboard');
   
-  // États Dashboard
+  // Définit la vue active : 'dashboard' (historique) ou 'logs'
   const [dashboardData, setDashboardData] = useState({ stands: [], historique: [] });
   const [selectedTimeDashboard, setSelectedTimeDashboard] = useState('Total');
   const [timeSlots, setTimeSlots] = useState(['Total']);
 
-  // États Logs
+  // Liste des cycles enregistrés
   const [cyclesList, setCyclesList] = useState([]);
   const [selectedCycleId, setSelectedCycleId] = useState(null);
   const [selectedCycleLabel, setSelectedCycleLabel] = useState("");
@@ -39,8 +44,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
   const [openClearDialog, setOpenClearDialog] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  // --- Chargement Données ---
-
+   // Récupère les données pour le dashboard.
   const fetchDashboard = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/admin/dashboard');
@@ -53,12 +57,14 @@ export default function Admin({onParametre, onApprovisionnement}) {
     } catch (err) { console.error(err); }
   };
 
+  // Récupère la liste des cycles de production passés.
   const fetchCycles = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/admin/cycles');
       if (res.ok) {
         const data = await res.json();
         setCyclesList(data);
+        // Sélection par défaut du premier cycle si rien n'est sélectionné
         if (data.length > 0 && !selectedCycleId) {
             handleSelectCycle(data[0]);
         }
@@ -66,6 +72,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
     } catch (err) { console.error(err); }
   }
 
+  // Récupère le journal textuel d'un cycle précis.
   const fetchCycleLogs = async (id) => {
     try {
         const res = await fetch(`http://localhost:8000/api/admin/logs/${id}`);
@@ -76,6 +83,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
     } catch(err) { console.error(err); }
   }
 
+  // Chargement initial et à chaque changement de vue
   useEffect(() => {
       fetchCycles();
       fetchDashboard();
@@ -84,6 +92,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
       }
   }, [currentView]);
 
+  // Rafraîchissement automatique toutes les 5 secondes
   useEffect(() => {
       const interval = setInterval(() => {
           fetchDashboard();
@@ -96,6 +105,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
   }, [currentView, selectedCycleId]);
 
   // --- Handlers ---
+  // Met à jour le cycle sélectionné et charge les logs associés.
   const handleSelectCycle = (cycle) => {
       setSelectedCycleId(cycle.id);
       setSelectedCycleLabel(cycle.label);
@@ -104,8 +114,10 @@ export default function Admin({onParametre, onApprovisionnement}) {
       }
   }
 
+  // Redirige l'utilisateur vers la page d'accueil
   const handleQuit = () => { window.location.href = "/"; };
 
+  // Appelle l'API pour supprimer certaines données de la base de données.
   const handleClearDatabase = async () => {
     setClearing(true);
     try {
@@ -130,6 +142,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
   };
 
   // --- Styles ---
+  // Style dynamique pour les boutons du header
   const headerBtnStyle = (active) => ({
     backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
     color: 'black', textTransform: 'none',
@@ -137,6 +150,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
     '&:hover': { backgroundColor: '#c0c0c0' }
   });
 
+  // Assigne une couleur aux cartes selon le nom du poste
   const getCardColor = (nom) => {
     if (nom.includes('Poste 1')) return '#9fc3f1';
     if (nom.includes('Poste 2')) return '#b6fcce';
@@ -148,7 +162,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#333', overflow: 'hidden' }}>
       
-      {/* HEADER (Commun) */}
+      {/* HEADER : Navigation et actions globales */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pt: 3, bgcolor: 'white' }}>
         <Button variant="contained" sx={headerBtnStyle(false)}>Télécharger</Button>
         
@@ -161,7 +175,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
             variant="contained" 
             onClick={onApprovisionnement} 
             sx={headerBtnStyle(false)} // Même style que les autres
-            startIcon={<LocalShippingIcon />} // Optionnel
+            startIcon={<LocalShippingIcon />}
           >
             Approvisionnement
           </Button>
@@ -223,14 +237,18 @@ export default function Admin({onParametre, onApprovisionnement}) {
                     </List>
                 </Box>
 
+                {/* Affiche ce qui a été pris et déposé */}
                 <Box sx={{ flexGrow: 1, p: 3, overflowY: 'auto' }}>
                     <Grid container spacing={2}>
                         {dashboardData.stands.map((stand) => {
+                            // Filtrage de l'historique par cycle sélectionné
                             const filteredHistory = dashboardData.historique.filter(item => selectedCycleId === 'Total' || item.cycle_id === selectedCycleId);
                             
+                            // Séparation des arrivées et des départs
                             let rawArrivages = filteredHistory.filter(h => h.dest_id === stand.id && h.statut === 'Commande finie');
                             let rawDeparts = filteredHistory.filter(h => h.source_id === stand.id);
-
+                            
+                            // Regroupement des pièces aux noms identiques
                             const aggregateItems = (items) => {
                                 const map = new Map();
                                 items.forEach(item => {
@@ -277,6 +295,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
         {/* VUE LOGS */}
         {currentView === 'logs' && (
             <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
+                {/* Sélecteur de cycles à gauche */}
                 <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #999', fontWeight: 'bold' }}>
                         Cycles passés
@@ -298,6 +317,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
                     </List>
                 </Paper>
 
+                {/* Affichage des lignes de logs à droite */}
                 <Paper sx={{ flexGrow: 1, bgcolor: 'white', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
                     <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box sx={{ textAlign: 'center', width: '100%' }}>
@@ -330,7 +350,7 @@ export default function Admin({onParametre, onApprovisionnement}) {
         )}
       </Box>
 
-      {/* ================= DIALOG CONFIRMATION ================= */}
+      {/* Confirmation de suppression de la base de données */}
       <Dialog
         open={openClearDialog}
         onClose={() => setOpenClearDialog(false)}
