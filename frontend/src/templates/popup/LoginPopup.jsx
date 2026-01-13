@@ -2,6 +2,7 @@
  * Gère l'authentification des utilisateurs en communiquant avec le backend
  * et déclenche la redirection vers la page Admin.
  */
+
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -34,33 +35,31 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
-      // Assurez-vous que l'URL pointe bien vers votre serveur Python (port 8000)
+      // --- Hachage SHA-256 en JavaScript ---
+      const msgUint8 = new TextEncoder().encode(formData.password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
       const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: formData.username, 
-          password: formData.password
+          password: hashedPassword // On envoie le mot de passe haché
         }),
       });
 
       if (response.ok) {
-        console.log("Login success");
-        // En cas de succès, on exécute la fonction de redirection
-        if (onLoginSuccess) {
-            onLoginSuccess();
-        }
+        if (onLoginSuccess) onLoginSuccess();
         onClose(); 
       } else {
-        setError("Mot de passe ou nom d'utilisateur incorrect");
+        setError("Identifiants incorrects");
       }
     } catch (err) {
-      console.error(err);
-      setError("Erreur de connexion au serveur (Vérifiez le port 8000)");
+      setError("Erreur de connexion");
     }
   };
 

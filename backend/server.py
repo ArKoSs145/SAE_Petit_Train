@@ -4,6 +4,7 @@ et lance les tâches de fond.
 """
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import hashlib
 from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand, Cycle
 from datetime import datetime
 import asyncio
@@ -261,29 +262,30 @@ class LoginRequest(BaseModel):
 @app.post("/api/login")
 def login(creds: LoginRequest):
     """
-    Vérifie les identifiants fournis (nom d'utilisateur et mot de passe) 
+    Vérifie les identifiants fournis (nom d'utilisateur et mot de passe)
     dans la base de données SQLite pour autoriser l'accès à l'administration.
     """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(base_dir, "train.db")
+    
+    password_hash = hashlib.sha256(creds.password.encode()).hexdigest()
+    
     
     conn = None
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, creds.password))
+        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, password_hash))
         user = cursor.fetchone()
         
         if user:
-            print(f"Login réussi pour : {creds.username}")
             return {"message": "Login successful"}
         else:
-            print(f"Échec connexion pour : {creds.username}")
+            print(f"DEBUG: Tentative avec user '{creds.username}' et hash '{password_hash}'")
             raise HTTPException(status_code=401, detail="Identifiants incorrects")
             
     except sqlite3.Error as e:
-        print(f"Erreur Base de Données: {e}")
         raise HTTPException(status_code=500, detail="Erreur serveur base de données")
     finally:
         if conn:
