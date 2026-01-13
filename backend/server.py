@@ -1,3 +1,7 @@
+"""
+Gère les routes API, la communication WebSocket pour les mises à jour en temps réel,
+et lance les tâches de fond.
+"""
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand, Cycle
@@ -33,6 +37,7 @@ async def lifespan(app: FastAPI):
     task.cancel() 
 
 app = FastAPI(lifespan=lifespan)
+current_app_mode = "Normal"
 
 # --- Autoriser le front React ---
 origins = [
@@ -55,6 +60,10 @@ app.add_middleware(
 
 # --- Gestion WebSocket ---
 class ConnectionManager:
+    """
+    Gère les connexions WebSocket actives pour transmettre les scans
+    de codes-barres aux clients.
+    """
     def __init__(self):
         self.active: List[WebSocket] = []
         self.lock = asyncio.Lock()
@@ -101,6 +110,9 @@ class ConfigPayload(BaseModel):
 
 @app.post("/api/admin/upload-config")
 async def upload_config(payload: ConfigPayload):
+    """
+    Appelle la requête qui charge le fichier de configuration dans la base de données
+    """
     db = SessionLocal()
     try:
         # On appelle la fonction d'affichage
@@ -109,7 +121,13 @@ async def upload_config(payload: ConfigPayload):
         db.close()
 
 @app.post("/scan")
-async def recevoir_scan(request: Request, mode: str = "Normal"):
+async def recevoir_scan(request: Request):
+    """
+    Appelé par sender.py. 
+    Identifie la boîte scannée, vérifie si elle appartient au bon poste, 
+    enregistre la commande en base et notifie le front via WebSocket.
+    """
+    global current_app_mode # On utilise bien la variable globale
     data = await request.json()
     poste_id = data.get("poste")
     code_barre = data.get("code_barre")
@@ -129,15 +147,24 @@ async def recevoir_scan(request: Request, mode: str = "Normal"):
         case_magasin = db.query(Case).filter_by(idBoite=boite.idBoite, idStand=boite.idMagasin).first()
         magasin_nom, ligne, colonne = (case_magasin.Stand.nomStand, case_magasin.ligne, case_magasin.colonne) if case_magasin else ("Non localisé", "-", "-")
 
-        nouvelle_commande = Commande(idBoite=boite.idBoite, idMagasin=boite.idMagasin, idPoste=poste_id, statutCommande="A récupérer", typeCommande=mode)
+        nouvelle_commande = Commande(idBoite=boite.idBoite, idMagasin=boite.idMagasin, idPoste=poste_id, statutCommande="A récupérer", typeCommande=current_app_mode)
+
         db.add(nouvelle_commande)
         db.commit()
         db.refresh(nouvelle_commande)
         
         message = {
-            "id_commande": nouvelle_commande.idCommande, "mode": mode, "poste": poste_id, "code_barre": code_barre,
-            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre, "magasin": magasin_nom, "magasin_id": str(boite.idMagasin),
-            "ligne": ligne, "colonne": colonne, "stock": boite.nbBoite, "timestamp": datetime.now().isoformat()
+            "id_commande": nouvelle_commande.idCommande,
+            "mode": current_app_mode, # <--- Corrigé (ne pas mettre 'mode' tout court)
+            "poste": poste_id,
+            "code_barre": code_barre,
+            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
+            "magasin": magasin_nom,
+            "magasin_id": str(boite.idMagasin),
+            "ligne": ligne,
+            "colonne": colonne,
+            "stock": boite.nbBoite,
+            "timestamp": datetime.now().isoformat()
         }
         await manager.broadcast(json.dumps(message))
         return {"status": "ok", "detail": "scan enregistré"}
@@ -149,11 +176,18 @@ async def recevoir_scan(request: Request, mode: str = "Normal"):
     finally:
         db.close()
 
+@app.post("/api/set-active-mode")
+async def set_active_mode(request: Request):
+    global current_app_mode
+    data = await request.json()
+    current_app_mode = data.get("mode", "Normal")
+    return {"status": "ok", "current_mode": current_app_mode}
+
 
 async def simulation_apport_boites():
     """
-    Simulation optimisée : incrémente le stock selon le délai 'approvisionnement'
-    défini en base de données pour chaque boîte.
+    Tâche asynchrone qui simule un réapprovisionnement automatique en 
+    incrémentant le stock de chaque boite en fonction de leur temps d'approvisionnement dans la base de données.
     """
     timers = {} # Dictionnaire local : {id_boite: secondes_restantes}
     
@@ -215,7 +249,6 @@ async def simulation_apport_boites():
             finally:
                 db.close()
 
-
 @app.get("/")
 async def root():
     return {"status": "ok"}
@@ -227,6 +260,10 @@ class LoginRequest(BaseModel):
 
 @app.post("/api/login")
 def login(creds: LoginRequest):
+    """
+    Vérifie les identifiants fournis (nom d'utilisateur et mot de passe) 
+    dans la base de données SQLite pour autoriser l'accès à l'administration.
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(base_dir, "train.db")
     
@@ -257,6 +294,9 @@ class MultiDelayUpdate(BaseModel):
 
 @app.get("/api/admin/boites-delais")
 def get_boites_delais():
+    """
+    Récupère le temps d'approvisionnement de toutes les boites de la base de données
+    """
     db = SessionLocal()
     try:
         boites = db.query(Boite).all()
@@ -275,6 +315,9 @@ def get_boites_delais():
 
 @app.post("/api/admin/update-delais-appro")
 def update_delais_appro(payload: MultiDelayUpdate):
+    """
+    Met à jour le temps d'approvisionnement des boites spécifiées dans payload dans la base de données 
+    """
     try:
         for item in payload.updates:
             # Appel de votre fonction dans requetes.py
@@ -290,6 +333,9 @@ def update_delais_appro(payload: MultiDelayUpdate):
 # --- backend/server.py ---
 @app.get("/api/admin/dashboard")
 def get_admin_dashboard(mode: str = "Normal"):
+    """
+    Récupère et agrège les données nécessaires à l'affichage de l'historique.
+    """
     db = SessionLocal()
     try:
         stands = db.query(Stand).all()
@@ -374,6 +420,9 @@ def get_admin_dashboard(mode: str = "Normal"):
 
 @app.get("/api/admin/cycles")
 def get_cycles_list(mode: str = "Normal"): # On récupère le mode
+    """
+    Récupère la liste des cycles dans la base de données.
+    """
     db = SessionLocal()
     try:
         # On filtre les cycles par le mode (Normal ou Personnalisé)
@@ -407,6 +456,9 @@ def get_cycles_list(mode: str = "Normal"): # On récupère le mode
 
 @app.get("/api/admin/logs/{cycle_id}")
 def get_cycle_logs(cycle_id: str, mode: str = "Normal"):
+    """
+    Récupère les commandes contenues dans le cycle cycle_id.
+    """
     try:
         if cycle_id == "Total":
             return {"logs": []}
@@ -472,6 +524,9 @@ def api_get_cycles(mode: str = "Normal"): # On récupère le mode
 
 @app.get("/api/commandes/en_cours")
 def get_commandes_en_cours(mode: str = "Normal"): # On récupère le mode du fetch
+    """
+    Récupère toutes les commandes de la base de données qui n'ont pas le statut Commande finie ou Annulée
+    """
     db = SessionLocal()
     try:
         #On ajoute le filtre sur le type de commande (Normal ou Personnalisé)
@@ -485,7 +540,7 @@ def get_commandes_en_cours(mode: str = "Normal"): # On récupère le mode du fet
         for c in commandes:
             stock = c.boite.nbBoite if c.boite else 0
             
-            # Récupération du code-barre
+            # On récupère le code-barre pour l'affichage des cases
             vrai_code_barre = c.boite.code_barre if c.boite else "Inconnu"
             
             # Récupération du nom de la pièce
@@ -523,6 +578,9 @@ class StatutUpdate(BaseModel):
 
 @app.put("/api/commande/{id_commande}/statut")
 def update_statut(id_commande: int, update: StatutUpdate):
+    """
+    Appelle la requête qui permet de changer le statut de la commande id_commande
+    """
     try:
         resultat = requetes.changer_statut_commande(id_commande)
         
@@ -554,6 +612,9 @@ def get_stands():
 
 @app.put("/api/commande/{id_commande}/manquant")
 def set_commande_manquant(id_commande: int):
+    """
+    Appelle la requête qui change le statut de la commande en Produit manquant
+    """
     try:
         succes = requetes.declarer_commande_manquante(id_commande)
         if not succes:
@@ -567,6 +628,9 @@ def set_commande_manquant(id_commande: int):
         
 @app.delete("/api/commande/{id_commande}")
 def delete_commande_endpoint(id_commande: int):
+    """
+    Appelle la requête qui change le statut de la commande en Annulée
+    """
     try:
         succes = requetes.supprimer_commande(id_commande)
         if not succes:
@@ -585,11 +649,17 @@ class TrainPosUpdate(BaseModel):
 
 @app.get("/api/train/position")
 def get_train_position(mode: str = "Normal"):
+    """
+    Renvoie la position du train
+    """
     pos = requetes.get_position_train(mode=mode)
     return {"position": pos}
 
 @app.put("/api/train/position")
 def update_train_position(update: TrainPosUpdate, mode: str = "Normal"): # On ajoute mode ici
+    """
+    Appelle la requête qui change la change la position du train à update.position
+    """
     try:
         # On passe update.position ET le mode à ta fonction de requête
         nouvelle_pos = requetes.update_position_train(update.position, mode=mode)

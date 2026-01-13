@@ -1,3 +1,7 @@
+/**
+ * Gère l'authentification des utilisateurs en communiquant avec le backend
+ * et déclenche la redirection vers la page Admin.
+ */
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -10,19 +14,24 @@ import {
   Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 
-// Ajout de la prop 'onLoginSuccess'
 export default function LoginPopup({ open, onClose, onLoginSuccess }) {
+  // États pour stocker les données du formulaire et les messages d'erreur
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
 
+  // Met à jour l'état du formulaire à chaque saisie de l'utilisateur.
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) setError("");
   };
 
+  /**
+   * Gère la soumission du formulaire de connexion.
+   * Envoie une requête POST au serveur Python pour vérifier les identifiants.
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -41,8 +50,7 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
 
       if (response.ok) {
         console.log("Login success");
-        // --- MODIFICATION ICI ---
-        // Au lieu de recharger la page, on appelle la fonction parent pour changer le composant
+        // En cas de succès, on exécute la fonction de redirection
         if (onLoginSuccess) {
             onLoginSuccess();
         }
@@ -105,7 +113,7 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             mt: 4
           }}
         >
-          
+          {/* Champ de saisie pour le nom d'utilisateur */}
           <TextField
             label="Login *"
             type="text" 
@@ -118,7 +126,8 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             sx={{ backgroundColor: '#f0f0f0', borderRadius: 1 }}
             InputProps={{ disableUnderline: true }}
           />
-          
+
+          {/* Champ de saisie pour le mot de passe */}
           <TextField
             label="MDP *"
             type="password"
@@ -148,6 +157,7 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             </Link>
           </Box>
           
+          {/* Affichage des erreurs de connexion */}
           {error && (
             <Typography 
               color="error" 
@@ -159,6 +169,7 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             </Typography>
           )}
           
+          {/* Bouton de validation */}
           <Box sx={{ textAlign: 'center', mt: 2, mb: 1 }}>
             <Button
               type="submit"

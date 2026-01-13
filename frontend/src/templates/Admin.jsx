@@ -1,3 +1,8 @@
+/**
+ * Page d'administration fusionnée.
+ * Permet de visualiser l'historique (Dashboard) et les logs détaillés par cycle.
+ * Supporte le filtrage par mode (Normal/Personnalisé) et la purge de la base.
+ */
 import React, { useState, useEffect } from 'react';
 import {
     Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton, ToggleButtonGroup, ToggleButton
@@ -13,15 +18,14 @@ import {
     DialogActions
 } from '@mui/material';
 
+// Utilisation de l'URL d'API définie dans l'environnement ou par défaut
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function Admin({ onParametre, onApprovisionnement }) {
-    // --- États ---
-    const [currentView, setCurrentView] = useState('dashboard');
+    // --- ÉTATS ---
+    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' ou 'logs'
     const [filtreMode, setFiltreMode] = useState('Normal');
 
-    const [historique, setHistorique] = useState([]);
-    const [timeSlots, setTimeSlots] = useState(['Total']);
     const [dashboardData, setDashboardData] = useState({ stands: [], historique: [] });
     const [cyclesList, setCyclesList] = useState([]);
 
@@ -30,11 +34,11 @@ export default function Admin({ onParametre, onApprovisionnement }) {
     const [selectedCycleLabel, setSelectedCycleLabel] = useState('Total');
     const [cycleLogs, setCycleLogs] = useState([]);
 
-    // --- Vider la BD ---
+    // États pour la boîte de dialogue de suppression
     const [openClearDialog, setOpenClearDialog] = useState(false);
     const [clearing, setClearing] = useState(false);
 
-    // --- Styles ---
+    // --- STYLES ---
     const headerBtnStyle = (active) => ({
         backgroundColor: active ? '#a0a0a0' : '#d9d9d9',
         color: 'black',
@@ -60,31 +64,30 @@ export default function Admin({ onParametre, onApprovisionnement }) {
         return '#e0e0e0';
     };
 
-    // --- Chargement Données ---
+    // --- CHARGEMENT DES DONNÉES ---
 
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
         try {
-            // 1. Récupération des données du Dashboard avec le filtre de mode
+            // 1. Récupération des données du Dashboard (Historique condensé)
             const resDash = await fetch(`${apiUrl}/api/admin/dashboard?mode=${filtreMode}`);
             if (resDash.ok) {
                 const dataDash = await resDash.json();
-
                 setDashboardData(dataDash);
-                setHistorique(dataDash.historique);
-
-                // Extraction des créneaux horaires uniques pour le sélecteur
-                const times = [...new Set(dataDash.historique.map(h => h.heure))];
-                setTimeSlots(['Total', ...times]);
             }
 
-            // 2. Récupération de la liste des cycles filtrée
+            // 2. Récupération de la liste des cycles
             const resCycles = await fetch(`${apiUrl}/api/admin/cycles?mode=${filtreMode}`);
             if (resCycles.ok) {
                 const dataCycles = await resCycles.json();
                 setCyclesList(dataCycles);
+                
+                // Si on passe en vue Log et qu'aucun cycle n'est sélectionné, on prend le premier
+                if (currentView === 'logs' && selectedCycleId === 'Total' && dataCycles.length > 0) {
+                    handleSelectCycle(dataCycles[0]);
+                }
             }
         } catch (e) {
-            console.error("Erreur chargement admin:", e);
+            console.error("Erreur chargement données admin:", e);
         }
     };
 
@@ -101,15 +104,15 @@ export default function Admin({ onParametre, onApprovisionnement }) {
         }
     }
 
-    // Effet au changement de mode
+    // Effet lors du changement de mode ou de vue
     useEffect(() => {
-        fetchDashboardData();
-    }, [filtreMode]);
+        fetchData();
+    }, [filtreMode, currentView]);
 
-    // Effet de rafraîchissement automatique
+    // Rafraîchissement automatique (polling) toutes les 5 secondes
     useEffect(() => {
         const interval = setInterval(() => {
-            fetchDashboardData();
+            fetchData();
             if (currentView === 'logs' && selectedCycleId && selectedCycleId !== 'Total') {
                 fetchCycleLogs(selectedCycleId);
             }
@@ -117,7 +120,8 @@ export default function Admin({ onParametre, onApprovisionnement }) {
         return () => clearInterval(interval);
     }, [currentView, selectedCycleId, filtreMode]);
 
-    // --- Handlers ---
+    // --- HANDLERS ---
+
     const handleSelectCycle = (cycle) => {
         setSelectedCycleId(cycle.id);
         setSelectedCycleLabel(cycle.label);
@@ -127,10 +131,6 @@ export default function Admin({ onParametre, onApprovisionnement }) {
             setCycleLogs([]);
         }
     }
-
-    const handleQuit = () => {
-        window.location.href = "/";
-    };
 
     const handleModeChange = (event, nextMode) => {
         if (nextMode !== null) {
@@ -144,13 +144,13 @@ export default function Admin({ onParametre, onApprovisionnement }) {
     const handleClearDatabase = async () => {
         setClearing(true);
         try {
-            const res = await fetch(`${apiUrl}/api/admin/clear`, {
+            const res = await fetch(`${apiUrl}/api/admin/clear?mode=${filtreMode}`, {
                 method: 'POST'
             });
             if (res.ok) {
                 setCycleLogs([]);
                 setSelectedCycleId('Total');
-                fetchDashboardData();
+                fetchData();
             }
         } catch (err) {
             console.error(err);
@@ -160,13 +160,17 @@ export default function Admin({ onParametre, onApprovisionnement }) {
         }
     };
 
+    const handleQuit = () => {
+        window.location.href = "/";
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#333', overflow: 'hidden' }}>
 
             {/* HEADER */}
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', p: 2, bgcolor: 'white' }}>
-
-                {/* BLOC GAUCHE */}
+                
+                {/* BLOC GAUCHE : Téléchargement et Filtres */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button variant="contained" sx={headerBtnStyle(false)}>Télécharger</Button>
                     <ToggleButtonGroup
@@ -184,12 +188,12 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                     </ToggleButtonGroup>
                 </Box>
 
-                {/* BLOC CENTRE */}
+                {/* BLOC CENTRE : Titre */}
                 <Typography variant="h3" sx={{ fontWeight: 400, color: 'black', textAlign: 'center' }}>
                     {currentView === 'dashboard' ? 'Historique' : 'Page log'}
                 </Typography>
 
-                {/* BLOC DROITE */}
+                {/* BLOC DROITE : Actions globales */}
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                     <Button
                         variant="contained"
@@ -227,7 +231,7 @@ export default function Admin({ onParametre, onApprovisionnement }) {
             {/* CONTENU PRINCIPAL */}
             <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', mt: 1, bgcolor: '#333' }}>
 
-                {/* VUE DASHBOARD */}
+                {/* VUE DASHBOARD (HISTORIQUE PAR STAND) */}
                 {currentView === 'dashboard' && (
                     <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: 'white' }}>
                         <Box sx={{ width: '300px', bgcolor: '#d9d9d9', borderRight: '1px solid #ccc', overflowY: 'auto' }}>
@@ -303,7 +307,7 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                     </Box>
                 )}
 
-                {/* VUE LOGS */}
+                {/* VUE LOGS (DÉTAILS TECHNIQUES) */}
                 {currentView === 'logs' && (
                     <Box sx={{ display: 'flex', width: '100%', height: '100%', bgcolor: '#333', p: 2, gap: 2 }}>
                         <Paper sx={{ width: '300px', bgcolor: '#d9d9d9', overflowY: 'auto', borderRadius: 0 }}>
@@ -350,7 +354,7 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                                     ))
                                 ) : (
                                     <div style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                                        {selectedCycleId === 'Total' ? "Cliquez sur un cycle à gauche pour voir les détails." : "Aucune donnée pour ce mode."}
+                                        {selectedCycleId === 'Total' ? "Cliquez sur un cycle à gauche pour voir les détails." : "Aucune donnée pour ce cycle."}
                                     </div>
                                 )}
                             </Box>
@@ -359,19 +363,21 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                 )}
             </Box>
 
-            {/* DIALOG CONFIRMATION */}
+            {/* DIALOG CONFIRMATION DE SUPPRESSION */}
             <Dialog open={openClearDialog} onClose={() => setOpenClearDialog(false)}>
-                <DialogTitle>Confirmation</DialogTitle>
+                <DialogTitle>Confirmation de suppression</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        Cette action va supprimer définitivement toutes les Commandes et tous les cycles de la base ({filtreMode}).
+                        Cette action va supprimer définitivement toutes les données de la base (Pièces, Boîtes, Commandes, Cycles, etc.) pour le mode <strong>{filtreMode}</strong>. 
+                        Les logs seront perdus.
+                        <br /><br />
                         Voulez-vous vraiment continuer ?
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenClearDialog(false)}>Annuler</Button>
                     <Button onClick={handleClearDatabase} color="error" variant="contained" disabled={clearing}>
-                        {clearing ? "Suppression..." : "Confirmer"}
+                        {clearing ? "Suppression..." : "Confirmer la purge"}
                     </Button>
                 </DialogActions>
             </Dialog>

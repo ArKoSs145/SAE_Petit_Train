@@ -1,3 +1,8 @@
+"""
+Logique de traitement des configurations de stands via fichiers CSV.
+Transforme un tableur CSV en une structure de données JSON pour le front-end
+et met à jour les emplacements physiques des boîtes en base de données.
+"""
 import csv
 import json
 import os

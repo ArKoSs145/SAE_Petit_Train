@@ -1,8 +1,12 @@
+/**
+ * Point d'entrée principal de l'application React fusionné.
+ * Gère le routage de l'application via des fonctions de rendu manuel.
+ */
 import React from 'react'
 import ReactDOM from "react-dom/client";
 import './styles.css'
 
-// Imports mis à jour avec les nouveaux noms de fichiers
+// --- IMPORTS DES COMPOSANTS ---
 import Accueil from './templates/Accueil.jsx'
 import Circuit from './templates/Circuit.jsx';
 import Admin from './templates/Admin.jsx';
@@ -11,10 +15,14 @@ import Approvisionnement from './templates/Approvisionnement.jsx';
 import ChoixDepart from './templates/ChoixDepart.jsx';
 import ConfigDepartPerso from './templates/ConfigDepartPerso';
 
+// Initialisation du noeud racine React
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
-// --- FONCTIONS DE RENDU ---
+// --- FONCTIONS DE RENDU (ROUTAGE) ---
 
+/**
+ * Affiche l'écran d'accueil
+ */
 const renderAccueil = () => {
   root.render(
     <React.StrictMode>
@@ -27,6 +35,10 @@ const renderAccueil = () => {
   );
 };
 
+/**
+ * Affiche l'écran principal du circuit
+ * @param {string} mode - "Normal" ou "Personnalisé"
+ */
 const renderCircuit = (mode = "Normal") => {
   root.render(
     <React.StrictMode>
@@ -35,17 +47,24 @@ const renderCircuit = (mode = "Normal") => {
   );
 };
 
+/**
+ * Affiche le panneau d'administration
+ */
 const renderAdmin = () => {
   root.render(
     <React.StrictMode>
       <Admin 
         onParametre={renderParametre}
         onApprovisionnement={renderApprovisionnement} 
+        onRetourAccueil={renderAccueil} // Optionnel: pour revenir à l'accueil depuis l'admin
       />
     </React.StrictMode>
   );
 };
 
+/**
+ * Affiche la gestion de l'approvisionnement
+ */
 const renderApprovisionnement = () => {
   root.render(
     <React.StrictMode>
@@ -54,6 +73,9 @@ const renderApprovisionnement = () => {
   );
 }
 
+/**
+ * Affiche les paramètres du système
+ */
 const renderParametre = () => {
   root.render(
     <React.StrictMode>
@@ -62,6 +84,9 @@ const renderParametre = () => {
   );
 }
 
+/**
+ * Affiche le choix du type de départ (Personnalisé)
+ */
 const renderChoixDepart = () => {
   root.render(
     <React.StrictMode>
@@ -74,6 +99,9 @@ const renderChoixDepart = () => {
   );
 };
 
+/**
+ * Affiche la configuration détaillée du départ personnalisé
+ */
 const renderConfigPerso = () => {
   root.render(
     <React.StrictMode>
@@ -86,12 +114,5 @@ const renderConfigPerso = () => {
 }
 
 // --- RENDU INITIAL ---
-root.render(
-  <React.StrictMode>
-    <Accueil 
-      onContinue={() => renderCircuit("Normal")} 
-      onAdminLogin={renderAdmin} 
-      onCustomStart={renderChoixDepart} 
-    />
-  </React.StrictMode>
-);
+// L'application démarre systématiquement sur l'écran d'accueil
+renderAccueil();
