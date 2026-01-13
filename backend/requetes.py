@@ -1,3 +1,6 @@
+"""
+Contient toutes les fonctions CRUD pour interagir avec la base SQLite via SQLAlchemy.
+"""
 from database import SessionLocal, Stand, Piece, Boite, Case, Commande, Login, Train, Cycle
 from datetime import datetime, timezone
 from sqlalchemy import func
@@ -45,6 +48,9 @@ def update_position_train(nouvelle_position: int, mode="Normal"):
 
 # ---------- STAND ----------
 def create_stand(nom):
+    """
+    Crée un nouveau stand dans la base de données
+    """
     db = SessionLocal()
     try:
         stand = Stand(nomStand=nom)
@@ -56,6 +62,9 @@ def create_stand(nom):
         db.close()
 
 def get_all_stands():
+    """
+    Récupère tous les stands
+    """
     db = SessionLocal()
     try:
         return db.query(Stand).all()
@@ -63,6 +72,9 @@ def get_all_stands():
         db.close()
 
 def get_stand_by_id(id_stand):
+    """
+    Récupère un stand par son ID
+    """
     db = SessionLocal()
     try:
         return db.query(Stand).filter(Stand.idStand == id_stand).first()
@@ -71,6 +83,9 @@ def get_stand_by_id(id_stand):
 
 # ---------- PIECES ----------
 def create_piece(nom, description=""):
+    """
+    Crée une nouvelle pièce
+    """
     db = SessionLocal()
     try:
         piece = Piece(nomPiece=nom, description=description)
@@ -82,6 +97,9 @@ def create_piece(nom, description=""):
         db.close()
 
 def get_all_pieces():
+    """
+    Récupère toutes les pièces
+    """
     db = SessionLocal()
     try:
         return db.query(Piece).all()
@@ -89,6 +107,9 @@ def get_all_pieces():
         db.close()
 
 def get_piece_by_id(id_piece):
+    """
+    Récupère une pièce par son ID
+    """
     db = SessionLocal()
     try:
         return db.query(Piece).filter(Piece.idPiece == id_piece).first()
@@ -97,6 +118,9 @@ def get_piece_by_id(id_piece):
 
 # ---------- BOITES ----------
 def create_boite(id_piece, code_barre, nbBoite, idMagasin=None):
+    """
+    Crée une nouvelle boîte de pièces
+    """
     db = SessionLocal()
     try:
         boite = Boite(idPiece=id_piece, code_barre=code_barre, nbBoite=nbBoite, idMagasin=idMagasin)
@@ -108,6 +132,9 @@ def create_boite(id_piece, code_barre, nbBoite, idMagasin=None):
         db.close()
 
 def get_boite_by_id(id_boite):
+    """
+    Récupère une boîte par son ID
+    """
     db = SessionLocal()
     try:
         return db.query(Boite).filter(Boite.idBoite == id_boite).first()
@@ -115,6 +142,9 @@ def get_boite_by_id(id_boite):
         db.close()
 
 def get_all_boites():
+    """
+    Récupère toutes les boîtes
+    """
     db = SessionLocal()
     try:
         return db.query(Boite).all()
@@ -122,6 +152,9 @@ def get_all_boites():
         db.close()
 
 def incrementer_stock_global():
+    """
+    Incrémente le stock de toutes les boîtes de 1
+    """
     db = SessionLocal()
     try:
         db.query(Boite).update({Boite.nbBoite: Boite.nbBoite + 1})
@@ -135,6 +168,9 @@ def incrementer_stock_global():
 
 # ---------- CASES ----------
 def assigner_case(id_boite, id_stand, ligne, colonne):
+    """
+    Assigne une boîte à une case physique d'un stand
+    """
     db = SessionLocal()
     try:
         case = Case(idBoite=id_boite, idStand=id_stand, ligne=ligne, colonne=colonne)
@@ -146,6 +182,9 @@ def assigner_case(id_boite, id_stand, ligne, colonne):
         db.close()
 
 def get_cases_dun_stand(id_stand):
+    """
+    Récupère toutes les cases d'un stand spécifique
+    """
     db = SessionLocal()
     try:
         return db.query(Case).filter(Case.idStand == id_stand).all()
@@ -153,6 +192,9 @@ def get_cases_dun_stand(id_stand):
         db.close()
 
 def get_cases_dune_boite(id_boite):
+    """
+    Récupère l'emplacement (la case) d'une boîte
+    """
     db = SessionLocal()
     try:
         return db.query(Case).filter(Case.idBoite == id_boite).all()
@@ -160,6 +202,9 @@ def get_cases_dune_boite(id_boite):
         db.close()
 
 def supprimer_case(id_case):
+    """
+    Supprime une case de la base de données
+    """
     db = SessionLocal()
     try:
         case = db.query(Case).filter(Case.idCase == id_case).first()
@@ -172,6 +217,9 @@ def supprimer_case(id_case):
 # ---------- COMMANDES ----------
 
 def supprimer_commande(id_commande):
+    """
+    Annule une commande existante
+    """
     db = SessionLocal()
     try:
         commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
@@ -185,6 +233,9 @@ def supprimer_commande(id_commande):
         db.close()
 
 def declarer_commande_manquante(id_commande):
+    """
+    Marque une commande comme ayant un produit manquant
+    """
     db = SessionLocal()
     try:
         commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
@@ -198,6 +249,9 @@ def declarer_commande_manquante(id_commande):
         db.close()
         
 def changer_statut_commande(id_commande):
+    """
+    Fait progresser le statut d'une commande (Récupération -> Dépôt -> Finie)
+    """
     db = SessionLocal()
     try:
         commande = db.query(Commande).filter(Commande.idCommande == id_commande).first()
@@ -225,6 +279,9 @@ def changer_statut_commande(id_commande):
         db.close()
 
 def get_commandes_depuis_stand(id_prochain, mode="Normal"):
+    """
+    Récupère les commandes à traiter à partir d'un stand donné
+    """
     db = SessionLocal()
     try:
         stands = db.query(Stand).order_by(Stand.idStand.asc()).all()
@@ -252,6 +309,9 @@ def get_commandes_depuis_stand(id_prochain, mode="Normal"):
         db.close()
 
 def get_commandes_stand(id_poste, mode="Normal"):
+    """
+    Récupère toutes les commandes liées à un poste spécifique
+    """
     db = SessionLocal()
     try:
         # AJOUT DU FILTRE mode ICI
@@ -276,6 +336,9 @@ def get_commandes_en_cours(mode="Normal"):
 
 # ---------- LOGIN ----------
 def create_user(username, password, email):
+    """
+    Crée un nouvel utilisateur pour l'interface
+    """
     db = SessionLocal()
     try:
         user = Login(username=username, password=password, email=email)
@@ -287,6 +350,9 @@ def create_user(username, password, email):
         db.close()
 
 def get_user_by_username(username):
+    """
+    Récupère un utilisateur par son nom d'utilisateur
+    """
     db = SessionLocal()
     try:
         return db.query(Login).filter(Login.username == username).first()
@@ -294,14 +360,20 @@ def get_user_by_username(username):
         db.close()
 
 def get_all_users():
+    """
+    Récupère la liste de tous les utilisateurs
+    """
     db = SessionLocal()
     try:
         return db.query(Login).all()
     finally:
         db.close()
 
-# ---------- PIECES ARRIVÉES DANS LES POSTES (avec nom de pièce) ----------
+# ---------- STATS ----------
 def get_pieces_arrivees_postes(debut, fin):
+    """
+    Récupère les statistiques des pièces livrées aux postes sur une période
+    """
     db = SessionLocal()
     try:
         result = (
@@ -324,9 +396,10 @@ def get_pieces_arrivees_postes(debut, fin):
     finally:
         db.close()
 
-
-# ---------- BOÎTES RÉCUPÉRÉES DANS LES MAGASINS (avec nom de pièce) ----------
 def get_boites_recuperees_magasins(debut, fin):
+    """
+    Récupère les statistiques des boîtes sorties des magasins sur une période
+    """
     db = SessionLocal()
     try:
         result = (
@@ -349,8 +422,11 @@ def get_boites_recuperees_magasins(debut, fin):
     finally:
         db.close()
 
-## --- LOG ---
+# ---------- LOGS ----------
 def get_commandes_cycle_logs(debut_cycle: datetime, mode="Normal"):
+    """
+    Génère les logs textuels d'activité pour un cycle spécifique
+    """
     db = SessionLocal()
     try:
         target_id_str = debut_cycle.strftime('%Y-%m-%d %H:%M:%S')
@@ -420,10 +496,12 @@ def get_commandes_cycle_logs(debut_cycle: datetime, mode="Normal"):
         return final_logs
     finally:
         db.close()
-        
+
 # ---------- CYCLES ----------
 def get_commandes_cycle(debut_cycle: datetime, mode="Normal"):
-    """Récupère les commandes d'un cycle précis pour un mode donné"""
+    """
+    Récupère les commandes terminées durant un cycle précis
+    """
     db = SessionLocal()
     try:
         if debut_cycle.tzinfo is None:
@@ -497,7 +575,6 @@ def clear_production_data():
     """
     db = SessionLocal()
     try:
-        # L'ordre est important si vous avez des clés étrangères actives
         db.query(Commande).delete()
         db.query(Cycle).delete()
         db.commit()

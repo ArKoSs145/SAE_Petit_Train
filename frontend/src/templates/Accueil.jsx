@@ -1,13 +1,20 @@
+/**
+ * Page d'acueil de l'application.
+ * Permet à l'utilisateur de choisir comment démarrer sa session de travail
+ * et donne accès à l'interface d'administration via un login.
+ */
 import React, { useState } from 'react';
 import { Box, Button, Typography, Paper } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import LoginPopup from './popup/LoginPopup.jsx';
 
 export default function App({ onContinue, onAdminLogin, onCustomStart }) {
+    // État pour contrôler l'ouverture et la fermeture du login
     const [showLogin, setShowLogin] = useState(false);
 
     // --- Actions ---
 
+    // Ferme l'application
     function quit() {
         window.open("about:blank", "_self");
         window.close();

@@ -1,3 +1,7 @@
+/**
+ * Affiche une grille interactive représentant les cases d'un stand (magasin ou poste)
+ * et permet à l'opérateur de confirmer le retrait ou le dépôt des pièces demandées.
+ */
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -14,6 +18,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 const apiUrl = import.meta.env.VITE_API_URL;
 
 
+// Retourne la couleur associée à un poste spécifique
 const getPosteColor = (id) => {
   const colors = {
     "1": '#9fc3f1', "2": '#b6fcce', "3": '#ffb6b6', 
@@ -22,9 +27,11 @@ const getPosteColor = (id) => {
   return colors[id] || '#5e5e5eff';
 };
 
+// Identifiants des stands considérés comme des Magasins
 const STORE_IDS = ['4', '5', '6', '7'];
 
 export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, onMissing }) {
+  // clickedTasks : stocke les IDs des tâches que l'utilisateur a validées visuellement dans la grille
   const [clickedTasks, setClickedTasks] = useState(new Set());
   const [shelfLayout, setShelfLayout] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,11 +39,16 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
   const color = getPosteColor(posteId);
   const isMagasin = STORE_IDS.includes(String(posteId));
 
+  /**
+   * à l'ouverture de la popup pour un poste donné,
+   * récupère le fichier de configuration JSON définissant la forme des cases.
+   */
   useEffect(() => {
     if (open && posteId) {
       setLoading(true);
       setClickedTasks(new Set());
       
+      // Récupération du layout dynamique généré par le backend
       fetch(`/etagere_${posteId}.json`)
         .then(res => res.json())
         .then(data => {
@@ -51,8 +63,10 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     }
   }, [open, posteId]);
 
-  // FONCTION DE CORRESPONDANCE PAR CODE-BARRE
-  // Dans PopupLivraison.jsx, modifiez getTasksForValue ainsi :
+  /**
+   * Filtre la liste des tâches actives pour trouver
+   * celles dont le code-barre correspond à la valeur d'une case de l'étagère.
+   */
   const getTasksForValue = (val) => {
     if (!val || !tasks) return [];
     
@@ -60,7 +74,6 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
       const taskBarre = String(task.code_barre || "").trim();
       const shelfVal = String(val || "").trim();
       
-      // LOG DE DEBUG : À supprimer une fois le problème identifié
       if (shelfVal === taskBarre) {
         console.log("Match trouvé !", { shelfVal, taskBarre });
       }
@@ -69,22 +82,25 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
     });
   };
 
+  // Gère le clic sur une cellule de la grille.
   const handleCellClick = (cellTasks) => {
     if (!cellTasks || cellTasks.length === 0) return;
     setClickedTasks(prev => {
       const newSet = new Set(prev);
       const allSelected = cellTasks.every(t => newSet.has(t.id));
-      if (allSelected) cellTasks.forEach(t => newSet.delete(t.id));
-      else cellTasks.forEach(t => newSet.add(t.id));
+      if (allSelected) cellTasks.forEach(t => newSet.delete(t.id)); // Désélection
+      else cellTasks.forEach(t => newSet.add(t.id)); // Sélection
       return newSet;
     });
   };
 
+  // Envoie la validation de toutes les tâches sélectionnées à Circuit.
   const handleValidate = () => {
     clickedTasks.forEach(taskId => onDeliver(taskId));
     onClose();
   };
 
+  // Notifie le serveur que le produit est manquant dans le magasin.
   const handleMissing = async () => {
     for (let taskId of clickedTasks) {
       try {
@@ -105,7 +121,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           width: '100vw', height: '100vh', padding: '24px', boxSizing: 'border-box', backgroundColor: '#f0f0f0',
         }}>
         
-        {/* COLONNE 1 : LA GRILLE DYNAMIQUE */}
+        {/* Colonne 1: les cases */}
         <Box sx={{
             display: 'grid',
             gridTemplateRows: shelfLayout?.layout?.templateRows || 'repeat(8, 1fr)',
@@ -116,7 +132,6 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
             <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', color: 'white' }} />
           ) : (
             shelfLayout?.items.map((item) => {
-              // CORRECTION ICI : Utilisation de getTasksForValue(item.val)
               const cellTasks = getTasksForValue(item.val);
               const hasTask = cellTasks.length > 0;
               const isChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
@@ -138,11 +153,13 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
                       {cellTasks[0].item}
                     </Typography>
                   )}
+                  {/* Badge si plusieurs commandes concernent la même case */}
                   {hasTask && cellTasks.length > 1 && (
                     <Box sx={{ position: 'absolute', top: 5, right: 5, bgcolor: 'red', color: 'white', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
                       x{cellTasks.length}
                     </Box>
                   )}
+                  {/* Pour montrer que la case est sélectionnée */}
                   {isChecked && <CheckCircleIcon sx={{ position: 'absolute', color: 'white', fontSize: '3rem' }} />}
                 </Box>
               );
@@ -150,7 +167,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           )}
         </Box>
 
-        {/* COLONNE 2 : LES BOUTONS */}
+        {/* Colonne 2 : les boutons */}
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '40px 0' }}>
           <Button variant="contained" onClick={onClose} sx={{ py: 3, fontSize: '1.5rem', bgcolor: '#d9d9d9', color: 'black' }}>
             Retour
@@ -165,7 +182,7 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
           </Button>
         </Box>
 
-        {/* COLONNE 3 : LA LISTE */}
+        {/* Colonne 3 : la liste de commandes */}
         <Box sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#d9d9d9', border: '2px solid #aaa', p: 3, overflow: 'hidden' }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Commandes :</Typography>
           <Typography variant="h5" sx={{ mb: 2 }}>Poste {posteId}</Typography>

@@ -7,6 +7,10 @@ echo   INSTALLATION DES DEPENDANCES (FENETRE PRINCIPALE)
 echo ==========================================
 
 :: --- ÉTAPE 1 : INSTALLATION BACKEND ---
+if not exist "venv" (
+    echo [0/5] Création de l'environnement virtuel...
+    python -m venv venv
+)
 echo [1/5] Activation du venv et installation Python...
 cd backend
 call ..\venv\Scripts\activate
