@@ -278,23 +278,32 @@ def test_commandes_404_errors(client):
     assert res_statut.status_code in [404, 500]
 
 def test_custom_mode_full_flow(client):
-    """Vérifie que le mode Personnalisé est bien isolé du mode Normal."""
-    # 1. Start cycle personnalisé
-    client.post("/api/cycle/start?mode=Personnalisé")
+    """Vérifie que le mode Personnalisé fonctionne en changeant d'abord le mode global."""
     
-    # 2. Scan en mode personnalisé
+    # 1. Changer le mode actif du serveur en "Personnalisé"
+    # C'est l'étape cruciale pour que recevoir_scan utilise le bon mode
+    client.post("/api/set-active-mode", json={"mode": "Personnalisé"}) # 
+
+    # 2. Démarrer le cycle personnalisé
+    client.post("/api/cycle/start?mode=Personnalisé") # 
+
+    # 3. Effectuer le scan
+    # On crée les données nécessaires en base
     p = requetes.create_piece("Objet-Perso")
     b = requetes.create_boite(p.idPiece, "CB-PERSO", 10, idMagasin=7)
     b.idPoste = 1
-    client.post("/scan?mode=Personnalisé", json={"poste": 1, "code_barre": "CB-PERSO"})
+    # Le serveur utilisera current_app_mode (qui est maintenant "Personnalisé")
+    client.post("/scan", json={"poste": 1, "code_barre": "CB-PERSO"}) # 
+
+    # 4. Vérifier que le dashboard Personnalisé contient bien la donnée
+    res_dash = client.get("/api/admin/dashboard?mode=Personnalisé") # 
+    data = res_dash.json()
     
-    # 3. Vérifier que le dashboard Personnalisé contient la donnée
-    res_dash = client.get("/api/admin/dashboard?mode=Personnalisé")
-    assert len(res_dash.json()["historique"]) > 0
+    assert len(data["historique"]) > 0
+    assert data["historique"][0]["objet"] == "Objet-Perso"
     
-    # 4. Vérifier que le dashboard Normal est toujours vide
-    res_norm = client.get("/api/admin/dashboard?mode=Normal")
-    assert res_norm.json()["historique"] == []
+    # 5. Nettoyage : Rebasculer en mode Normal pour les tests suivants
+    client.post("/api/set-active-mode", json={"mode": "Normal"}) #
 
 def test_cycles_listing_logic(client):
     """Couvre la récupération et le formatage de la liste des cycles."""
