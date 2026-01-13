@@ -14,6 +14,8 @@ ENV/
 *.spec
 *.log
 *.sqlite3
+.coverage
+.pytest_cache/
 
 # Node / React (Vite)
 node_modules/

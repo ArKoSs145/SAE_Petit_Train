@@ -32,7 +32,6 @@ def update_position_train(nouvelle_position: int, mode="Normal"):
     try:
         # On cherche le train correspondant au mode actif
         train = db.query(Train).filter(Train.statut_train == mode).first()
-        
         if not train:
             # Si pour une raison X il n'existe pas, on le crée
             train = Train(position=nouvelle_position, statut_train=mode)
@@ -556,13 +555,12 @@ def update_approvisionnement_boite(id_boite, nouveau_delai):
         db.close()
 
 def get_approvisionnement_boite(id_boite):
-    """Récupère uniquement le délai d'approvisionnement pour une boîte donnée"""
     db = SessionLocal()
     try:
-        # On sélectionne uniquement la colonne souhaitée pour optimiser la performance
         result = db.query(Boite.approvisionnement).filter(Boite.idBoite == id_boite).first()
-        # .first() renvoie un tuple (valeur,), on retourne donc le premier élément
-        return result[0] if result else None
+        if result is not None and len(result) > 0:
+            return result[0]
+        return None
     finally:
       db.close()
       
