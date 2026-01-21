@@ -29,7 +29,7 @@ const renderAccueil = () => {
       <Accueil 
         onContinue={() => renderCircuit("Normal")} 
         onAdminLogin={renderAdmin} 
-        onCustomStart={renderChoixDepart}
+        onCustomStart={renderConfigPerso}
       />
     </React.StrictMode>
   );
@@ -106,7 +106,7 @@ const renderConfigPerso = () => {
   root.render(
     <React.StrictMode>
       <ConfigDepartPerso 
-        onRetour={renderChoixDepart} 
+        onRetour={renderAccueil} 
         onLancer={() => renderCircuit("Personnalisé")} 
       />
     </React.StrictMode>

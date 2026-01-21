@@ -1,145 +1,108 @@
-/**
- * Page d'acueil de l'application.
- * Permet à l'utilisateur de choisir comment démarrer sa session de travail
- * et donne accès à l'interface d'administration via un login.
- */
 import React, { useState } from 'react';
-import { Box, Button, Typography, Paper } from '@mui/material';
-import LockIcon from '@mui/icons-material/Lock';
-import LoginPopup from './popup/LoginPopup.jsx';
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Grid,
+} from '@mui/material';
+import LoginPopup from './popup/LoginPopup';
 
-export default function App({ onContinue, onAdminLogin, onCustomStart }) {
-    // État pour contrôler l'ouverture et la fermeture du login
-    const [showLogin, setShowLogin] = useState(false);
+export default function Accueil({ onContinue, onCustomStart, onAdmin }) {
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
-    // --- Actions ---
-
-    // Ferme l'application
-    function quit() {
-        window.open("about:blank", "_self");
-        window.close();
+  // Style des cartes cliquables
+  const cardStyle = {
+    p: 5,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    cursor: 'pointer',
+    borderRadius: '12px',
+    border: '1px solid #DFE1E6',
+    bgcolor: 'white',
+    height: '240px',
+    transition: 'all 0.2s ease-in-out',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: '0 8px 16px rgba(0, 82, 204, 0.1)',
+      borderColor: '#0052CC',
     }
+  };
 
-    // --- Styles communs ---
-    const mainButtonStyle = {
-        backgroundColor: '#d9d9d9', // Gris clair
-        color: 'black',
-        textTransform: 'none', // Garder la casse normale
-        fontSize: '1.2rem',
-        padding: '15px 40px',
-        width: '400px', // Largeur fixe pour uniformité
-        maxWidth: '90%',
-        borderRadius: 0, // Bords carrés comme sur l'image
-        boxShadow: 'none',
-        '&:hover': {
-            backgroundColor: '#c0c0c0',
-            boxShadow: 'none',
-        }
-    };
+  return (
+    <Box sx={{ 
+      minHeight: '100vh', 
+      bgcolor: '#F4F5F7', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      p: 3,
+      fontFamily: "'Inter', sans-serif"
+    }}>
+      
+      {/* En-tête */}
+      <Box sx={{ textAlign: 'center', mb: 8 }}>
+        <Typography variant="h2" sx={{ fontWeight: 800, color: '#172B4D', mb: 1, letterSpacing: '-1px' }}>
+          SAÉ Petit Train
+        </Typography>
+        <Typography variant="h6" sx={{ color: '#5E6C84', fontWeight: 400 }}>
+          Digitalisation du flux Kanban & Pilotage logistique
+        </Typography>
+      </Box>
 
-    return (
-        <Box sx={{ 
-            height: '100vh', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            bgcolor: 'white',
-            overflow: 'hidden',
-            position: 'relative'
-        }}>
-            
-            {/* --- Bouton Admin (Haut Droite) --- */}
-            <Box sx={{ position: 'absolute', top: 30, right: 30, textAlign: 'center' }}>
-                <Paper 
-                    elevation={3}
-                    onClick={() => setShowLogin(true)}
-                    sx={{ 
-                        width: 60, 
-                        height: 60, 
-                        bgcolor: '#e0e0e0', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        mb: 0.5,
-                        borderRadius: 1
-                    }}
-                >
-                    <LockIcon sx={{ color: '#f57f17', fontSize: 30 }} /> {/* Cadenas Orange */}
-                </Paper>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Admin</Typography>
-            </Box>
+      {/* Grille d'actions */}
+      <Grid container spacing={4} sx={{ maxWidth: '850px' }}>
+        
+        {/* OPTION 1 : CONTINUER */}
+        <Grid item xs={12} sm={6}>
+          <Paper elevation={0} sx={cardStyle} onClick={onContinue}>
+            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: '#172B4D' }}>
+              Continuer
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#5E6C84', mb: 4 }}>
+              Reprendre le cycle là où il s'est arrêté
+            </Typography>
+            <Button variant="contained" sx={{ bgcolor: '#0052CC', textTransform: 'none', fontWeight: 700, px: 4 }}>
+              Reprendre
+            </Button>
+          </Paper>
+        </Grid>
 
-            {/* --- Contenu Central --- */}
-            <Box sx={{ 
-                flexGrow: 1, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                gap: 4 
-            }}>
-                {/* Titre */}
-                <Typography variant="h2" sx={{ 
-                    color: '#9c27b0', // Violet
-                    fontWeight: 400,
-                    textAlign: 'center'
-                }}>
-                    Kanban Numérique
-                </Typography>
+        {/* OPTION 2 : CONFIGURATION PERSONNALISÉE */}
+        <Grid item xs={12} sm={6}>
+          <Paper elevation={0} sx={cardStyle} onClick={onCustomStart}>
+            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: '#172B4D' }}>
+              Démarrer
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#5E6C84', mb: 4 }}>
+              Nouvelle configuration de départ
+            </Typography>
+            <Button variant="contained" sx={{ bgcolor: '#36B37E', textTransform: 'none', fontWeight: 700, px: 4 }}>
+              Nouveau cycle
+            </Button>
+          </Paper>
+        </Grid>
+      </Grid>
 
-                {/* Sous-titre */}
-                <Typography variant="h5" sx={{ 
-                    color: 'black', 
-                    mb: 2,
-                    textAlign: 'center'
-                }}>
-                    Comment commencer la journée ?
-                </Typography>
-
-                {/* Boutons d'action */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <Button 
-                        variant="contained" 
-                        onClick={onContinue}
-                        sx={mainButtonStyle}
-                    >
-                        Continuer la journée précédente
-                    </Button>
-
-                    <Button 
-                        variant="contained" 
-                        onClick={onCustomStart}
-                        sx={mainButtonStyle}
-                    >
-                        Avec un départ personnalisé
-                    </Button>
-                </Box>
-            </Box>
-
-            {/* --- Footer Quitter (Bas) --- */}
-            <Box 
-                onClick={quit}
-                sx={{ 
-                    width: '100%', 
-                    bgcolor: 'red', 
-                    py: 3, 
-                    textAlign: 'center', 
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: '#d32f2f' }
-                }}
-            >
-                <Typography variant="h5" sx={{ color: 'black' }}>
-                    Quitter
-                </Typography>
-            </Box>
-
-            {/* --- Popup de Connexion --- */}
-            {/* On passe la prop onLoginSuccess qui correspond à la fonction renderAdmin */}
-            <LoginPopup 
-                open={showLogin} 
-                onClose={() => setShowLogin(false)} 
-                onLoginSuccess={onAdminLogin}
-            />
-        </Box>
-    );
+      {/* Accès Admin */}
+      <Button 
+        variant="text" 
+        onClick={() => setIsLoginOpen(true)}
+        sx={{ mt: 8, color: '#42526E', textTransform: 'none', fontWeight: 600, fontSize: '1rem' }}
+      >
+        Espace Administration
+      </Button>
+      
+      {/* LoginPopup reste identique à votre projet */}
+      <LoginPopup 
+        open={isLoginOpen} 
+        onClose={() => setIsLoginOpen(false)} 
+        onLoginSuccess={onAdmin} 
+      />
+    </Box>
+  );
 }
