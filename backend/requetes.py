@@ -80,39 +80,6 @@ def get_stand_by_id(id_stand):
     finally:
         db.close()
 
-# ---------- PIECES ----------
-def create_piece(nom, description=""):
-    """
-    Crée une nouvelle pièce
-    """
-    db = SessionLocal()
-    try:
-        piece = Piece(nomPiece=nom, description=description)
-        db.add(piece)
-        db.commit()
-        db.refresh(piece)
-        return piece
-    finally:
-        db.close()
-
-def get_all_pieces():
-    db = SessionLocal()
-    try:
-        # On retourne les boites car elles contiennent les noms des pièces
-        return db.query(Boite).all()
-    finally:
-        db.close()
-
-def get_piece_by_id(id_piece):
-    """
-    Récupère une pièce par son ID
-    """
-    db = SessionLocal()
-    try:
-        return db.query(Piece).filter(Piece.idPiece == id_piece).first()
-    finally:
-        db.close()
-
 # ---------- BOITES ----------
 def create_boite(id_piece, nom, description, code_barre, nbBoite, idMagasin=None):
     db = SessionLocal()
@@ -389,7 +356,6 @@ def get_boites_recuperees_magasins(debut, fin):
                 func.sum(Boite.nbBoite).label("quantite") 
             )
             .join(Boite, Boite.idBoite == Commande.idBoite)
-            # Suppression de la ligne .join(Piece, ...) car les infos sont dans Boite
             .filter(
                 Commande.statutCommande == "Commande finie",
                 Commande.dateCommande >= debut,
