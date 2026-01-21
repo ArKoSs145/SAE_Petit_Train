@@ -2,7 +2,6 @@
  * Gère l'authentification des utilisateurs en communiquant avec le backend
  * et déclenche la redirection vers la page Admin.
  */
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -15,40 +14,30 @@ import {
   Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-
 export default function LoginPopup({ open, onClose, onLoginSuccess }) {
-  // États pour stocker les données du formulaire et les messages d'erreur
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
 
-  // Met à jour l'état du formulaire à chaque saisie de l'utilisateur.
+  // Met à jour l'état du formulaire à chaque saisie
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) setError("");
   };
 
-  /**
-   * Gère la soumission du formulaire de connexion.
-   * Envoie une requête POST au serveur Python pour vérifier les identifiants.
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      // --- Hachage SHA-256 en JavaScript ---
-      const msgUint8 = new TextEncoder().encode(formData.password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
+      // ENVOYER le mot de passe sans hachage
       const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: formData.username, 
-          password: hashedPassword // On envoie le mot de passe haché
+          password: formData.password // Mot de passe en clair
         }),
       });
 
@@ -112,7 +101,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             mt: 4
           }}
         >
-          {/* Champ de saisie pour le nom d'utilisateur */}
           <TextField
             label="Login *"
             type="text" 
@@ -126,7 +114,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             InputProps={{ disableUnderline: true }}
           />
 
-          {/* Champ de saisie pour le mot de passe */}
           <TextField
             label="MDP *"
             type="password"
@@ -156,7 +143,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             </Link>
           </Box>
           
-          {/* Affichage des erreurs de connexion */}
           {error && (
             <Typography 
               color="error" 
@@ -168,7 +154,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
             </Typography>
           )}
           
-          {/* Bouton de validation */}
           <Box sx={{ textAlign: 'center', mt: 2, mb: 1 }}>
             <Button
               type="submit"
@@ -189,7 +174,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
               VALIDER
             </Button>
           </Box>
-          
         </Box>
       </DialogContent>
     </Dialog>
