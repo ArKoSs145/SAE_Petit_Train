@@ -238,7 +238,7 @@ def data_db():
 
     # Création de l'utilisateur
     if not db.query(Login).filter_by(username="test").first():
-        db.add(Login(username="test", password="25aa34070a75ce79dcf2496484ad2301de3daa2b80581c9b265eaadb79685303", email="test@example.com"))
+        db.add(Login(username="test", password="password123", email="test@example.com"))
 
     
     db.commit()

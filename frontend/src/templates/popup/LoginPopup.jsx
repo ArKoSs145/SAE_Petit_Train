@@ -37,18 +37,13 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
     e.preventDefault();
 
     try {
-      // --- Hachage SHA-256 en JavaScript ---
-      const msgUint8 = new TextEncoder().encode(formData.password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
+      
       const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: formData.username, 
-          password: hashedPassword // On envoie le mot de passe haché
+          password: formData.password,
         }),
       });
 
