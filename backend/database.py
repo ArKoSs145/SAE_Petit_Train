@@ -12,20 +12,30 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
 # Table des pièces
+class Piece(Base):
+    __tablename__ = "pieces"
+    idPiece = Column(Integer, primary_key=True, index=True)
+    nomPiece = Column(String)
+    description = Column(String)
+    boite = relationship("Boite", back_populates="piece", uselist=False)
+
 class Boite(Base):
     __tablename__ = "boites"
     idBoite = Column(Integer, primary_key=True, index=True)
+    idPiece = Column(Integer, ForeignKey("pieces.idPiece"))
     code_barre = Column(String, index=True)
     nbBoite = Column(Integer)
-    nomPiece = Column(String)
-    description = Column(String)
     
+    
+    # On autorise explicitement le NULL (None en Python) par défaut
     idMagasin = Column(Integer, ForeignKey("stands.idStand"), nullable=True)
     idPoste = Column(Integer, ForeignKey("stands.idStand"), nullable=True) 
 
+    piece = relationship("Piece", back_populates="boite")
     Cases = relationship("Case", back_populates="boite")
     magasin = relationship("Stand", foreign_keys=[idMagasin])
     poste = relationship("Stand", foreign_keys=[idPoste])
+    # Temps de préparation de la boîte en secondes
     approvisionnement = Column(Integer, default=0, nullable=False)
 
 # Table des stands / magasins
@@ -139,53 +149,66 @@ def reset_db():
 def data_db():
     db = SessionLocal()
 
-    # Liste des boîtes sans idPiece
-    data_initiale = [
-        {"idBoite": 6767, "nomPiece": "Pièce Test (Cahier)", "description": "Objet de test", "code_barre": "3601020016223"},
-        {"idBoite": 1, "nomPiece": "Phare Bas de Gamme", "description": "", "code_barre": "TEST1"},
-        {"idBoite": 2, "nomPiece": "Phare Moyenne Gamme", "description": "", "code_barre": "TEST2"},
-        {"idBoite": 3, "nomPiece": "Phare Haut de Gamme", "description": "", "code_barre": "TEST3"},
-        {"idBoite": 4, "nomPiece": "Vis Diametre 2", "description": "...", "code_barre": "TEST4"},
-        {"idBoite": 5, "nomPiece": "Ecrou 6 pans", "description": "...", "code_barre": "TEST5"},
-        {"idBoite": 6, "nomPiece": "Vis Diametre 4", "description": "...", "code_barre": "TEST6"},
-        {"idBoite": 7, "nomPiece": "Rondelle", "description": "...", "code_barre": "TEST7"},
-        {"idBoite": 8, "nomPiece": "Corps de phare", "description": "...", "code_barre": "TEST8"},
-        {"idBoite": 9, "nomPiece": "Capot pour phare", "description": "...", "code_barre": "TEST9"},
-        {"idBoite": 10, "nomPiece": "Notice", "description": "Notice papier", "code_barre": "TEST10"},
-        {"idBoite": 11, "nomPiece": "Sachet", "description": "", "code_barre": "TEST11"},
-        {"idBoite": 12, "nomPiece": "Fixation basse", "description": "", "code_barre": "TEST12"},
-        {"idBoite": 13, "nomPiece": "Fixation phare", "description": "", "code_barre": "TEST13"},
-        {"idBoite": 14, "nomPiece": "Pince cadre", "description": "", "code_barre": "TEST14"},
-        {"idBoite": 15, "nomPiece": "Catadopte Non Empilable", "description": "", "code_barre": "TEST15"},
-        {"idBoite": 16, "nomPiece": "Protection cadre", "description": "", "code_barre": "TEST16"},
-        {"idBoite": 17, "nomPiece": "Ecrou carré", "description": "", "code_barre": "TEST17"},
-        {"idBoite": 18, "nomPiece": "Support cadre", "description": "", "code_barre": "TEST18"},
-        {"idBoite": 19, "nomPiece": "Support catadiope", "description": "", "code_barre": "TEST19"},
-        {"idBoite": 20, "nomPiece": "Catadiope", "description": "", "code_barre": "TEST20"},
-        {"idBoite": 21, "nomPiece": "Vis cadatiope", "description": "", "code_barre": "TEST21"},
-        {"idBoite": 22, "nomPiece": "Ampoule", "description": "", "code_barre": "TEST22"},
-        {"idBoite": 23, "nomPiece": "Lamelle masse", "description": "", "code_barre": "TEST23"},
-        {"idBoite": 24, "nomPiece": "Ecrou dia 5", "description": "", "code_barre": "TEST24"},
-        {"idBoite": 25, "nomPiece": "Vis carré dia 5", "description": "", "code_barre": "TEST25"},
-        {"idBoite": 26, "nomPiece": "Rondelle frein", "description": "", "code_barre": "TEST26"},
-        {"idBoite": 27, "nomPiece": "Catadiope phare MG", "description": "", "code_barre": "TEST27"},
-        {"idBoite": 28, "nomPiece": "Socle", "description": "", "code_barre": "TEST28"},
-        {"idBoite": 29, "nomPiece": "Fil et cosse", "description": "", "code_barre": "TEST29"},
-        {"idBoite": 30, "nomPiece": "Vis pour cosse", "description": "", "code_barre": "TEST30"},
-        {"idBoite": 31, "nomPiece": "Fil électrique", "description": "", "code_barre": "TEST31"},
-        {"idBoite": 32, "nomPiece": "Cosse", "description": "", "code_barre": "TEST32"},
-        {"idBoite": 33, "nomPiece": "Vis de fermeture", "description": "", "code_barre": "TEST33"},
-        {"idBoite": 34, "nomPiece": "Vis fixation cosse", "description": "", "code_barre": "TEST34"},
-        {"idBoite": 35, "nomPiece": "Sac à visserie", "description": "", "code_barre": "TEST35"},
-        {"idBoite": 36, "nomPiece": "Catadioptre + circuit", "description": "", "code_barre": "TEST36"},
-        {"idBoite": 37, "nomPiece": "Socle arrière", "description": "", "code_barre": "TEST37"},
-        {"idBoite": 38, "nomPiece": "Kit fixation", "description": "", "code_barre": "TEST38"},
-        {"idBoite": 39, "nomPiece": "Fil", "description": "", "code_barre": "TEST39"},
+    # Initialisation des Pièces
+    pieces_a_creer = [
+        {"idPiece": 4141, "nomPiece": "Pièce Test (Cahier)", "description": "Objet de test"},
+        {"idPiece": 1, "nomPiece": "Phare Bas de Gamme", "description": ""},
+        {"idPiece": 2, "nomPiece": "Phare Moyenne Gamme", "description": ""},
+        {"idPiece": 3, "nomPiece": "Phare Haut de Gamme", "description": ""},
+        {"idPiece": 4, "nomPiece": "Vis Diametre 2", "description": "..."},
+        {"idPiece": 5, "nomPiece": "Ecrou 6 pans", "description": "..."},
+        {"idPiece": 6, "nomPiece": "Vis Diametre 4", "description": "..."},
+        {"idPiece": 7, "nomPiece": "Rondelle", "description": "..."},
+        {"idPiece": 8, "nomPiece": "Corps de phare", "description": "..."},
+        {"idPiece": 9, "nomPiece": "Capot pour phare", "description": "..."},
+        {"idPiece": 10, "nomPiece": "Notice", "description": "Notice papier"},
+        {"idPiece": 11, "nomPiece": "Sachet", "description": ""},
+        {"idPiece": 12, "nomPiece": "Fixation basse", "description": ""},
+        {"idPiece": 13, "nomPiece": "Fixation phare", "description": ""},
+        {"idPiece": 14, "nomPiece": "Pince cadre", "description": ""},
+        {"idPiece": 15, "nomPiece": "Catadopte Non Empilable", "description": ""},
+        {"idPiece": 16, "nomPiece": "Protection cadre", "description": ""},
+        {"idPiece": 17, "nomPiece": "Ecrou carré", "description": ""},
+        {"idPiece": 18, "nomPiece": "Support cadre", "description": ""},
+        {"idPiece": 19, "nomPiece": "Support catadiope", "description": ""},
+        {"idPiece": 20, "nomPiece": "Catadiope", "description": ""},
+        {"idPiece": 21, "nomPiece": "Vis cadatiope", "description": ""},
+        {"idPiece": 22, "nomPiece": "Ampoule", "description": ""},
+        {"idPiece": 23, "nomPiece": "Lamelle masse", "description": ""},
+        {"idPiece": 24, "nomPiece": "Ecrou dia 5", "description": ""},
+        {"idPiece": 25, "nomPiece": "Vis carré dia 5", "description": ""},
+        {"idPiece": 26, "nomPiece": "Rondelle frein", "description": ""},
+        {"idPiece": 27, "nomPiece": "Catadiope phare MG", "description": ""},
+        {"idPiece": 28, "nomPiece": "Socle", "description": ""},
+        {"idPiece": 29, "nomPiece": "Fil et cosse", "description": ""},
+        {"idPiece": 30, "nomPiece": "Vis pour cosse", "description": ""},
+        {"idPiece": 31, "nomPiece": "Fil électrique", "description": ""},
+        {"idPiece": 32, "nomPiece": "Cosse", "description": ""},
+        {"idPiece": 33, "nomPiece": "Vis de fermeture", "description": ""},
+        {"idPiece": 34, "nomPiece": "Vis fixation cosse", "description": ""},
+        {"idPiece": 35, "nomPiece": "Sac à visserie", "description": ""},
+        {"idPiece": 36, "nomPiece": "Catadioptre + circuit", "description": ""},
+        {"idPiece": 37, "nomPiece": "Socle arrière", "description": ""},
+        {"idPiece": 38, "nomPiece": "Kit fixation", "description": ""},
+        {"idPiece": 39, "nomPiece": "Fil", "description": ""},
     ]
 
-    for item in data_initiale:
-        if not db.query(Boite).filter_by(idBoite=item["idBoite"]).first():
-            db.add(Boite(**item, nbBoite=10, approvisionnement=120))
+    for p in pieces_a_creer:
+        if not db.query(Piece).filter_by(idPiece=p["idPiece"]).first():
+            db.add(Piece(**p))
+
+    # Initialisation des Boîtes avec approvisionnement à 120
+    boites_a_creer = [
+        {"idBoite": 6767, "idPiece": 4141, "code_barre": "3601020016223", "nbBoite": 10, "approvisionnement": 120},
+        *[
+            {"idBoite": i, "idPiece": i, "code_barre": f"TEST{i}", "nbBoite": 10, "approvisionnement": 120}
+            for i in range(1, 40)
+        ]
+    ]
+
+    for b in boites_a_creer:
+        if not db.query(Boite).filter_by(idBoite=b["idBoite"]).first():
+            db.add(Boite(**b))
 
     db.commit()
 
@@ -215,7 +238,7 @@ def data_db():
 
     # Création de l'utilisateur
     if not db.query(Login).filter_by(username="test").first():
-        db.add(Login(username="test", password="password123", email="test@example.com"))
+        db.add(Login(username="test", password="25aa34070a75ce79dcf2496484ad2301de3daa2b80581c9b265eaadb79685303", email="test@example.com"))
 
     
     db.commit()

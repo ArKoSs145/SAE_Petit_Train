@@ -5,7 +5,7 @@ et lance les tâches de fond.
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import hashlib
-from database import Commande, SessionLocal, Stand, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand, Cycle
+from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand, Cycle
 from datetime import datetime
 import asyncio
 import json
@@ -45,7 +45,9 @@ origins = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
-    "http://192.168.13.153:5173"
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.1.14:8000"
 ]
 
 app.add_middleware(
@@ -157,7 +159,7 @@ async def recevoir_scan(request: Request):
             "mode": current_app_mode, # <--- Corrigé (ne pas mettre 'mode' tout court)
             "poste": poste_id,
             "code_barre": code_barre,
-            "nom_piece": boite.nomPiece if boite.nomPiece else code_barre,
+            "nom_piece": boite.piece.nomPiece if boite.piece else code_barre,
             "magasin": magasin_nom,
             "magasin_id": str(boite.idMagasin),
             "ligne": ligne,
@@ -186,8 +188,7 @@ async def set_active_mode(request: Request):
 async def simulation_apport_boites():
     """
     Tâche asynchrone qui simule un réapprovisionnement automatique en 
-    incrémentant le stock de chaque boite en fonction de leur temps 
-    d'approvisionnement dans la base de données.
+    incrémentant le stock de chaque boite en fonction de leur temps d'approvisionnement dans la base de données.
     """
     timers = {} # Dictionnaire local : {id_boite: secondes_restantes}
     
@@ -239,8 +240,7 @@ async def simulation_apport_boites():
                         b.nbBoite += 1 # Incrémentation du stock
                         timers[b.idBoite] = b.approvisionnement # Reset du compteur avec la valeur BD
                         
-                        # CORRECTION : Utilisation de b.nomPiece au lieu de b.piece.nomPiece
-                        nom = b.nomPiece if b.nomPiece else b.code_barre
+                        nom = b.piece.nomPiece if b.piece else b.code_barre
                         logging.info(f"[APPRO] +1 stock pour {nom} (ID:{b.idBoite})")
 
                 db.commit() # Sauvegarde globale des stocks incrémentés
@@ -259,27 +259,34 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
-
 @app.post("/api/login")
 def login(creds: LoginRequest):
+    """
+    Vérifie les identifiants fournis (nom d'utilisateur et mot de passe)
+    dans la base de données SQLite pour autoriser l'accès à l'administration.
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(base_dir, "train.db")
+    
+    password_hash = hashlib.sha256(creds.password.encode()).hexdigest()
+    
     
     conn = None
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Comparaison directe du mot de passe en clair
-        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, creds.password))
+        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, password_hash))
         user = cursor.fetchone()
         
         if user:
             return {"message": "Login successful"}
         else:
+            print(f"DEBUG: Tentative avec user '{creds.username}' et hash '{password_hash}'")
             raise HTTPException(status_code=401, detail="Identifiants incorrects")
+            
     except sqlite3.Error as e:
-        raise HTTPException(status_code=500, detail="Erreur serveur")
+        raise HTTPException(status_code=500, detail="Erreur serveur base de données")
     finally:
         if conn:
             conn.close()
@@ -289,6 +296,9 @@ class MultiDelayUpdate(BaseModel):
 
 @app.get("/api/admin/boites-delais")
 def get_boites_delais():
+    """
+    Récupère le temps d'approvisionnement de toutes les boites de la base de données
+    """
     db = SessionLocal()
     try:
         boites = db.query(Boite).all()
@@ -296,8 +306,8 @@ def get_boites_delais():
             {
                 "idBoite": b.idBoite,
                 "code_barre": b.code_barre,
-                "delai_actuel": b.approvisionnement,
-                "nom_piece": b.nomPiece # On utilise nomPiece au lieu de piece.nomPiece
+                "delai_actuel": b.approvisionnement, # On récupère le délai
+                "nom_piece": b.piece.nomPiece if b.piece else "Sans nom"
             } for b in boites
         ]
     finally:
@@ -359,7 +369,7 @@ def get_admin_dashboard(mode: str = "Normal"):
 
             nom_objet = "Objet Inconnu"
             if c.boite:
-                if c.boite: nom_objet = c.boite.nomPiece
+                if c.boite.piece: nom_objet = c.boite.piece.nomPiece
                 elif c.boite.code_barre: nom_objet = c.boite.code_barre
 
             if c.dateCommande:
@@ -537,8 +547,8 @@ def get_commandes_en_cours(mode: str = "Normal"): # On récupère le mode du fet
             
             # Récupération du nom de la pièce
             nom_piece = "Inconnu"
-            if c.boite:
-                nom_piece = c.boite.nomPiece
+            if c.boite and c.boite.piece:
+                nom_piece = c.boite.piece.nomPiece
             else:
                 nom_piece = vrai_code_barre
 
@@ -691,10 +701,13 @@ def post_custom_order(payload: CustomOrderPayload):
 
 @app.get("/api/admin/stocks")
 def get_admin_stocks():
+    """Route appelée par le Frontend pour remplir la liste des objets"""
     try:
-        # Appelle la fonction nettoyée dans requetes.py
-        return requetes.get_stocks_disponibles()
+        # On appelle la fonction de requetes.py
+        data = requetes.get_stocks_disponibles()
+        return data
     except Exception as e:
+        print(f"Erreur dans la route admin/stocks: {e}")
         return []
     
 @app.delete("/api/admin/custom-order/all")
