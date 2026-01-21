@@ -1,7 +1,7 @@
 """
 Contient toutes les fonctions CRUD pour interagir avec la base SQLite via SQLAlchemy.
 """
-from database import SessionLocal, Stand, Piece, Boite, Case, Commande, Login, Train, Cycle
+from database import SessionLocal, Stand, Boite, Case, Commande, Login, Train, Cycle
 from datetime import datetime, timezone
 from sqlalchemy import func
 
@@ -96,12 +96,10 @@ def create_piece(nom, description=""):
         db.close()
 
 def get_all_pieces():
-    """
-    Récupère toutes les pièces
-    """
     db = SessionLocal()
     try:
-        return db.query(Piece).all()
+        # On retourne les boites car elles contiennent les noms des pièces
+        return db.query(Boite).all()
     finally:
         db.close()
 
@@ -116,13 +114,11 @@ def get_piece_by_id(id_piece):
         db.close()
 
 # ---------- BOITES ----------
-def create_boite(id_piece, code_barre, nbBoite, idMagasin=None):
-    """
-    Crée une nouvelle boîte de pièces
-    """
+def create_boite(id_piece, nom, description, code_barre, nbBoite, idMagasin=None):
     db = SessionLocal()
     try:
-        boite = Boite(idPiece=id_piece, code_barre=code_barre, nbBoite=nbBoite, idMagasin=idMagasin)
+        boite = Boite(idPiece=id_piece, nomPiece=nom, description=description, 
+                      code_barre=code_barre, nbBoite=nbBoite, idMagasin=idMagasin)
         db.add(boite)
         db.commit()
         db.refresh(boite)
@@ -370,31 +366,16 @@ def get_all_users():
 
 # ---------- STATS ----------
 def get_pieces_arrivees_postes(debut, fin):
-    """
-    Récupère les statistiques des pièces livrées aux postes sur une période
-    """
     db = SessionLocal()
     try:
-        result = (
-            db.query(
-                Commande.idPoste,
-                Piece.nomPiece, 
-                func.sum(Boite.nbBoite).label("quantite")
-            )
-            .join(Boite, Boite.idBoite == Commande.idBoite)
-            .join(Piece, Piece.idPiece == Boite.idPiece)
-            .filter(
-                Commande.statutCommande == "Commande finie",
-                Commande.dateCommande >= debut,
-                Commande.dateCommande <= fin
-            )
-            .group_by(Commande.idPoste, Piece.nomPiece)
-            .all()
-        )
+        result = db.query(Commande.idPoste, Boite.nomPiece, func.sum(Boite.nbBoite).label("quantite"))\
+            .join(Boite, Boite.idBoite == Commande.idBoite)\
+            .filter(Commande.statutCommande == "Commande finie", Commande.dateCommande >= debut, Commande.dateCommande <= fin)\
+            .group_by(Commande.idPoste, Boite.nomPiece).all()
         return [{"idPoste": r.idPoste, "nomPiece": r.nomPiece, "quantite": r.quantite} for r in result]
     finally:
         db.close()
-
+        
 def get_boites_recuperees_magasins(debut, fin):
     """
     Récupère les statistiques des boîtes sorties des magasins sur une période
@@ -404,17 +385,17 @@ def get_boites_recuperees_magasins(debut, fin):
         result = (
             db.query(
                 Commande.idMagasin,          
-                Piece.nomPiece,             
+                Boite.nomPiece,             
                 func.sum(Boite.nbBoite).label("quantite") 
             )
             .join(Boite, Boite.idBoite == Commande.idBoite)
-            .join(Piece, Piece.idPiece == Boite.idPiece)
+            # Suppression de la ligne .join(Piece, ...) car les infos sont dans Boite
             .filter(
                 Commande.statutCommande == "Commande finie",
                 Commande.dateCommande >= debut,
                 Commande.dateCommande <= fin
             )
-            .group_by(Commande.idMagasin, Piece.nomPiece)
+            .group_by(Commande.idMagasin, Boite.nomPiece) # Groupement par Boite.nomPiece
             .all()
         )
         return [{"idMagasin": r.idMagasin, "nomPiece": r.nomPiece, "quantite": r.quantite} for r in result]
@@ -424,7 +405,7 @@ def get_boites_recuperees_magasins(debut, fin):
 # ---------- LOGS ----------
 def get_commandes_cycle_logs(debut_cycle: datetime, mode="Normal"):
     """
-    Génère les logs textuels d'activité pour un cycle spécifique
+    Génère les logs textuels d'activité pour un cycle spécifique (Demandes, Retraits, Dépôts)
     """
     db = SessionLocal()
     try:
@@ -442,33 +423,31 @@ def get_commandes_cycle_logs(debut_cycle: datetime, mode="Normal"):
         debut_safe = cycle.date_debut.replace(tzinfo=None)
         fin_safe = (cycle.date_fin or datetime.now()).replace(tzinfo=None)
 
-        # On récupère les commandes du mode en question dans cette tranche horaire
+        # On récupère les commandes du mode en question
         all_commandes = db.query(Commande).filter(
             Commande.typeCommande == mode
         ).order_by(Commande.dateCommande.desc()).all()
         
         logs_events = []
-        # On définit le petit suffixe si c'est personnalisé
         suffixe = " (Personnalisé)" if mode == "Personnalisé" else ""
         
         for c in all_commandes:
             if not c.dateCommande: continue
             c_date = c.dateCommande.replace(tzinfo=None)
             
+            # On vérifie si la commande appartient à la plage horaire du cycle
             if debut_safe <= c_date <= fin_safe:
-                nom_piece = "Inconnu"
-                if c.boite:
-                    nom_piece = c.boite.piece.nomPiece if c.boite.piece else (c.boite.code_barre or "Boîte")
-                
+                nom_piece = c.boite.nomPiece if c.boite else "Inconnu"
                 poste_nom = c.poste.nomStand if c.poste else "?"
                 mag_nom = c.magasin.nomStand if c.magasin else "?"
 
-                # On ajoute le suffixe à la fin de chaque message
+                # 1. Événement : Demande
                 logs_events.append({
                     "time": c_date,
                     "msg": f"[{c_date.strftime('%H:%M:%S')}] Demande : {nom_piece} (par {poste_nom}){suffixe}"
                 })
 
+                # 2. Événement : Retrait (si la date de récupération existe)
                 if c.date_recuperation:
                     r_date = c.date_recuperation.replace(tzinfo=None)
                     logs_events.append({
@@ -476,6 +455,7 @@ def get_commandes_cycle_logs(debut_cycle: datetime, mode="Normal"):
                         "msg": f"[{r_date.strftime('%H:%M:%S')}] Retrait : {nom_piece} (au {mag_nom}){suffixe}"
                     })
 
+                # 3. Événement : Livraison/Dépôt (si la date de livraison existe)
                 if c.date_livraison:
                     l_date = c.date_livraison.replace(tzinfo=None)
                     statut_label = "Annulé" if c.statutCommande == "Annulée" else "Livré"
@@ -486,16 +466,13 @@ def get_commandes_cycle_logs(debut_cycle: datetime, mode="Normal"):
                         "msg": f"[{l_date.strftime('%H:%M:%S')}] {statut_label} : {nom_piece}{lieu}{suffixe}"
                     })
 
+        # Tri chronologique inverse (plus récent en haut)
         logs_events.sort(key=lambda x: x["time"], reverse=True)
         final_logs = [e["msg"] for e in logs_events]
 
-        if not final_logs:
-            final_logs.append(f"Aucune activité dans ce cycle {mode}.")
-
-        return final_logs
+        return final_logs if final_logs else [f"Aucune activité dans ce cycle {mode}."]
     finally:
         db.close()
-
 # ---------- CYCLES ----------
 def get_commandes_cycle(debut_cycle: datetime, mode="Normal"):
     """
@@ -536,20 +513,13 @@ def get_all_cycles(mode="Normal"):
         db.close()
 
 def update_approvisionnement_boite(id_boite, nouveau_delai):
-    """Met à jour le délai d'approvisionnement d'une boîte spécifique"""
     db = SessionLocal()
     try:
         boite = db.query(Boite).filter(Boite.idBoite == id_boite).first()
-        if not boite:
-            return False
-
-        # Utilisation de la colonne 'approvisionnement' au lieu de 'temps_prep'
-        boite.approvisionnement = nouveau_delai
-        db.commit()
-        return True
-    except Exception as e:
-        print(f"Erreur requete update_approvisionnement: {e}")
-        db.rollback()
+        if boite:
+            boite.approvisionnement = nouveau_delai
+            db.commit()
+            return True
         return False
     finally:
         db.close()
@@ -557,12 +527,10 @@ def update_approvisionnement_boite(id_boite, nouveau_delai):
 def get_approvisionnement_boite(id_boite):
     db = SessionLocal()
     try:
-        result = db.query(Boite.approvisionnement).filter(Boite.idBoite == id_boite).first()
-        if result is not None and len(result) > 0:
-            return result[0]
-        return None
+        res = db.query(Boite.approvisionnement).filter(Boite.idBoite == id_boite).first()
+        return res[0] if res else None
     finally:
-      db.close()
+        db.close()
       
 # ---------- Reset donnée ----------
 
@@ -589,21 +557,13 @@ def clear_production_data():
 def get_stocks_disponibles():
     db = SessionLocal()
     try:
-        # On récupère toutes les boîtes avec leurs relations
         boites = db.query(Boite).all()
-        
-        resultat = []
-        for b in boites:
-            # Sécurité : nom par défaut si la pièce n'est pas liée
-            nom = b.piece.nomPiece if b.piece else f"Boîte {b.code_barre}"
-            
-            resultat.append({
-                "idBoite": int(b.idBoite), # Forcer l'entier
-                "nom": nom,
-                "code": b.code_barre,
-                "idPosteAssigne": int(b.idPoste) if b.idPoste else None
-            })
-        return resultat
+        return [{
+            "idBoite": int(b.idBoite),
+            "nom": b.nomPiece, 
+            "code": b.code_barre,
+            "idPosteAssigne": int(b.idPoste) if b.idPoste else None
+        } for b in boites]
     finally:
         db.close()
 
