@@ -164,6 +164,24 @@ export default function Admin({ onParametre, onApprovisionnement }) {
         window.location.href = "/";
     };
 
+    const handleDownload = () => {
+        const type = currentView === 'dashboard' ? 'dashboard' : 'logs';
+        
+        if (type === 'logs' && (!selectedCycleId || selectedCycleId === 'Total')) {
+            alert("Veuillez sélectionner un cycle pour exporter ses logs.");
+            return;
+        }
+
+        const params = new URLSearchParams({
+            type: type,
+            mode: filtreMode,
+            cycle_id: selectedCycleId
+        });
+
+        // Déclenche le téléchargement du fichier CSV
+        window.location.href = `${apiUrl}/api/admin/export-csv?${params.toString()}`;
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#333', overflow: 'hidden' }}>
 
@@ -172,7 +190,7 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                 
                 {/* BLOC GAUCHE : Téléchargement et Filtres */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button variant="contained" sx={headerBtnStyle(false)}>Télécharger</Button>
+                    <Button variant="contained" onClick={handleDownload} sx={headerBtnStyle(false)}>Télécharger</Button>
                     <ToggleButtonGroup
                         value={filtreMode}
                         exclusive
@@ -180,10 +198,10 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                         sx={{ border: 'none', borderRadius: 0, gap: 1 }}
                     >
                         <ToggleButton value="Normal" sx={headerBtnStyle(filtreMode === 'Normal')}>
-                            Logs Normaux
+                            {currentView === 'dashboard' ? 'Historique Normal' : 'Logs Normaux'}
                         </ToggleButton>
                         <ToggleButton value="Personnalisé" sx={headerBtnStyle(filtreMode === 'Personnalisé')}>
-                            Logs Perso
+                            {currentView === 'dashboard' ? 'Historique Perso' : 'Logs Perso'}
                         </ToggleButton>
                     </ToggleButtonGroup>
                 </Box>
