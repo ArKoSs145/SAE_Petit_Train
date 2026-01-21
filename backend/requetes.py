@@ -536,13 +536,15 @@ def get_approvisionnement_boite(id_boite):
 
 def clear_production_data():
     """
-    Vide les tables liées à la production et aux cycles 
-    tout en conservant la configuration (Cycles et Commandes).
+    Vide les tables liées à la production, aux cycles et aux emplacements (cases)
+    tout en conservant la configuration de base (Stands, Boites, Logins).
     """
     db = SessionLocal()
     try:
+        db.query(Case).delete()
         db.query(Commande).delete()
         db.query(Cycle).delete()
+        
         db.commit()
         return True
     except Exception as e:
