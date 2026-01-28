@@ -21,8 +21,7 @@ set PYTHONPATH=%PYTHONPATH%;%cd%\backend
 
 echo Execution des tests et calcul de la couverture...
 :: L'utilisation de --cov=. permet de prendre en compte le fichier .coveragerc
-pytest --cov=. --cov-report=term-missing
-
+pytest --cov=. --cov-report=term
 echo ==========================================
 echo   FIN DES TESTS
 echo ==========================================

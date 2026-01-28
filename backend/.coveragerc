@@ -4,7 +4,6 @@ omit =
     fake_zap.py
     sender.py
     update_grid.py
-    test_train.py
     venv/*
     tests/*
 
