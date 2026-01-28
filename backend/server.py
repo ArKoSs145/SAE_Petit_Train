@@ -713,3 +713,73 @@ def clear_custom_orders():
     if requetes.supprimer_commandes_personnalisees():
         return {"status": "ok"}
     raise HTTPException(status_code=500, detail="Erreur lors du vidage")
+
+@app.post("/api/admin/create-piece-et-boite")
+async def create_piece_et_boite(request: Request):
+    data = await request.json()
+    nom = data.get("nomPiece")
+    desc = data.get("description", "")
+    cb = data.get("codeBarre") # Le code barre pour la boîte
+
+    if not nom or not cb:
+        raise HTTPException(status_code=400, detail="Le nom et le code barre sont requis")
+
+    db = SessionLocal()
+    try:
+        # 1. Création de la pièce
+        nouvelle_piece = Piece(nomPiece=nom, description=desc)
+        db.add(nouvelle_piece)
+        db.flush() # Permet de récupérer l'idPiece généré sans commiter tout de suite
+
+        # 2. Création de la boîte liée
+        nouvelle_boite = Boite(
+            idPiece=nouvelle_piece.idPiece,
+            code_barre=cb,
+            nbBoite=10,
+            idMagasin=None,
+            idPoste=None,
+            approvisionnement=120
+        )
+        db.add(nouvelle_boite)
+        
+        db.commit()
+        return {"status": "ok", "message": "Pièce et Boîte créées avec succès"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+        
+@app.get("/api/admin/boites-details")
+async def get_boites_details():
+    db = SessionLocal()
+    try:
+        results = db.query(Boite, Piece).join(Piece, Boite.idPiece == Piece.idPiece).all()
+        data = []
+        for boite, piece in results:
+            data.append({
+                "idBoite": boite.idBoite,
+                "code_barre": boite.code_barre,
+                "nbBoite": boite.nbBoite,
+                "nom_piece": piece.nomPiece
+            })
+        return data
+    finally:
+        db.close()
+
+@app.post("/api/admin/update-stock-boite")
+async def update_stock_boite(request: Request):
+    data = await request.json()
+    id_boite = data.get("idBoite")
+    nouveau_nb = data.get("nbBoite")
+    
+    db = SessionLocal()
+    try:
+        boite = db.query(Boite).filter(Boite.idBoite == id_boite).first()
+        if boite:
+            boite.nbBoite = nouveau_nb
+            db.commit()
+            return {"status": "ok"}
+        raise HTTPException(status_code=404, detail="Boîte non trouvée")
+    finally:
+        db.close()

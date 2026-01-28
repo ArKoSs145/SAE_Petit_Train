@@ -21,7 +21,7 @@ import {
 // Utilisation de l'URL d'API définie dans l'environnement ou par défaut
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export default function Admin({ onParametre, onApprovisionnement }) {
+export default function Admin({ onParametre, onApprovisionnement, onGestionStock }) {
     // --- ÉTATS ---
     const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' ou 'logs'
     const [filtreMode, setFiltreMode] = useState('Normal');
@@ -209,6 +209,14 @@ export default function Admin({ onParametre, onApprovisionnement }) {
                         sx={headerBtnStyle(false)}
                     >
                         Vider la BD
+                    </Button>
+
+                    <Button 
+                        variant="contained" 
+                        onClick={onGestionStock}
+                        sx={headerBtnStyle(false)}
+                    >
+                        Gestion Pièces et Stock
                     </Button>
 
                     <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>

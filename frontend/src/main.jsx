@@ -14,6 +14,7 @@ import Parametre from './templates/Parametre.jsx';
 import Approvisionnement from './templates/Approvisionnement.jsx';
 import ChoixDepart from './templates/ChoixDepart.jsx';
 import ConfigDepartPerso from './templates/ConfigDepartPerso';
+import GestionStock from './templates/GestionStock.jsx';
 
 // Initialisation du noeud racine React
 const root = ReactDOM.createRoot(document.getElementById("root"));
@@ -47,6 +48,15 @@ const renderCircuit = (mode = "Normal") => {
   );
 };
 
+
+const renderGestionStock = () => {
+  root.render(
+    <React.StrictMode>
+      <GestionStock onRetour={renderAdmin} />
+    </React.StrictMode>
+  );
+};
+
 /**
  * Affiche le panneau d'administration
  */
@@ -56,7 +66,8 @@ const renderAdmin = () => {
       <Admin 
         onParametre={renderParametre}
         onApprovisionnement={renderApprovisionnement} 
-        onRetourAccueil={renderAccueil} // Optionnel: pour revenir à l'accueil depuis l'admin
+        onRetourAccueil={renderAccueil}
+        onGestionStock={renderGestionStock}
       />
     </React.StrictMode>
   );
