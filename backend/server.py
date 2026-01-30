@@ -47,7 +47,8 @@ origins = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.14:8000"
+    "http://192.168.1.14:8000",
+    "http://kanban.local:5173",
 ]
 
 app.add_middleware(

@@ -11,14 +11,12 @@ import threading
 import time
 import serial
 import serial.tools.list_ports
-import traceback
 import requests
 
-# === CONFIGURATION ===
-SERVER_HOST = "http://192.168.1.14:8000"     # à adapter si le serveur est distant
-SCAN_ENDPOINT = f"{SERVER_HOST}/scan"      # endpoint FastAPI
-READ_TIMEOUT = 1.0                         # timeout de lecture série
-RECONNECT_DELAY = 2.0                      # délai de reconnexion
+SERVER_HOST = "http://127.0.0.1:8000"
+SCAN_ENDPOINT = f"{SERVER_HOST}/scan"
+READ_TIMEOUT = 1.0
+RECONNECT_DELAY = 2.0
 
 def send_scan(barcode, device_id):
     """Envoie un code-barres scanné au serveur FastAPI via HTTP"""

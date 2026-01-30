@@ -39,6 +39,7 @@ pip install -r ../requirements.txt
 :: --- ÉTAPE 2 : INSTALLATION FRONTEND ---
 echo [2/5] Installation des modules Node.js (npm install)...
 cd ../frontend
+call npm install @vitejs/plugin-react --save-dev
 call npm install
 
 echo ==========================================
@@ -57,6 +58,6 @@ start "FRONTEND - React" cmd /k "cd ../frontend && npm run dev -- --host"
 :: --- ÉTAPE 5 : LANCEMENT SENDER (FENETRE ACTUELLE) ---
 echo [5/5] Lancement du script Sender ...
 cd ../backend
-python fake_zap.py
+python sender.py
 
 pause

@@ -5,6 +5,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
+BASE_DIR="/home/admin/SAE_Petit_Train"
 
 echo -e "${CYAN}=========================================="
 echo "  DETECTION DE L'ADRESSE IP"
@@ -31,20 +32,20 @@ echo "  INSTALLATION DES DEPENDANCES"
 echo -e "==========================================${NC}"
 
 # --- ÉTAPE 1 : INSTALLATION BACKEND ---
-if [ ! -d "venv" ]; then
+if [ ! -d "$BASE_DIR/venv" ]; then
     echo "[1/5] Création de l'environnement virtuel..."
-    python3 -m venv venv
+    python3 -m venv $BASE_DIR/venv
 fi
 
 echo "[1/5] Activation du venv et installation Python..."
-source venv/bin/activate
-cd backend
-pip install -r ../requirements.txt
+source $BASE_DIR/venv/bin/activate
+cd $BASE_DIR/backend
+pip install -r $BASE_DIR/requirements.txt
 cd ..
 
 # --- ÉTAPE 2 : INSTALLATION FRONTEND ---
 echo "[2/5] Installation des modules Node.js (npm install)..."
-cd frontend
+cd $BASE_DIR/frontend
 npm install
 cd ..
 
@@ -62,8 +63,8 @@ trap cleanup SIGINT SIGTERM
 
 # --- ÉTAPE 3 : LANCEMENT BACKEND ---
 echo "[3/5] Lancement du Backend FastAPI (en arrière-plan)..."
-source venv/bin/activate
-cd backend
+source $BASE_DIR/venv/bin/activate
+cd $BASE_DIR/backend
 # Utilisation de --host 0.0.0.0 pour être accessible via l'IP
 uvicorn server:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
@@ -71,7 +72,7 @@ cd ..
 
 # --- ÉTAPE 4 : LANCEMENT FRONTEND ---
 echo "[4/5] Lancement du Frontend React (en arrière-plan)..."
-cd frontend
+cd $BASE_DIR/frontend
 # Utilisation de --host pour être accessible sur le réseau local
 npm run dev -- --host &
 FRONTEND_PID=$!
@@ -82,8 +83,8 @@ sleep 2
 
 # --- ÉTAPE 5 : LANCEMENT SENDER (FENETRE ACTUELLE) ---
 echo -e "${GREEN}[5/5] Lancement du script Sender ...${NC}"
-cd backend
-source ../venv/bin/activate
+cd $BASE_DIR/backend
+source $BASE_DIR/venv/bin/activate
 python3 fake_zap.py
 
 # Garde le script actif pour maintenir les PID en arrière-plan
