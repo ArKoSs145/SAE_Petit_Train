@@ -50,11 +50,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
     }
   };
 
-  const handleForgotPassword = (e) => {
-    e.preventDefault();
-    console.log("Action pour mot de passe oublié...");
-  };
-
   return (
     <Dialog 
       open={open} 
@@ -148,22 +143,6 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
               }
             }}
           />
-
-          <Box sx={{ textAlign: 'right', mt: -1 }}>
-            <Link
-              component="button"
-              variant="caption"
-              onClick={handleForgotPassword}
-              sx={{ 
-                color: '#0052CC', 
-                textDecoration: 'none', 
-                fontWeight: 600,
-                '&:hover': { textDecoration: 'underline' }
-              }}
-            >
-              Mot de passe oublié ?
-            </Link>
-          </Box>
           
           {/* Message d'erreur stylisé en badge */}
           {error && (

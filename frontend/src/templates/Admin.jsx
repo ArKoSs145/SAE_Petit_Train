@@ -238,7 +238,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     {currentView === 'dashboard' ? (
                         <Grid container spacing={3}>
                             {dashboardData.stands.map((stand, index) => {
-                                // LOGIQUE DE POSITION : 3 premiers = Arrivage, le reste = Départ
                                 const isArrivageStand = index < 3;
 
                                 const filteredHistory = dashboardData.historique.filter(item => selectedCycleId === 'Total' || item.cycle_id === selectedCycleId);
