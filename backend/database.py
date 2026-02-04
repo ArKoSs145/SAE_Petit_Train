@@ -193,18 +193,59 @@ def data_db():
         {"idPiece": 39, "nomPiece": "Fil", "description": ""},
     ]
 
-    for p in pieces_a_creer:
-        if not db.query(Piece).filter_by(idPiece=p["idPiece"]).first():
-            db.add(Piece(**p))
+    
+    def generer_sku(piece):
+        nom = piece["nomPiece"].upper()
+        id_p = piece["idPiece"]
+        
+        # Logique de catégorie
+        if any(x in nom for x in ["PHARE", "CAPOT", "CORPS"]):
+            prefixe = "PHA" # Phares et composants
+        elif any(x in nom for x in ["VIS", "ECROU", "RONDELLE"]):
+            prefixe = "VIS" # Visserie
+        elif any(x in nom for x in ["FIXATION", "SUPPORT", "PINCE", "CADRE"]):
+            prefixe = "FIX" # Fixations
+        elif any(x in nom for x in ["CATADIOPE", "CATADIOPTRE"]):
+            prefixe = "CAT" # Catadioptres
+        elif any(x in nom for x in ["FIL", "AMPOULE", "COSSE", "LAMELLE"]):
+            prefixe = "ELE" # Électrique
+        elif any(x in nom for x in ["SACHET", "SAC", "NOTICE"]):
+            prefixe = "PKG" # Packaging
+        else:
+            prefixe = "PRT" # Pièce standard (Part)
+            
+        # Retourne un format : PHA-0001
+        return f"{prefixe}-{id_p:04d}"
 
-    # Initialisation des Boîtes avec approvisionnement à 120
-    boites_a_creer = [
-        {"idBoite": 6767, "idPiece": 4141, "code_barre": "3601020016223", "nbBoite": 10, "approvisionnement": 120},
-        *[
-            {"idBoite": i, "idPiece": i, "code_barre": f"TEST{i}", "nbBoite": 10, "approvisionnement": 120}
-            for i in range(1, 40)
-        ]
-    ]
+    
+    for p in pieces_a_creer:
+            if not db.query(Piece).filter_by(idPiece=p["idPiece"]).first():
+                db.add(Piece(**p))
+
+    
+    boites_a_creer = []
+
+    # Cas particulier pour la pièce de test 4141
+    boites_a_creer.append({
+        "idBoite": 6767, 
+        "idPiece": 4141, 
+        "code_barre": "3601020016223", 
+        "nbBoite": 10, 
+        "approvisionnement": 120
+    })
+
+    # Génération automatique pour les autres pièces (1 à 39)
+    for p in pieces_a_creer:
+        if p["idPiece"] == 4141:
+            continue
+            
+        boites_a_creer.append({
+            "idBoite": p["idPiece"],
+            "idPiece": p["idPiece"],
+            "code_barre": generer_sku(p), # Utilisation de notre nouvelle fonction
+            "nbBoite": 10,
+            "approvisionnement": 120
+        })
 
     for b in boites_a_creer:
         if not db.query(Boite).filter_by(idBoite=b["idBoite"]).first():
@@ -238,7 +279,7 @@ def data_db():
 
     # Création de l'utilisateur
     if not db.query(Login).filter_by(username="test").first():
-        db.add(Login(username="test", password="25aa34070a75ce79dcf2496484ad2301de3daa2b80581c9b265eaadb79685303", email="test@example.com"))
+        db.add(Login(username="test", password="password123", email="test@example.com"))
 
     
     db.commit()

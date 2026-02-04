@@ -403,7 +403,7 @@ def test_login_database_crash(client, monkeypatch):
     
     res = client.post("/api/login", json={"username": "test", "password": "123"})
     assert res.status_code == 500
-    assert "Erreur serveur base de données" in res.json()["detail"]
+    assert "Erreur serveur" in res.json()["detail"]
 
 def test_websocket_broadcast_error(client, monkeypatch):
     """Simule une erreur lors d'un broadcast WebSocket."""

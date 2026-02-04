@@ -404,6 +404,23 @@ const handleToggleCycle = async () => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }
 
+  const handleManualLocation = async (posteId) => {
+    try {
+      const res = await fetch(`${apiUrl}/api/train/position?mode=${mode}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position: posteId })
+      });
+      
+      if (res.ok) {
+        setCurrentTrainPoste(posteId);
+        console.log(`Train déplacé manuellement au poste ${posteId}`);
+      }
+    } catch (err) {
+      console.error("Erreur lors du déplacement manuel du train:", err);
+    }
+  };
+
   /**
    * Filtre les tâches à afficher dans la popup selon l'arrêt actuel du train.
    * Détermine si le train doit effectuer une récupération (si l'arrêt est un magasin)
@@ -412,16 +429,12 @@ const handleToggleCycle = async () => {
   const tasksForPopup = tasks.filter(t => {
     if (t.status === 'Commande finie') return false;
     
-    // Normalisation du statut (minuscule + retrait des accents si possible)
     const statusLower = t.status ? t.status.toLowerCase() : "";
-    
-    // Vérifie si c'est une action de récupération ou de dépôt
+    // On utilise includes pour être flexible sur les accents (À vs A)
     const isToPickUp = statusLower.includes('récupérer') || statusLower.includes('recuperer');
     const isToDrop = statusLower.includes('déposer') || statusLower.includes('deposer');
 
-    // Si on est au magasin et qu'il faut ramasser
     if (selectedPosteId === t.magasinId && isToPickUp) return true;
-    // Si on est au poste de destination et qu'il faut livrer
     if (selectedPosteId === t.posteId && isToDrop) return true;
     
     return false;
@@ -447,34 +460,35 @@ const handleToggleCycle = async () => {
    * Génère le style dynamique pour les cases des stands sur le plan.
    * Met en relief visuellement la destination actuelle du train
   */
-  const getBoxSx = (posteId) => {
-    const isActive = nextDestination === posteId; 
-    
-    return {
-      width: '100%',
-      height: '100%', 
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      p: 1,
-      textAlign: 'center',
-      cursor: 'pointer',
-      border: '5px solid',
-      borderColor: isActive ? 'primary.main' : 'transparent',
-      transform: isActive ? 'scale(1.02)' : 'scale(1)',
-      boxShadow: isActive ? 6 : 2,
-      transition: 'all 0.2s ease-in-out',
-      borderRadius: 4,
-      overflow: 'hidden',
-      wordBreak: 'break-word',
-      fontSize: 'clamp(0.9rem, 1.2vw, 1.4rem)',
-      fontWeight: 'bold',
-      backgroundColor: 'white',
-
-      '&:hover': { boxShadow: 6 }
-    };
-  }
+const getBoxSx = (posteId) => {
+  const isActive = nextDestination === posteId; 
+  
+  return {
+    width: '100%',
+    height: '100%', 
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    p: 1,
+    textAlign: 'center',
+    cursor: 'pointer',
+    borderRadius: '8px',
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    backgroundColor: isActive ? '#0052CC' : '#FFFFFF',
+    color: isActive ? '#FFFFFF' : '#172B4D',
+    border: '2px solid',
+    borderColor: isActive ? '#0052CC' : '#DFE1E6',
+    boxShadow: isActive ? '0 4px 12px rgba(0, 82, 204, 0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      borderColor: '#0052CC',
+      transform: 'translateY(-2px)'
+    }
+  };
+}
 
   // Style des flèches du plan
   const arrowSx = {
@@ -508,214 +522,349 @@ const handleToggleCycle = async () => {
     );
   };
 
-  return (
+return (
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
       height: '100vh',
       width: '100vw', 
-      bgcolor: 'grey.100',
-      p: 1, 
+      bgcolor: '#F4F5F7', // Fond gris clair standard Kanban
+      p: 2, 
       boxSizing: 'border-box',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      fontFamily: "'Inter', sans-serif"
     }}>
       
-      {/* Conteneur Flex pour Plan (gauche) et Sidebar (droite) */}
-      <Box sx={{ display: 'flex', height: '100%', width: '100%', gap: 2 }}>
+      {/* Layout Principal : Plan à gauche, Colonnes Kanban à droite */}
+      <Box sx={{ display: 'flex', height: '100%', width: '100%', gap: 3 }}>
         
-        {/* --- ZONE PLAN (Gauche) --- */}
+        {/* --- ZONE PLAN (Aspect Blueprint Professionnel) --- */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <Paper elevation={2} sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 3 }}>
-            <Typography variant="h4" gutterBottom>Plan</Typography>
-            
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              <Button variant="contained" color="error" onClick={handleQuitInterface}>
-                Quitter
-              </Button>
-
-              <Button 
-                variant="contained" 
-                color={cycleActive ? "warning" : "success"}
-                onClick={handleToggleCycle}
-                startIcon={cycleActive ? <StopIcon /> : <PlayArrowIcon />}
-                sx={{ fontWeight: 'bold' }}
-              >
-                {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
-              </Button>
+          <Paper elevation={0} sx={{ 
+            flexGrow: 1, 
+            p: 3, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            borderRadius: '12px',
+            border: '1px solid #DFE1E6',
+            bgcolor: 'white'
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: '#172B4D' }}>Plan de Circulation</Typography>
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <Button 
+                  variant="contained" 
+                  color={cycleActive ? "warning" : "success"}
+                  onClick={handleToggleCycle}
+                  startIcon={cycleActive ? <StopIcon /> : <PlayArrowIcon />}
+                  sx={{ borderRadius: '6px', fontWeight: 600, textTransform: 'none' }}
+                >
+                  {cycleActive ? "Arrêter le cycle" : "Démarrer un cycle"}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  onClick={handleQuitInterface}
+                  sx={{ borderRadius: '6px', color: '#42526E', borderColor: '#DFE1E6', textTransform: 'none', fontWeight: 600 }}
+                >
+                  Quitter
+                </Button>
+              </Box>
             </Box>
             
-            {/* GRILLE DU PLAN */}
+            {/* GRILLE DU PLAN ÉPURÉE */}
             <Box sx={{
                 flexGrow: 1,
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, 1fr)', 
                 gridTemplateRows: 'repeat(5, 1fr)',
-                gap: '1%', 
-                alignItems: 'center',      
-                justifyItems: 'center', 
-                width: '98%',
-                height: '100%',
-                padding: 1
+                gap: '15px', 
+                p: 2,
+                borderRadius: '8px',
+                bgcolor: '#FAFBFC',
+                border: '1px dashed #DFE1E6'
               }}
             >
               {/* --- LIGNE 1 : HAUT --- */}
               <Paper id="presse_emboutir" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>
                 {posteNames['7'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('7');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={1} col={2} symbol="←" />
               <Paper id="tour_cn" sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>
                 {posteNames['6'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('6');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={1} col={4} symbol="←" />
               <Paper id="magasin_externe" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>
                 {posteNames['5'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('5');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               
-              
-              {/* --- LIGNES VERTICALES --- */}
-              {/* Droite (Descend) */}
               <GridArrow row={2} col={5} symbol="↑" />
               <Paper id="presse_injection" sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>
                 {posteNames['4'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('4');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={4} col={5} symbol="↑" />
 
-              {/* Gauche (Monte) */}
               <GridArrow row={2} col={1} symbol="↓" />
               <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>
                 {posteNames['1'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('1');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={4} col={1} symbol="↓" />
 
               {/* --- LIGNE 5 : BAS --- */}
               <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>
                 {posteNames['2'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('2');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={5} col={2} symbol="→" />
               <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>
                 {posteNames['3'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('3');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={5} col={4} symbol="→" />
 
-              {/* --- LE TRAIN --- */}
-              <Typography variant="h4" className="train" sx={{
+              {/* LE TRAIN (Icone plus propre) */}
+              <Box sx={{
                   gridRow: trainGridPosition.gridRow,
                   gridColumn: trainGridPosition.gridColumn,
-                  transition: 'all 0.5s ease-in-out',
-                  textAlign: 'center',
-                  m: 'auto',
+                  transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   zIndex: 10,
-                  pointerEvents: 'none',
-                  fontSize: '3rem',
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
               >
-                <img className="image" src= "../../../images/cart2.png" alt="train"/>
-              </Typography>
-
+                <img src="../../../images/cart2.png" alt="train" style={{ width: '60px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }}/>
+              </Box>
             </Box>
           </Paper>
         </Box>
         
-        {/* --- SIDEBAR (Droite) : À Récupérer --- */}
-        <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h4" gutterBottom>À récupérer</Typography>
+        {/* --- COLONNE KANBAN : À RÉCUPÉRER --- */}
+        <Box sx={{ width: '340px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <Paper elevation={0} sx={{ 
+            flexGrow: 1, p: 1.5, borderRadius: '8px', bgcolor: '#EBECF0', display: 'flex', flexDirection: 'column' 
+          }}>
+            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#5E6C84', px: 1, mb: 2, textTransform: 'uppercase' }}>
+              À RÉCUPÉRER ({tasks.filter(t => t.status.includes('récupérer')).length})
+            </Typography>
             
-            <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
+            <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
               {CYCLE_PATH.map(posteId => {
-                const posteName = posteNames[posteId];
-                if (!posteName) return null;
-
-                const tasksForPoste = taskGroups[posteName] || [];
-                
-                const tasksToPickUp = tasks.filter(t => 
-                    t.magasinId === posteId && 
-                    (t.status === 'A récupérer' || t.status === 'À récupérer' || (t.status && t.status.includes('récupérer')))
-                );
-                
+                const tasksToPickUp = tasks.filter(t => t.magasinId === posteId && t.status.includes('récupérer'));
                 if (tasksToPickUp.length === 0) return null;
 
                 return (
-                  <Paper key={posteId} elevation={1} sx={{ p: 2, mb: 2, borderLeft: '4px solid #1976d2' }}>
-                    <Typography variant="h6">{posteName}</Typography>
-                    <List dense>
-                      {tasksForPoste.map(task => (
-                        <ListItem key={task.id} 
-                          secondaryAction={
-                            <IconButton edge="end" onClick={() => handleDeleteTask(task.id)} color="error" size="small">
-                              <DeleteIcon />
-                            </IconButton>
-                          }
-                        >
-                          <ListItemText 
-                            primary={task.item}
-                            secondary={`Apporter au ${posteNames[task.posteId] || '?'}`}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Paper>
+                  <Box key={posteId} sx={{ mb: 2 }}>
+                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#42526E', mb: 0.5, px: 1 }}>
+                      {posteNames[posteId]}
+                    </Typography>
+                    {tasksToPickUp.map(task => (
+                      <Paper key={task.id} elevation={0} sx={{ 
+                        p: 1.5, mb: 1, bgcolor: 'white', borderRadius: '4px', borderBottom: '1px solid #DFE1E6',
+                        boxShadow: '0 1px 2px rgba(9, 30, 66, 0.25)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}>
+                        <Box>
+                          <Typography sx={{ fontSize: '0.9rem', fontWeight: 500, color: '#172B4D' }}>{task.item}</Typography>
+                          <Typography sx={{ fontSize: '0.75rem', color: '#5E6C84' }}>→ {posteNames[task.posteId]}</Typography>
+                        </Box>
+                        <IconButton onClick={() => handleDeleteTask(task.id)} size="small" sx={{ color: '#EB5757' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Paper>
+                    ))}
+                  </Box>
                 );
               })}
-
-              {tasks.filter(t => t.status !== 'Commande finie').length === 0 && (
-                <Typography sx={{ p: 2, color: 'text.secondary' }}>Aucune tâche en attente.</Typography>
-              )}
             </Box>
           </Paper>
         </Box>
 
-        {/* --- SIDEBAR (Droite) : À Déposer --- */}
-        <Box sx={{ width: '320px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <Paper elevation={2} sx={{ flexGrow: 1, p: 2, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h4" gutterBottom>À déposer</Typography>
+        {/* --- COLONNE KANBAN : À DÉPOSER --- */}
+        <Box sx={{ width: '340px', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <Paper elevation={0} sx={{ 
+            flexGrow: 1, p: 1.5, borderRadius: '8px', bgcolor: '#EBECF0', display: 'flex', flexDirection: 'column' 
+          }}>
+            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#5E6C84', px: 1, mb: 2, textTransform: 'uppercase' }}>
+              À DÉPOSER ({tasks.filter(t => t.status.includes('déposer')).length})
+            </Typography>
             
-            <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
+            <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
               {CYCLE_PATH.map(posteId => {
-                const posteName = posteNames[posteId];
-                if (!posteName) return null;
-
-                const tasksForPoste = taskGroups[posteName] || [];
-                
-                const tasksToDrop = tasks.filter(t => 
-                    t.posteId === posteId && 
-                    (t.status === 'A déposer' || t.status === 'À déposer' || (t.status && t.status.includes('déposer')))
-                );
-                
+                const tasksToDrop = tasks.filter(t => t.posteId === posteId && t.status.includes('déposer'));
                 if (tasksToDrop.length === 0) return null;
 
                 return (
-                  <Paper key={posteId} elevation={1} sx={{ p: 2, mb: 2, borderLeft: '4px solid #1976d2' }}>
-                    <Typography variant="h6">{posteName}</Typography>
-                    <List dense>
-                      {tasksForPoste.map(task => (
-                        <ListItem key={task.id} 
-                          secondaryAction={
-                            <IconButton edge="end" onClick={() => handleDeleteTask(task.id)} color="error" size="small">
-                              <DeleteIcon />
-                            </IconButton>
-                          }
-                        >
-                          <ListItemText 
-                            primary={task.item}
-                            secondary={`Venant de ${posteNames[task.magasinId] || '?'}`}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Paper>
+                  <Box key={posteId} sx={{ mb: 2 }}>
+                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#42526E', mb: 0.5, px: 1 }}>
+                      {posteNames[posteId]}
+                    </Typography>
+                    {tasksToDrop.map(task => (
+                      <Paper key={task.id} elevation={0} sx={{ 
+                        p: 1.5, mb: 1, bgcolor: 'white', borderRadius: '4px', borderBottom: '1px solid #DFE1E6',
+                        boxShadow: '0 1px 2px rgba(9, 30, 66, 0.25)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}>
+                        <Box>
+                          <Typography sx={{ fontSize: '0.9rem', fontWeight: 500, color: '#172B4D' }}>{task.item}</Typography>
+                          <Typography sx={{ fontSize: '0.75rem', color: '#5E6C84' }}>depuis {posteNames[task.magasinId]}</Typography>
+                        </Box>
+                        <IconButton onClick={() => handleDeleteTask(task.id)} size="small" sx={{ color: '#EB5757' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Paper>
+                    ))}
+                  </Box>
                 );
               })}
-
-              {tasks.filter(t => t.status !== 'Commande finie').length === 0 && (
-                <Typography sx={{ p: 2, color: 'text.secondary' }}>Aucune tâche en attente.</Typography>
-              )}
             </Box>
           </Paper>
         </Box>
       </Box>
       
+      {/* Composant de Popup conservé tel quel */}
       <PopupLivraison
         open={isPopupOpen}
         onClose={closePopup}
@@ -726,5 +875,5 @@ const handleToggleCycle = async () => {
         onMissing={handleMissingTask}
       />
     </Box>
-  )
+  );
 }
