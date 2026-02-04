@@ -11,6 +11,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import DownloadIcon from '@mui/icons-material/Download';
 import HistoryIcon from '@mui/icons-material/History';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import InventoryIcon from '@mui/icons-material/Inventory'; // Icône suggérée pour le stock
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -36,7 +37,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
             if (resCycles.ok) {
                 const dataCycles = await resCycles.json();
                 setCyclesList(dataCycles);
-                // Si on est dans les logs et qu'on est sur "Total", on force la sélection du 1er cycle
                 if (currentView === 'logs' && selectedCycleId === 'Total' && dataCycles.length > 0) {
                     handleSelectCycle(dataCycles[0]);
                 }
@@ -124,6 +124,19 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
         '&:hover': { bgcolor: active ? '#0747A6' : '#F4F5F7' }
     });
 
+    // --- CORRECTION : AJOUT DE LA FONCTION MANQUANTE ---
+    const headerBtnStyle = (active) => ({
+        bgcolor: active ? '#0052CC' : '#F4F5F7',
+        color: active ? 'white' : '#172B4D',
+        textTransform: 'none',
+        fontWeight: 600,
+        borderRadius: '8px',
+        boxShadow: 'none',
+        border: '1px solid transparent',
+        px: 2,
+        '&:hover': { bgcolor: '#EBECF0', borderColor: '#DFE1E6' }
+    });
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#F4F5F7', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
 
@@ -145,33 +158,40 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     <Button variant="outlined" size="small" startIcon={<DownloadIcon />} sx={{ textTransform: 'none', fontWeight: 600, color: '#42526E', borderColor: '#DFE1E6' }}>
                         Exporter CSV
                     </Button>
+                </Box>
+
+                {/* GROUPE BOUTONS DU MILIEU (CORRIGÉ) */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
                         variant="contained"
                         onClick={() => setOpenClearDialog(true)}
-                        sx={headerBtnStyle(false)}
+                        color="error"
+                        startIcon={<DeleteSweepIcon />}
+                        sx={{...headerBtnStyle(false), bgcolor: '#FFEBE6', color: '#DE350B', '&:hover': { bgcolor: '#FFBDAD' }}}
                     >
                         Vider la BD
                     </Button>
 
-                    <Button 
-                        variant="contained" 
-                        onClick={onGestionStock}
-                        sx={headerBtnStyle(false)}
-                    >
-                        Gestion Pièces et Stock
-                    </Button>
+                    {/* Affichage conditionnel si la fonction est passée */}
+                    {onGestionStock && (
+                        <Button 
+                            variant="contained" 
+                            onClick={onGestionStock}
+                            startIcon={<InventoryIcon />}
+                            sx={headerBtnStyle(false)}
+                        >
+                            Gestion Pièces
+                        </Button>
+                    )}
+                </Box>
 
-                    <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
-
+                {/* GROUPE NAVIGATION (DROITE) */}
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
-                    <Button variant="contained" onClick={onApprovisionnement} sx={navButtonStyle(false)} startIcon={<LocalShippingIcon />}>Stock</Button>
+                    <Button variant="contained" onClick={onApprovisionnement} sx={navButtonStyle(false)} startIcon={<LocalShippingIcon />}>Délais</Button>
                     <Button variant="contained" onClick={onParametre} sx={navButtonStyle(false)} startIcon={<SettingsIcon />}>Config</Button>
                     <Button variant="contained" onClick={() => setCurrentView(currentView === 'dashboard' ? 'logs' : 'dashboard')} sx={navButtonStyle(true)} startIcon={currentView === 'dashboard' ? <AssessmentIcon /> : <HistoryIcon />}>
                         {currentView === 'dashboard' ? 'Voir Logs' : 'Voir Historique'}
                     </Button>
-                    <IconButton onClick={() => setOpenClearDialog(true)} sx={{ color: '#DE350B', bgcolor: '#FFEBE6', borderRadius: '8px', '&:hover': { bgcolor: '#FFBDAD' } }}>
-                        <DeleteSweepIcon />
-                    </IconButton>
                     <Button onClick={handleQuit} sx={{ bgcolor: '#DE350B', color: 'white', fontWeight: 800, borderRadius: '8px', px: 2, '&:hover': { bgcolor: '#BF2600' } }}>X</Button>
                 </Box>
             </Paper>
