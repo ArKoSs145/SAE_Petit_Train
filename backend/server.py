@@ -4,6 +4,7 @@ et lance les tâches de fond.
 """
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 import hashlib
 from database import Commande, SessionLocal, Stand, Piece, SessionLocal, data_db, drop_db, init_db, Boite, Case, Stand, Cycle
 from datetime import datetime
@@ -19,6 +20,10 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from update_grid import traiter_fichier_config
 from contextlib import asynccontextmanager
+import traceback
+import csv
+from io import StringIO
+from fastapi.responses import StreamingResponse
 
 update_signal = asyncio.Event()
 logging.basicConfig(level=logging.INFO)
@@ -714,3 +719,122 @@ def clear_custom_orders():
     if requetes.supprimer_commandes_personnalisees():
         return {"status": "ok"}
     raise HTTPException(status_code=500, detail="Erreur lors du vidage")
+
+@app.get("/api/admin/export-csv")
+def export_csv(type: str, mode: str = "Normal", cycle_id: str = None):
+    """
+    Exporte les données en CSV. 
+    L'historique est structuré pour faciliter l'analyse statistique.
+    """
+    output = StringIO()
+    # Utilisation du point-virgule pour une compatibilité Excel directe en France
+    writer = csv.writer(output, delimiter=';')
+
+    if type == "dashboard":
+        data = get_admin_dashboard(mode)
+        # En-têtes clairs pour les outils de stats
+        writer.writerow(["Horodatage", "ID_Cycle", "Objet", "Quantite", "Source", "Destination", "Statut"])
+        
+        for h in data["historique"]:
+            # Filtrage par cycle si nécessaire
+            if cycle_id and cycle_id != "Total" and h.get("cycle_id") != cycle_id:
+                continue
+            
+            writer.writerow([
+                h.get("date_full", ""),   # Ex: "13/01 18:00"
+                h.get("cycle_id", ""),    # Pour grouper par cycle
+                h.get("objet", ""),       # Nom de la pièce
+                h.get("count", 1),        # Nombre de pièces (important pour les stats)
+                h.get("source_nom", ""),  # Magasin
+                h.get("dest_nom", ""),    # Poste
+                h.get("statut", "")       # Livré / Annulé / etc.
+            ])
+        filename = f"stats_historique_{mode}.csv"
+
+    else:  # type == "logs"
+        if not cycle_id or cycle_id == "Total":
+             raise HTTPException(status_code=400, detail="Cycle manquant")
+        
+        date_obj = datetime.strptime(cycle_id, "%Y-%m-%d %H:%M:%S")
+        logs = requetes.get_commandes_cycle_logs(date_obj, mode=mode)
+        
+        writer.writerow(["Evenement_Log"])
+        for line in logs:
+            writer.writerow([line])
+        filename = f"logs_{mode}_{cycle_id.replace(' ', '_')}.csv"
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+@app.post("/api/admin/create-piece-et-boite")
+async def create_piece_et_boite(request: Request):
+    data = await request.json()
+    nom = data.get("nomPiece")
+    desc = data.get("description", "")
+    cb = data.get("codeBarre") # Le code barre pour la boîte
+
+    if not nom or not cb:
+        raise HTTPException(status_code=400, detail="Le nom et le code barre sont requis")
+
+    db = SessionLocal()
+    try:
+        # 1. Création de la pièce
+        nouvelle_piece = Piece(nomPiece=nom, description=desc)
+        db.add(nouvelle_piece)
+        db.flush() # Permet de récupérer l'idPiece généré sans commiter tout de suite
+
+        # 2. Création de la boîte liée
+        nouvelle_boite = Boite(
+            idPiece=nouvelle_piece.idPiece,
+            code_barre=cb,
+            nbBoite=10,
+            idMagasin=None,
+            idPoste=None,
+            approvisionnement=120
+        )
+        db.add(nouvelle_boite)
+        
+        db.commit()
+        return {"status": "ok", "message": "Pièce et Boîte créées avec succès"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+        
+@app.get("/api/admin/boites-details")
+async def get_boites_details():
+    db = SessionLocal()
+    try:
+        results = db.query(Boite, Piece).join(Piece, Boite.idPiece == Piece.idPiece).all()
+        data = []
+        for boite, piece in results:
+            data.append({
+                "idBoite": boite.idBoite,
+                "code_barre": boite.code_barre,
+                "nbBoite": boite.nbBoite,
+                "nom_piece": piece.nomPiece
+            })
+        return data
+    finally:
+        db.close()
+
+@app.post("/api/admin/update-stock-boite")
+async def update_stock_boite(request: Request):
+    data = await request.json()
+    id_boite = data.get("idBoite")
+    nouveau_nb = data.get("nbBoite")
+    
+    db = SessionLocal()
+    try:
+        boite = db.query(Boite).filter(Boite.idBoite == id_boite).first()
+        if boite:
+            boite.nbBoite = nouveau_nb
+            db.commit()
+            return {"status": "ok"}
+        raise HTTPException(status_code=404, detail="Boîte non trouvée")
+    finally:
+        db.close()

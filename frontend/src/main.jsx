@@ -12,8 +12,8 @@ import Circuit from './templates/Circuit.jsx';
 import Admin from './templates/Admin.jsx';
 import Parametre from './templates/Parametre.jsx';
 import Approvisionnement from './templates/Approvisionnement.jsx';
-import ChoixDepart from './templates/ChoixDepart.jsx';
 import ConfigDepartPerso from './templates/ConfigDepartPerso';
+import GestionStock from './templates/GestionStock.jsx';
 
 // Initialisation du noeud racine React
 const root = ReactDOM.createRoot(document.getElementById("root"));
@@ -29,7 +29,7 @@ const renderAccueil = () => {
       <Accueil 
         onContinue={() => renderCircuit("Normal")} 
         onAdminLogin={renderAdmin} 
-        onCustomStart={renderChoixDepart}
+        onCustomStart={renderConfigPerso}
       />
     </React.StrictMode>
   );
@@ -47,6 +47,15 @@ const renderCircuit = (mode = "Normal") => {
   );
 };
 
+
+const renderGestionStock = () => {
+  root.render(
+    <React.StrictMode>
+      <GestionStock onRetour={renderAdmin} />
+    </React.StrictMode>
+  );
+};
+
 /**
  * Affiche le panneau d'administration
  */
@@ -56,7 +65,8 @@ const renderAdmin = () => {
       <Admin 
         onParametre={renderParametre}
         onApprovisionnement={renderApprovisionnement} 
-        onRetourAccueil={renderAccueil} // Optionnel: pour revenir à l'accueil depuis l'admin
+        onRetourAccueil={renderAccueil}
+        onGestionStock={renderGestionStock}
       />
     </React.StrictMode>
   );
@@ -85,28 +95,13 @@ const renderParametre = () => {
 }
 
 /**
- * Affiche le choix du type de départ (Personnalisé)
- */
-const renderChoixDepart = () => {
-  root.render(
-    <React.StrictMode>
-      <ChoixDepart 
-        onRetour={renderAccueil} 
-        onConfigurer={renderConfigPerso}
-        onLancer={() => renderCircuit("Personnalisé")} 
-      />
-    </React.StrictMode>
-  );
-};
-
-/**
  * Affiche la configuration détaillée du départ personnalisé
  */
 const renderConfigPerso = () => {
   root.render(
     <React.StrictMode>
       <ConfigDepartPerso 
-        onRetour={renderChoixDepart} 
+        onRetour={renderAccueil} 
         onLancer={() => renderCircuit("Personnalisé")} 
       />
     </React.StrictMode>
