@@ -1,154 +1,40 @@
-/* web_interface/frontend/src/Base.css */
-
-/* --- Conteneur Principal --- */
-.dashboard-container {
-  display: flex;
-  font-family: Inter, system-ui, Arial;
-  background: #f0f0f0;
-  height: 100vh;
-  padding: 20px;
-  box-sizing: border-box;
+/* Modernisation du Layout Kanban */
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, sans-serif !important;
+  background-color: #F4F5F7;
 }
 
-/* --- Section 1: Le Plan --- */
-.plan-container {
-  flex: 3; /* Prend 3/4 de la place */
+/* Style des "Colonnes" Kanban */
+.kanban-column {
+  background-color: #EBECF0;
+  border-radius: 8px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  position: relative;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: none !important;
 }
 
-.plan-container h1 {
-  text-align: center;
-  margin-top: 0;
+/* Style des "Cartes" de tâches */
+.kanban-card {
+  background: white !important;
+  border-radius: 4px !important;
+  margin-bottom: 8px !important;
+  box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25) !important;
+  border: none !important;
+  transition: transform 0.1s ease;
 }
 
-.stop-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: red;
-  color: white;
-  font-weight: bold;
-  padding: 10px 20px;
-  border-radius: 5px;
+.kanban-card:hover {
+  background: #fdfdfd !important;
+  transform: translateY(-2px);
 }
 
-/* --- La Grille du Plan --- */
-.plan-grid {
-  display: grid;
-  grid-template-columns: auto auto auto auto auto auto auto 1fr;
-  grid-template-rows: 1fr auto 1fr;
-  gap: 15px;
-  align-items: center;
-  justify-items: center;
-  margin-top: 40px;
-  font-size: 14px;
+/* Plan Industriel - Aspect "Blueprint" Moderne */
+.plan-grid-container {
+  background-color: white !important;
+  border-radius: 12px !important;
+  border: 1px solid #DFE1E6 !important;
+  background-image: radial-gradient(#dfe1e6 1px, transparent 1px);
+  background-size: 20px 20px; /* Petit quadrillage discret */
 }
-
-.box, .poste {
-  padding: 20px;
-  border: 1px solid #ccc;
-  background: #eaeaea;
-  border-radius: 4px;
-  text-align: center;
-  min-width: 100px;
-  transition: all 0.3s ease; /* Pour l'animation */
-}
-
-.arrow {
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-}
-
-.train {
-  font-size: 40px;
-  grid-row: 3;
-  grid-column: 1;
-}
-
-
-.poste {
-  cursor: pointer;
-}
-
-#poste-1 { background-color: #9fc3f1; }
-#poste-2 { background-color: #b6fcce; }
-#poste-3 { background-color: #ffb6b6; }
-#presse_injection { background-color: #FFC481; }
-#presse_emboutir { background-color: #FFFD8E; }
-#tour_cn { background-color: #B6A9FF; }
-#magasin_externe { background-color: #ffb1e5; }
-
-.poste.active {
-  border: 3px solid #f59e0b;
-  transform: scale(1.05);
-  box-shadow: 0 0 15px #f59e0b;
-}
-
-.sidebar-container {
-  flex: 1;
-  background: #e9ecef;
-  padding: 20px;
-  margin-left: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.sidebar-container h2 {
-  margin-top: 0;
-  text-align: center;
-  border-bottom: 2px solid #ccc;
-  padding-bottom: 10px;
-}
-
-.task-group {
-  margin-bottom: 15px;
-}
-.task-group h3 {
-  margin: 0;
-  padding: 10px;
-  background: #ced4da;
-  border-radius: 4px;
-}
-.task-group ul {
-  margin: 0;
-  padding: 10px 10px 10px 30px;
-  list-style-type: '• ';
-}
-.task-group li {
-  padding: 2px 0;
-}
-
-#task-poste-3 h3 { background: #fca5a5; }
-#task-poste-2 h3 { background: #bbf7d0; }
-#task-magasin h3 { background: #5790ca; }
-#task-fournisseur h3 { background: #adb5bd; }
-#task-poste-1-vis h4 { background: #5790ca; }
-#task-poste-1-ecrou h4 { background: #5790ca; }
-
-.task-subgroup {
-  margin-top: 8px;
-  border-left: 3px solid #adb5bd;
-  padding-left: 10px;
-}
-.task-subgroup h4 {
-  margin: 0 0 5px 0;
-  padding: 8px;
-  background: #dee2e6;
-  border-radius: 4px;
-}
-
-.connection-status {
-  margin-top: 20px;
-  border-top: 1px solid #ccc;
-  padding-top: 10px;
-  text-align: center;
-  font-size: 14px;
-}
-

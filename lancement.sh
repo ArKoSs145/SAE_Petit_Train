@@ -85,7 +85,7 @@ sleep 2
 echo -e "${GREEN}[5/5] Lancement du script Sender ...${NC}"
 cd $BASE_DIR/backend
 source $BASE_DIR/venv/bin/activate
-python3 fake_zap.py
+python3 sender.py
 
 # Garde le script actif pour maintenir les PID en arrière-plan
 wait

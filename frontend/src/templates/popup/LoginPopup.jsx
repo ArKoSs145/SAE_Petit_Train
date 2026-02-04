@@ -15,29 +15,21 @@ import {
   Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-
 export default function LoginPopup({ open, onClose, onLoginSuccess }) {
-  // États pour stocker les données du formulaire et les messages d'erreur
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
 
-  // Met à jour l'état du formulaire à chaque saisie de l'utilisateur.
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) setError("");
   };
 
-  /**
-   * Gère la soumission du formulaire de connexion.
-   * Envoie une requête POST au serveur Python pour vérifier les identifiants.
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
-      
       const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,133 +50,141 @@ export default function LoginPopup({ open, onClose, onLoginSuccess }) {
     }
   };
 
-  const handleForgotPassword = (e) => {
-    e.preventDefault();
-    console.log("Action pour mot de passe oublié...");
-  };
-
   return (
     <Dialog 
       open={open} 
       onClose={onClose}
       PaperProps={{
         sx: {
-          backgroundColor: '#CCCCCC',
-          borderRadius: '15px',
-          width: '450px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '420px',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
           overflow: 'hidden',
         }
       }}
     >
+      {/* Bouton Fermer discret et élégant */}
       <IconButton
         aria-label="close"
         onClick={onClose}
         sx={{
           position: 'absolute',
-          right: 10,
-          top: 10,
-          color: 'white',
-          backgroundColor: 'red',
-          width: 32,
-          height: 32,
+          right: 12,
+          top: 12,
+          color: '#97A0AF',
           zIndex: 10,
           '&:hover': {
-            backgroundColor: 'darkred',
+            backgroundColor: '#F4F5F7',
+            color: '#172B4D',
           },
         }}
       >
         <CloseIcon />
       </IconButton>
 
-      <DialogContent sx={{ overflow: 'hidden', padding: '30px' }}> 
+      <DialogContent sx={{ padding: '40px' }}> 
+        {/* En-tête de la popup */}
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D', mb: 1 }}>
+            Connexion Administration
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#5E6C84' }}>
+            Veuillez vous identifier pour accéder au panneau de contrôle.
+          </Typography>
+        </Box>
+
         <Box 
           component="form" 
           onSubmit={handleSubmit} 
           sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
-            gap: 3,
-            mt: 4
+            gap: 2.5
           }}
         >
-          {/* Champ de saisie pour le nom d'utilisateur */}
+          {/* Login - Style épuré */}
           <TextField
-            label="Login *"
+            label="Utilisateur *"
             type="text" 
             name="username"
             value={formData.username}
             onChange={handleChange}
-            variant="filled"
-            size="small"
+            variant="outlined"
+            fullWidth
             required
-            sx={{ backgroundColor: '#f0f0f0', borderRadius: 1 }}
-            InputProps={{ disableUnderline: true }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '8px',
+                backgroundColor: '#FAFBFC',
+                '&:hover fieldset': { borderColor: '#4C9AFF' },
+                '&.Mui-focused fieldset': { borderColor: '#0052CC' },
+              }
+            }}
           />
 
-          {/* Champ de saisie pour le mot de passe */}
+          {/* Mot de passe - Style épuré */}
           <TextField
-            label="MDP *"
+            label="Mot de passe *"
             type="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
-            variant="filled"
-            size="small"
+            variant="outlined"
+            fullWidth
             required
-            sx={{ backgroundColor: '#f0f0f0', borderRadius: 1 }}
-            InputProps={{ disableUnderline: true }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '8px',
+                backgroundColor: '#FAFBFC',
+                '&:hover fieldset': { borderColor: '#4C9AFF' },
+                '&.Mui-focused fieldset': { borderColor: '#0052CC' },
+              }
+            }}
           />
-
-          <Box sx={{ textAlign: 'right', mt: -1 }}>
-            <Link
-              component="button"
-              variant="body2"
-              onClick={handleForgotPassword}
-              sx={{ 
-                color: '#555', 
-                textDecoration: 'none', 
-                fontSize: '0.9rem',
-                '&:hover': { textDecoration: 'underline' }
-              }}
-            >
-              Mot de passe oublié ?
-            </Link>
-          </Box>
           
-          {/* Affichage des erreurs de connexion */}
+          {/* Message d'erreur stylisé en badge */}
           {error && (
             <Typography 
               color="error" 
-              variant="body2" 
+              variant="caption" 
               align="center" 
-              sx={{ fontWeight: 'bold', mt: 1 }}
+              sx={{ 
+                fontWeight: 700, 
+                p: 1.2, 
+                backgroundColor: '#FFEBE6', 
+                borderRadius: '6px',
+                border: '1px solid #FFBDAD'
+              }}
             >
               {error}
             </Typography>
           )}
           
-          {/* Bouton de validation */}
-          <Box sx={{ textAlign: 'center', mt: 2, mb: 1 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                backgroundColor: '#E0E0E0',
-                color: 'black',
-                fontWeight: 'bold',
-                border: '1px solid #999',
-                padding: '10px 40px',
+          {/* Bouton de validation bleu professionnel */}
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            sx={{
+              backgroundColor: '#0052CC',
+              color: 'white',
+              fontWeight: 700,
+              padding: '12px',
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontSize: '1rem',
+              boxShadow: 'none',
+              mt: 1,
+              '&:hover': {
+                backgroundColor: '#0747A6',
                 boxShadow: 'none',
-                '&:hover': {
-                  backgroundColor: '#D0D0D0',
-                  boxShadow: 'none',
-                },
-              }}
-            >
-              VALIDER
-            </Button>
-          </Box>
-          
+              },
+            }}
+          >
+            VALIDER
+          </Button>
         </Box>
       </DialogContent>
     </Dialog>
