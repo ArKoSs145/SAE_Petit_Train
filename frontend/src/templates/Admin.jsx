@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton, ToggleButtonGroup, ToggleButton, Divider, Avatar,
+    Box, Button, Grid, Typography, List, ListItemButton, ListItemText, Paper, IconButton, ToggleButtonGroup, ToggleButton, Avatar,
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
@@ -135,17 +135,10 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
         '&:hover': { bgcolor: '#EBECF0', borderColor: '#DFE1E6' }
     });
 
-    const getCardColor = (nom) => {
-        if (nom.includes('Poste 1')) return '#E3F2FD';
-        if (nom.includes('Poste 2')) return '#E8F5E9';
-        if (nom.includes('Poste 3')) return '#FFEBEE';
-        return '#F4F5F7';
-    };
-
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#F4F5F7', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
       
-            {/* HEADER UNIQUE ET CORRIGÉ */}
+            {/* HEADER */}
             <Paper
                 elevation={0}
                 sx={{
@@ -159,7 +152,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     zIndex: 10
                 }}
             >
-                {/* GAUCHE: Titre & Filtres */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D', mr: 2 }}>
                         Administration
@@ -179,7 +171,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     </ToggleButtonGroup>
                 </Box>
 
-                {/* MILIEU: Actions Base/Stock */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
                         variant="contained"
@@ -197,7 +188,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     )}
                 </Box>
 
-                {/* DROITE: Navigation */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button onClick={onApprovisionnement} sx={navButtonStyle(false)} startIcon={<LocalShippingIcon />}>Délais</Button>
                     <Button onClick={onParametre} sx={navButtonStyle(false)} startIcon={<SettingsIcon />}>Config</Button>
@@ -212,9 +202,8 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                 </Box>
             </Paper>
 
-            {/* CONTENU PRINCIPAL */}
             <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                {/* SIDEBAR CYCLES */}
+                {/* SIDEBAR */}
                 <Box sx={{ width: '320px', bgcolor: 'white', borderRight: '1px solid #DFE1E6', display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #F4F5F7' }}>
                         <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: '#5E6C84', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -244,12 +233,16 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     </List>
                 </Box>
 
-                {/* ZONE DE DONNÉES */}
+                {/* ZONE DASHBOARD */}
                 <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
                     {currentView === 'dashboard' ? (
                         <Grid container spacing={3}>
-                            {dashboardData.stands.map((stand) => {
+                            {dashboardData.stands.map((stand, index) => {
+                                // LOGIQUE DE POSITION : 3 premiers = Arrivage, le reste = Départ
+                                const isArrivageStand = index < 3;
+
                                 const filteredHistory = dashboardData.historique.filter(item => selectedCycleId === 'Total' || item.cycle_id === selectedCycleId);
+                                
                                 const aggregate = (items) => {
                                     const map = new Map();
                                     items.forEach(i => {
@@ -258,36 +251,37 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                                     });
                                     return Array.from(map.values());
                                 };
-                                const arrivages = aggregate(filteredHistory.filter(h => h.dest_id === stand.id && h.statut === 'Commande finie'));
-                                const departs = aggregate(filteredHistory.filter(h => h.source_id === stand.id));
+
+                                const arrivages = isArrivageStand ? aggregate(filteredHistory.filter(h => h.dest_id === stand.id && h.statut === 'Commande finie')) : [];
+                                const departs = !isArrivageStand ? aggregate(filteredHistory.filter(h => h.source_id === stand.id)) : [];
 
                                 return (
                                     <Grid item xs={12} sm={6} md={4} key={stand.id}>
-                                        <Paper elevation={0} sx={{ p: 3, minHeight: '220px', borderRadius: '12px', border: '1px solid #DFE1E6', bgcolor: 'white' }}>
+                                        <Paper elevation={0} sx={{ p: 3, minHeight: '180px', borderRadius: '12px', border: '1px solid #DFE1E6', bgcolor: 'white' }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                                                <Avatar sx={{ bgcolor: getCardColor(stand.nom), color: '#172B4D', fontWeight: 800, fontSize: '0.9rem' }}>{stand.id}</Avatar>
+                                                <Avatar sx={{ bgcolor: isArrivageStand ? '#E3F2FD' : '#F4F5F7', color: '#172B4D', fontWeight: 800, fontSize: '0.9rem' }}>{stand.id}</Avatar>
                                                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#172B4D' }}>{stand.nom}</Typography>
                                             </Box>
                                             
-                                            <Box sx={{ mb: 2 }}>
-                                                <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#36B37E', mb: 1, textTransform: 'uppercase' }}>Arrivages</Typography>
-                                                {arrivages.length > 0 ? arrivages.map((i, idx) => (
-                                                    <Typography key={idx} sx={{ fontSize: '0.85rem', color: '#42526E', mb: 0.5 }}>
-                                                        • <strong>{i.count > 1 ? `x${i.count} ` : ''}{i.objet}</strong> <small>depuis {i.source_nom}</small>
-                                                    </Typography>
-                                                )) : <Typography sx={{ fontSize: '0.8rem', color: '#B3BAC5', fontStyle: 'italic' }}>Aucun</Typography>}
-                                            </Box>
-                                            
-                                            <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
-                                            
-                                            <Box>
-                                                <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#FF991F', mb: 1, textTransform: 'uppercase' }}>Départs</Typography>
-                                                {departs.length > 0 ? departs.map((i, idx) => (
-                                                    <Typography key={idx} sx={{ fontSize: '0.85rem', color: '#42526E', mb: 0.5 }}>
-                                                        → <strong>{i.count > 1 ? `x${i.count} ` : ''}{i.objet}</strong> <small>vers {i.dest_nom}</small>
-                                                    </Typography>
-                                                )) : <Typography sx={{ fontSize: '0.8rem', color: '#B3BAC5', fontStyle: 'italic' }}>Aucun</Typography>}
-                                            </Box>
+                                            {isArrivageStand ? (
+                                                <Box>
+                                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#36B37E', mb: 1, textTransform: 'uppercase' }}>Arrivages</Typography>
+                                                    {arrivages.length > 0 ? arrivages.map((i, idx) => (
+                                                        <Typography key={idx} sx={{ fontSize: '0.85rem', color: '#42526E', mb: 0.5 }}>
+                                                            → <strong>{i.count > 1 ? `x${i.count} ` : ''}{i.objet}</strong> <small>depuis {i.source_nom}</small>
+                                                        </Typography>
+                                                    )) : <Typography sx={{ fontSize: '0.8rem', color: '#B3BAC5', fontStyle: 'italic' }}>Aucun arrivage</Typography>}
+                                                </Box>
+                                            ) : (
+                                                <Box>
+                                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#FF991F', mb: 1, textTransform: 'uppercase' }}>Départs</Typography>
+                                                    {departs.length > 0 ? departs.map((i, idx) => (
+                                                        <Typography key={idx} sx={{ fontSize: '0.85rem', color: '#42526E', mb: 0.5 }}>
+                                                            ← <strong>{i.count > 1 ? `x${i.count} ` : ''}{i.objet}</strong> <small>vers {i.dest_nom}</small>
+                                                        </Typography>
+                                                    )) : <Typography sx={{ fontSize: '0.8rem', color: '#B3BAC5', fontStyle: 'italic' }}>Aucun départ</Typography>}
+                                                </Box>
+                                            )}
                                         </Paper>
                                     </Grid>
                                 );
