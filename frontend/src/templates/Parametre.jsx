@@ -9,24 +9,22 @@ import {
   Paper, 
   Typography, 
   Button, 
-  Divider, 
   Grid,
   CircularProgress
 } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
+
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function Parametre({ onRetourAdmin }) {
   const fileInputRef = useRef(null);
   
-  // États pour gérer les noms des postes, l'affichage du chargement et le poste sélectionné
   const [posteNames, setPosteNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedPoste, setSelectedPoste] = useState(null);
 
-  // Récupère la liste des stands (ID et noms) depuis le serveur.
   const fetchStands = async () => {
     try {
       const res = await fetch(`${apiUrl}/api/stands`);
@@ -45,7 +43,6 @@ export default function Parametre({ onRetourAdmin }) {
     fetchStands();
   }, []);
 
-  // Enregistre le poste cible et déclenche l'ouverture de l'explorateur de fichiers.
   const handleButtonClick = (id, name) => {
     setSelectedPoste({ id, name });
     if (fileInputRef.current) {
@@ -53,10 +50,8 @@ export default function Parametre({ onRetourAdmin }) {
     }
   };
 
-  // Gère la lecture du fichier CSV et son envoi au backend.
   const handleFileChange = (event) => {
     const file = event.target.files[0];
-    // On vérifie qu'on a bien un fichier et un poste sélectionné
     if (file && selectedPoste) {
       const reader = new FileReader();
       
@@ -76,14 +71,14 @@ export default function Parametre({ onRetourAdmin }) {
           const result = await response.json();
 
           if (response.ok) {
-            alert(`Importation Réussie : ${result.message}`);
+            alert(`✅ Importation Réussie : ${result.message}`);
             fetchStands();
           } else {
-            alert(`Échec de l'importation : ${result.detail || result.message}`);
+            alert(`⚠️ Échec de l'importation : ${result.detail || result.message}`);
           }
         } catch (err) {
           console.error("Erreur upload :", err);
-          alert("Erreur critique : Impossible de joindre le serveur.");
+          alert("❌ Erreur critique : Impossible de joindre le serveur.");
         }
       };
 
@@ -92,8 +87,39 @@ export default function Parametre({ onRetourAdmin }) {
     }
   };
 
+  // Style des cartes (similaire à Accueil.jsx)
+  const cardStyle = {
+    p: 3,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    cursor: 'pointer',
+    borderRadius: '12px',
+    border: '1px solid #DFE1E6',
+    bgcolor: 'white',
+    height: '100%',
+    minHeight: '160px',
+    transition: 'all 0.2s ease-in-out',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: '0 8px 16px rgba(0, 82, 204, 0.15)',
+      borderColor: '#0052CC',
+    }
+  };
+
   return (
-    <Box sx={{ display: 'flex', width: '100vw', height: '100vh', bgcolor: '#333', p: 2, boxSizing: 'border-box' }}>
+    <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        width: '100vw', 
+        height: '100vh', 
+        bgcolor: '#F4F5F7', // Fond unifié
+        fontFamily: "'Inter', sans-serif",
+        overflow: 'hidden'
+    }}>
       
       <input
         type="file"
@@ -103,78 +129,79 @@ export default function Parametre({ onRetourAdmin }) {
         accept=".csv"
       />
 
-      <Paper sx={{ 
-          flexGrow: 1, 
-          bgcolor: 'white', 
-          p: 4, 
-          borderRadius: 2, 
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3
+      {/* Header Standardisé */}
+      <Paper elevation={0} sx={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+          p: 2, bgcolor: 'white', borderBottom: '1px solid #DFE1E6', borderRadius: 0 
       }}>
-        {/* Entête avec bouton de retour et titre */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button 
-                variant="outlined" 
                 startIcon={<ArrowBackIcon />} 
                 onClick={onRetourAdmin}
-                sx={{ color: 'black', borderColor: '#ccc' }}
+                sx={{ 
+                    color: '#42526E', 
+                    fontWeight: 700, 
+                    textTransform: 'none',
+                    '&:hover': { bgcolor: '#EBECF0' }
+                }}
             >
                 Retour
             </Button>
-            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Configuration des Postes</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D' }}>
+                Configuration des Postes
+            </Typography>
           </Box>
+      </Paper>
+
+      {/* Contenu Principal */}
+      <Box sx={{ p: 4, flexGrow: 1, overflowY: 'auto' }}>
+        
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+            <Typography variant="h6" sx={{ color: '#5E6C84', mb: 1 }}>
+                Mise à jour des configurations (Fichiers CSV)
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#6B778C' }}>
+                Cliquez sur un module pour importer sa nouvelle disposition.
+            </Typography>
         </Box>
 
-        <Divider />
-
-        <Typography variant="h6" sx={{ color: '#1976d2' }}>
-            Sélectionnez un poste pour importer sa configuration :
-        </Typography>
-
-        {/* Grille de boutons dynamique */}
         {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}>
+                <CircularProgress sx={{ color: '#0052CC' }} />
             </Box>
         ) : (
             <Grid container spacing={3}>
             {Object.entries(posteNames).map(([id, name]) => (
-                <Grid item xs={12} sm={6} md={4} key={id}>
-                <Button
-                    fullWidth
-                    variant="contained"
-                    size="large"
-                    startIcon={<UploadFileIcon />}
-                    onClick={() => handleButtonClick(id, name)}
-                    sx={{
-                        py: 3,
-                        fontSize: '1.1rem',
-                        backgroundColor: '#f5f5f5',
-                        color: 'black',
-                        border: '2px solid #1976d2',
-                        boxShadow: 2,
-                        '&:hover': {
-                            backgroundColor: '#e3f2fd',
-                            boxShadow: 4,
-                        }
-                    }}
-                >
-                    {name}
-                </Button>
+                <Grid item xs={12} sm={6} md={4} lg={3} key={id}>
+                    <Paper 
+                        elevation={0} 
+                        sx={cardStyle}
+                        onClick={() => handleButtonClick(id, name)}
+                    >
+                        <SettingsInputComponentIcon sx={{ fontSize: 40, color: '#0052CC', mb: 2, opacity: 0.8 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#172B4D', mb: 1 }}>
+                            {name}
+                        </Typography>
+                        <Button 
+                            variant="outlined" 
+                            size="small" 
+                            startIcon={<UploadFileIcon />}
+                            sx={{ 
+                                mt: 2, 
+                                textTransform: 'none', 
+                                borderColor: '#DFE1E6', 
+                                color: '#42526E',
+                                pointerEvents: 'none' // Le clic est géré par la carte parente
+                            }}
+                        >
+                            Importer CSV
+                        </Button>
+                    </Paper>
                 </Grid>
             ))}
             </Grid>
         )}
-
-        <Box sx={{ mt: 'auto', pt: 2, color: 'gray', textAlign: 'center' }}>
-            <Typography variant="body2">
-                Cliquez sur un module pour charger un fichier de configuration spécifique.
-            </Typography>
-        </Box>
-      </Paper>
+      </Box>
     </Box>
   );
 }

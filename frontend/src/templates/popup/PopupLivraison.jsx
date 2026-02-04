@@ -1,106 +1,86 @@
 /**
- * Affiche une grille interactive représentant les cases d'un stand (magasin ou poste)
- * et permet à l'opérateur de confirmer le retrait ou le dépôt des pièces demandées.
+ * Interface de validation de livraison modernisée.
+ * Structure : Grille d'étagère (Gauche) | Liste de contrôle et Actions (Droite)
  */
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  List,
-  ListItem,
-  ListItemText,
   Button,
   Box,
   Typography,
-  CircularProgress
+  CircularProgress,
+  Paper
 } from '@mui/material'
-import '../../../styles/PopupLivraison.css';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-const apiUrl = import.meta.env.VITE_API_URL;
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Retourne la couleur associée à un poste spécifique
-const getPosteColor = (id) => {
-  const colors = {
-    "1": '#9fc3f1', "2": '#b6fcce', "3": '#ffb6b6', 
-    "4": '#FFC481', "5": '#e7e42bff', "6": '#B6A9FF', "7": '#ffb1e5'
-  };
-  return colors[id] || '#5e5e5eff';
-};
-
-// Identifiants des stands considérés comme des Magasins
 const STORE_IDS = ['4', '5', '6', '7'];
 
-export default function PopupLivraison({ open, onClose, posteId, tasks, onDeliver, onMissing }) {
-  // clickedTasks : stocke les IDs des tâches que l'utilisateur a validées visuellement dans la grille
+const getPosteColor = (id) => {
+    const colors = {
+      "1": '#9fc3f1', "2": '#b6fcce', "3": '#ffb6b6', 
+      "4": '#FFC481', "5": '#e7e42bff', "6": '#B6A9FF', "7": '#ffb1e5'
+    };
+    return colors[id] || '#5e5e5eff';
+};
+
+export default function PopupLivraison({ open, onClose, posteId, posteName, tasks, onDeliver, onMissing }) {
   const [clickedTasks, setClickedTasks] = useState(new Set());
   const [shelfLayout, setShelfLayout] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const color = getPosteColor(posteId);
   const isMagasin = STORE_IDS.includes(String(posteId));
+  const accentColor = '#0052CC';
+  const posteColor = getPosteColor(posteId);
 
-  /**
-   * à l'ouverture de la popup pour un poste donné,
-   * récupère le fichier de configuration JSON définissant la forme des cases.
-   */
   useEffect(() => {
     if (open && posteId) {
       setLoading(true);
       setClickedTasks(new Set());
       
-      // Récupération du layout dynamique généré par le backend
       fetch(`/etagere_${posteId}.json`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error(`Fichier etagere_${posteId}.json introuvable`);
+          return res.json();
+        })
         .then(data => {
           setShelfLayout(data);
           setLoading(false);
         })
         .catch(err => {
-          console.error("Erreur layout:", err);
-          setShelfLayout(null);
+          console.error("Erreur structure:", err);
+          setShelfLayout(null); 
           setLoading(false);
         });
     }
   }, [open, posteId]);
 
-  /**
-   * Filtre la liste des tâches actives pour trouver
-   * celles dont le code-barre correspond à la valeur d'une case de l'étagère.
-   */
   const getTasksForValue = (val) => {
     if (!val || !tasks) return [];
-    
     return tasks.filter(task => {
       const taskBarre = String(task.code_barre || "").trim();
       const shelfVal = String(val || "").trim();
-      
-      if (shelfVal === taskBarre) {
-        console.log("Match trouvé !", { shelfVal, taskBarre });
-      }
-
       return taskBarre === shelfVal;
     });
   };
 
-  // Gère le clic sur une cellule de la grille.
   const handleCellClick = (cellTasks) => {
     if (!cellTasks || cellTasks.length === 0) return;
     setClickedTasks(prev => {
       const newSet = new Set(prev);
       const allSelected = cellTasks.every(t => newSet.has(t.id));
-      if (allSelected) cellTasks.forEach(t => newSet.delete(t.id)); // Désélection
-      else cellTasks.forEach(t => newSet.add(t.id)); // Sélection
+      if (allSelected) cellTasks.forEach(t => newSet.delete(t.id));
+      else cellTasks.forEach(t => newSet.add(t.id));
       return newSet;
     });
   };
 
-  // Envoie la validation de toutes les tâches sélectionnées à Circuit.
   const handleValidate = () => {
     clickedTasks.forEach(taskId => onDeliver(taskId));
     onClose();
   };
 
-  // Notifie le serveur que le produit est manquant dans le magasin.
   const handleMissing = async () => {
     for (let taskId of clickedTasks) {
       try {
@@ -115,90 +95,170 @@ export default function PopupLivraison({ open, onClose, posteId, tasks, onDelive
   const anyTaskClicked = clickedTasks.size > 0;
 
   return (
-    <Dialog open={open} onClose={onClose} fullScreen>
-      <Box sx={{
-          display: 'grid', gridTemplateColumns: '3fr 1fr 2fr', gap: '20px',
-          width: '100vw', height: '100vh', padding: '24px', boxSizing: 'border-box', backgroundColor: '#f0f0f0',
-        }}>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      fullScreen
+      PaperProps={{ sx: { bgcolor: '#F4F5F7', fontFamily: "'Inter', sans-serif" } }}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 400px', width: '100vw', height: '100vh' }}>
         
-        {/* Colonne 1: les cases */}
-        <Box sx={{
+        {/* --- ZONE GAUCHE : GRILLE --- */}
+        <Box sx={{ 
+          p: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', 
+          bgcolor: 'white', borderRight: '1px solid #DFE1E6' 
+        }}>
+          <Box sx={{
             display: 'grid',
             gridTemplateRows: shelfLayout?.layout?.templateRows || 'repeat(8, 1fr)',
             gridTemplateColumns: shelfLayout?.layout?.templateColumns || 'repeat(2, 1fr)',
-            gap: '8px', border: '3px solid #666', backgroundColor: '#666', position: 'relative'
+            gap: '12px', width: '100%', height: '100%', maxWidth: '800px', maxHeight: '800px',
+            p: 3, bgcolor: '#EBECF0', borderRadius: '12px', border: '1px solid #DFE1E6', position: 'relative'
           }}>
-          {loading ? (
-            <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', color: 'white' }} />
-          ) : (
-            shelfLayout?.items.map((item) => {
-              const cellTasks = getTasksForValue(item.val);
-              const hasTask = cellTasks.length > 0;
-              const isChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
+            {loading ? (
+              <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', color: accentColor }} />
+            ) : shelfLayout ? (
+              shelfLayout.items.map((item) => {
+                const cellTasks = getTasksForValue(item.val);
+                const hasTask = cellTasks.length > 0;
+                const isChecked = hasTask && cellTasks.every(t => clickedTasks.has(t.id));
 
+                return (
+                  <Paper
+                    key={item.id}
+                    elevation={hasTask ? 3 : 0}
+                    onClick={() => hasTask && handleCellClick(cellTasks)}
+                    sx={{
+                      ...item.style,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      bgcolor: isChecked ? '#E3F2FD' : (hasTask ? 'white' : 'transparent'),
+                      color: isChecked ? accentColor : '#172B4D',
+                      border: hasTask ? (isChecked ? `3px solid ${accentColor}` : `3px solid ${posteColor}`) : '1px dashed #cfcfcf',
+                      
+                      borderRadius: '8px', cursor: hasTask ? 'pointer' : 'default',
+                      position: 'relative', transition: 'all 0.1s ease',
+                      '&:hover': { 
+                        transform: hasTask ? 'scale(1.02)' : 'none',
+                        boxShadow: hasTask ? 4 : 0
+                      }
+                    }}
+                  >
+                    {hasTask && (
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', textAlign: 'center', px: 1 }}>
+                        {cellTasks[0].item}
+                      </Typography>
+                    )}
+
+                    {hasTask && cellTasks.length > 1 && (
+                        <Box sx={{ 
+                            position: 'absolute', top: -8, right: -8, 
+                            bgcolor: '#FF5630', color: 'white', 
+                            borderRadius: '50%', width: 28, height: 28, 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                            fontSize: '0.85rem', fontWeight: 'bold', boxShadow: 2
+                        }}>
+                        x{cellTasks.length}
+                        </Box>
+                    )}
+
+                    {isChecked && <CheckCircleIcon sx={{ position: 'absolute', color: accentColor, fontSize: '3rem', opacity: 0.9, pointerEvents: 'none' }} />}
+                  </Paper>
+                );
+              })
+            ) : (
+                <Typography sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#5E6C84' }}>
+                    Chargement de l'étagère...
+                </Typography>
+            )}
+          </Box>
+        </Box>
+
+        {/* --- ZONE DROITE : CHECKLIST --- */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', p: 4, bgcolor: '#F4F5F7' }}>
+          <Box sx={{ mb: 4, borderLeft: `6px solid ${posteColor}`, pl: 2 }}>
+            <Typography variant="overline" sx={{ color: '#5E6C84', fontWeight: 800, letterSpacing: '1px' }}>
+                {isMagasin ? 'RÉCUPÉRATION MAGASIN' : 'DÉPÔT POSTE'}
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: '#172B4D' }}>
+                {posteName || `Poste ${posteId}`}
+            </Typography>
+          </Box>
+
+          <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 3 }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#42526E', mb: 2, textTransform: 'uppercase' }}>
+              Checklist ({tasks.length})
+            </Typography>
+            {tasks.map((task) => {
+              const done = clickedTasks.has(task.id);
               return (
-                <Box
-                  key={item.id}
-                  onClick={() => hasTask && handleCellClick(cellTasks)}
-                  sx={{
-                    ...item.style, // Injection des spans du JSON
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    bgcolor: hasTask ? color : '#d9d9d9', color: hasTask ? 'white' : '#333',
-                    border: '1px solid #444', cursor: hasTask ? 'pointer' : 'default',
-                    position: 'relative', opacity: isChecked ? 0.5 : 1.0, 
-                  }}
-                >
-                  {hasTask && (
-                    <Typography variant="body1" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                      {cellTasks[0].item}
-                    </Typography>
-                  )}
-                  {/* Badge si plusieurs commandes concernent la même case */}
-                  {hasTask && cellTasks.length > 1 && (
-                    <Box sx={{ position: 'absolute', top: 5, right: 5, bgcolor: 'red', color: 'white', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
-                      x{cellTasks.length}
+                <Paper key={task.id} elevation={0} sx={{ 
+                  p: 2, mb: 1.5, borderRadius: '8px', border: '1px solid',
+                  borderColor: done ? '#4CAF50' : '#DFE1E6',
+                  bgcolor: done ? '#E8F5E9' : 'white',
+                  transition: 'all 0.2s'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CheckCircleIcon sx={{ color: done ? '#4CAF50' : '#DFE1E6' }} />
+                    <Box>
+                        <Typography sx={{ 
+                            fontWeight: 600, 
+                            textDecoration: done ? 'line-through' : 'none', 
+                            color: done ? '#2E7D32' : '#172B4D' 
+                        }}>
+                        {isMagasin ? 'Récupérer' : 'Déposer'} {task.item}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#5E6C84' }}>
+                            Code: {task.code_barre || "N/A"}
+                        </Typography>
                     </Box>
-                  )}
-                  {/* Pour montrer que la case est sélectionnée */}
-                  {isChecked && <CheckCircleIcon sx={{ position: 'absolute', color: 'white', fontSize: '3rem' }} />}
-                </Box>
+                  </Box>
+                </Paper>
               );
-            })
-          )}
-        </Box>
+            })}
+            {tasks.length === 0 && <Typography sx={{ fontStyle: 'italic', color: '#5E6C84' }}>Aucune pièce à traiter ici.</Typography>}
+          </Box>
 
-        {/* Colonne 2 : les boutons */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '40px 0' }}>
-          <Button variant="contained" onClick={onClose} sx={{ py: 3, fontSize: '1.5rem', bgcolor: '#d9d9d9', color: 'black' }}>
-            Retour
-          </Button>
-          {isMagasin && (
-            <Button variant="contained" onClick={handleMissing} disabled={!anyTaskClicked} sx={{ py: 2, bgcolor: '#ff6b6b', color: 'white' }}>
-              Produit Manquant
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 3, borderTop: '2px solid #DFE1E6' }}>
+            <Button 
+              variant="contained" 
+              fullWidth 
+              size="large"
+              onClick={handleValidate} 
+              disabled={!allTasksClicked}
+              sx={{ 
+                bgcolor: accentColor, 
+                fontWeight: 700, 
+                py: 2, 
+                textTransform: 'none', 
+                fontSize: '1.1rem',
+                '&:hover': { bgcolor: '#0747A6' }
+              }}
+            >
+              Valider l'étape
             </Button>
-          )}
-          <Button variant="contained" onClick={handleValidate} disabled={!allTasksClicked} sx={{ py: 3, fontSize: '1.5rem', bgcolor: allTasksClicked ? '#4caf50' : '#d9d9d9', color: allTasksClicked ? 'white' : 'black' }}>
-            Valider
-          </Button>
-        </Box>
-
-        {/* Colonne 3 : la liste de commandes */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#d9d9d9', border: '2px solid #aaa', p: 3, overflow: 'hidden' }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Commandes :</Typography>
-          <Typography variant="h5" sx={{ mb: 2 }}>Poste {posteId}</Typography>
-          <Box sx={{ bgcolor: color, color: 'white', borderRadius: 2, p: 2, flexGrow: 1, overflowY: 'auto' }}>
-            {tasks.length > 0 ? (
-              <List>
-                {tasks.map((task) => (
-                  <ListItem key={task.id} sx={{ p: 0, mb: 1 }}>
-                    <ListItemText 
-                      primary={(clickedTasks.has(task.id) ? '✅ ' : '• ') + `Récupérer ${task.item}`}
-                      primaryTypographyProps={{ fontSize: '1.2rem', fontWeight: 'bold', textDecoration: clickedTasks.has(task.id) ? 'line-through' : 'none' }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : <Typography>Aucune tâche.</Typography>}
+            
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {isMagasin && (
+                <Button 
+                    variant="outlined" 
+                    color="error" 
+                    fullWidth 
+                    onClick={handleMissing} 
+                    disabled={!anyTaskClicked} 
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Manquant
+                </Button>
+              )}
+              <Button 
+                variant="text" 
+                fullWidth 
+                onClick={onClose} 
+                sx={{ color: '#42526E', fontWeight: 600, textTransform: 'none' }}
+              >
+                Annuler
+              </Button>
+            </Box>
           </Box>
         </Box>
       </Box>
