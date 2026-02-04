@@ -268,7 +268,6 @@ def login(creds: LoginRequest):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(base_dir, "train.db")
     
-    password_hash = hashlib.sha256(creds.password.encode()).hexdigest()
     
     
     conn = None
@@ -276,17 +275,16 @@ def login(creds: LoginRequest):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, password_hash))
+        cursor.execute("SELECT * FROM login WHERE username = ? AND password = ?", (creds.username, creds.password))
         user = cursor.fetchone()
         
         if user:
             return {"message": "Login successful"}
         else:
-            print(f"DEBUG: Tentative avec user '{creds.username}' et hash '{password_hash}'")
             raise HTTPException(status_code=401, detail="Identifiants incorrects")
             
     except sqlite3.Error as e:
-        raise HTTPException(status_code=500, detail="Erreur serveur base de données")
+        raise HTTPException(status_code=500, detail="Erreur serveur")
     finally:
         if conn:
             conn.close()

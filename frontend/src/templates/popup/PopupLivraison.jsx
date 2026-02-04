@@ -5,9 +5,6 @@
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  List,
-  ListItem,
-  ListItemText,
   Button,
   Box,
   Typography,
@@ -18,8 +15,15 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Identifiants des stands considérés comme des Magasins (Pick-up)
 const STORE_IDS = ['4', '5', '6', '7'];
+
+const getPosteColor = (id) => {
+    const colors = {
+      "1": '#9fc3f1', "2": '#b6fcce', "3": '#ffb6b6', 
+      "4": '#FFC481', "5": '#e7e42bff', "6": '#B6A9FF', "7": '#ffb1e5'
+    };
+    return colors[id] || '#5e5e5eff';
+};
 
 export default function PopupLivraison({ open, onClose, posteId, posteName, tasks, onDeliver, onMissing }) {
   const [clickedTasks, setClickedTasks] = useState(new Set());
@@ -27,18 +31,17 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
   const [loading, setLoading] = useState(true);
 
   const isMagasin = STORE_IDS.includes(String(posteId));
-  const accentColor = '#0052CC'; // Bleu professionnel (Atlassian style)
+  const accentColor = '#0052CC';
+  const posteColor = getPosteColor(posteId);
 
-  // Chargement dynamique du layout JSON
   useEffect(() => {
     if (open && posteId) {
       setLoading(true);
       setClickedTasks(new Set());
       
-      // Utilisation des BACKTICKS pour l'interpolation de posteId
       fetch(`/etagere_${posteId}.json`)
         .then(res => {
-          if (!res.ok) throw new Error(`Fichier etagere_${posteId}.json introuvable (404)`);
+          if (!res.ok) throw new Error(`Fichier etagere_${posteId}.json introuvable`);
           return res.json();
         })
         .then(data => {
@@ -46,22 +49,16 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
           setLoading(false);
         })
         .catch(err => {
-          // Si le JSON n'est pas trouvé, on log l'erreur sans faire planter l'app
-          console.error("Erreur de structure de grille :", err.message);
+          console.error("Erreur structure:", err);
           setShelfLayout(null); 
           setLoading(false);
         });
     }
   }, [open, posteId]);
 
-  /**
-   * Compare le code-barre de la case avec les tâches en attente.
-   * Nettoyage des espaces et casse pour une correspondance parfaite.
-   */
   const getTasksForValue = (val) => {
     if (!val || !tasks) return [];
     return tasks.filter(task => {
-      // On compare les chaînes brutes comme dans votre version initiale
       const taskBarre = String(task.code_barre || "").trim();
       const shelfVal = String(val || "").trim();
       return taskBarre === shelfVal;
@@ -89,7 +86,7 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
       try {
         await fetch(`${apiUrl}/api/commande/${taskId}/manquant`, { method: 'PUT' });
         if (onMissing) onMissing(taskId);
-      } catch (err) { console.error("Erreur signalement manquant:", err); }
+      } catch (err) { console.error(err); }
     }
     onClose();
   };
@@ -106,7 +103,7 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
     >
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 400px', width: '100vw', height: '100vh' }}>
         
-        {/* --- ZONE GAUCHE : L'ÉTAGÈRE (Blueprint) --- */}
+        {/* --- ZONE GAUCHE : GRILLE --- */}
         <Box sx={{ 
           p: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', 
           bgcolor: 'white', borderRight: '1px solid #DFE1E6' 
@@ -129,20 +126,20 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
                 return (
                   <Paper
                     key={item.id}
-                    elevation={0}
+                    elevation={hasTask ? 3 : 0}
                     onClick={() => hasTask && handleCellClick(cellTasks)}
                     sx={{
                       ...item.style,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      bgcolor: isChecked ? '#E3F2FD' : (hasTask ? 'white' : '#F4F5F7'),
+                      bgcolor: isChecked ? '#E3F2FD' : (hasTask ? 'white' : 'transparent'),
                       color: isChecked ? accentColor : '#172B4D',
-                      border: '2px solid',
-                      borderColor: isChecked ? accentColor : (hasTask ? '#DFE1E6' : 'transparent'),
+                      border: hasTask ? (isChecked ? `3px solid ${accentColor}` : `3px solid ${posteColor}`) : '1px dashed #cfcfcf',
+                      
                       borderRadius: '8px', cursor: hasTask ? 'pointer' : 'default',
                       position: 'relative', transition: 'all 0.1s ease',
                       '&:hover': { 
-                        borderColor: hasTask ? accentColor : 'transparent', 
-                        transform: hasTask ? 'translateY(-2px)' : 'none' 
+                        transform: hasTask ? 'scale(1.02)' : 'none',
+                        boxShadow: hasTask ? 4 : 0
                       }
                     }}
                   >
@@ -151,21 +148,34 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
                         {cellTasks[0].item}
                       </Typography>
                     )}
-                    {isChecked && <CheckCircleIcon sx={{ position: 'absolute', color: accentColor, fontSize: '2.5rem', opacity: 0.8 }} />}
+
+                    {hasTask && cellTasks.length > 1 && (
+                        <Box sx={{ 
+                            position: 'absolute', top: -8, right: -8, 
+                            bgcolor: '#FF5630', color: 'white', 
+                            borderRadius: '50%', width: 28, height: 28, 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                            fontSize: '0.85rem', fontWeight: 'bold', boxShadow: 2
+                        }}>
+                        x{cellTasks.length}
+                        </Box>
+                    )}
+
+                    {isChecked && <CheckCircleIcon sx={{ position: 'absolute', color: accentColor, fontSize: '3rem', opacity: 0.9, pointerEvents: 'none' }} />}
                   </Paper>
                 );
               })
             ) : (
                 <Typography sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#5E6C84' }}>
-                    Aucune configuration d'étagère trouvée.
+                    Chargement de l'étagère...
                 </Typography>
             )}
           </Box>
         </Box>
 
-        {/* --- ZONE DROITE : ACTIONS ET LISTE (Sidebar) --- */}
+        {/* --- ZONE DROITE : CHECKLIST --- */}
         <Box sx={{ display: 'flex', flexDirection: 'column', p: 4, bgcolor: '#F4F5F7' }}>
-          <Box sx={{ mb: 4 }}>
+          <Box sx={{ mb: 4, borderLeft: `6px solid ${posteColor}`, pl: 2 }}>
             <Typography variant="overline" sx={{ color: '#5E6C84', fontWeight: 800, letterSpacing: '1px' }}>
                 {isMagasin ? 'RÉCUPÉRATION MAGASIN' : 'DÉPÔT POSTE'}
             </Typography>
@@ -184,17 +194,23 @@ export default function PopupLivraison({ open, onClose, posteId, posteName, task
                 <Paper key={task.id} elevation={0} sx={{ 
                   p: 2, mb: 1.5, borderRadius: '8px', border: '1px solid',
                   borderColor: done ? '#4CAF50' : '#DFE1E6',
-                  bgcolor: done ? '#E8F5E9' : 'white'
+                  bgcolor: done ? '#E8F5E9' : 'white',
+                  transition: 'all 0.2s'
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <CheckCircleIcon sx={{ color: done ? '#4CAF50' : '#DFE1E6' }} />
-                    <Typography sx={{ 
-                        fontWeight: 600, 
-                        textDecoration: done ? 'line-through' : 'none', 
-                        color: done ? '#2E7D32' : '#172B4D' 
-                    }}>
-                      {isMagasin ? 'Récupérer' : 'Déposer'} {task.item}
-                    </Typography>
+                    <Box>
+                        <Typography sx={{ 
+                            fontWeight: 600, 
+                            textDecoration: done ? 'line-through' : 'none', 
+                            color: done ? '#2E7D32' : '#172B4D' 
+                        }}>
+                        {isMagasin ? 'Récupérer' : 'Déposer'} {task.item}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#5E6C84' }}>
+                            Code: {task.code_barre || "N/A"}
+                        </Typography>
+                    </Box>
                   </Box>
                 </Paper>
               );

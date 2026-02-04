@@ -5,11 +5,22 @@ import {
   Button,
   Paper,
   Grid,
+  IconButton,
+  Tooltip
 } from '@mui/material';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import LoginPopup from './popup/LoginPopup';
 
-export default function Accueil({ onContinue, onCustomStart, onAdmin }) {
+export default function Accueil({ onContinue, onCustomStart, onAdminLogin }) {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+
+  // Fonction pour fermer l'application
+  const handleQuit = () => {
+    if (window.confirm("Voulez-vous vraiment fermer l'application ?")) {
+        window.open("about:blank", "_self");
+        window.close();
+    }
+  };
 
   // Style des cartes cliquables
   const cardStyle = {
@@ -41,9 +52,19 @@ export default function Accueil({ onContinue, onCustomStart, onAdmin }) {
       alignItems: 'center', 
       justifyContent: 'center',
       p: 3,
-      fontFamily: "'Inter', sans-serif"
+      fontFamily: "'Inter', sans-serif",
+      position: 'relative'
     }}>
       
+      {/* --- Bouton QUITTER --- */}
+      <Box sx={{ position: 'absolute', top: 20, right: 20 }}>
+        <Tooltip title="Fermer l'application">
+            <IconButton onClick={handleQuit} color="error" size="large">
+                <PowerSettingsNewIcon fontSize="large" />
+            </IconButton>
+        </Tooltip>
+      </Box>
+
       {/* En-tête */}
       <Box sx={{ textAlign: 'center', mb: 8 }}>
         <Typography variant="h2" sx={{ fontWeight: 800, color: '#172B4D', mb: 1, letterSpacing: '-1px' }}>
@@ -97,11 +118,11 @@ export default function Accueil({ onContinue, onCustomStart, onAdmin }) {
         Espace Administration
       </Button>
       
-      {/* LoginPopup reste identique à votre projet */}
+      {/* LoginPopup */}
       <LoginPopup 
         open={isLoginOpen} 
         onClose={() => setIsLoginOpen(false)} 
-        onLoginSuccess={onAdmin} 
+        onLoginSuccess={onAdminLogin} 
       />
     </Box>
   );
