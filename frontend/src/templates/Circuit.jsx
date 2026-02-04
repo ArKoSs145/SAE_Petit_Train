@@ -404,6 +404,23 @@ const handleToggleCycle = async () => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
   }
 
+  const handleManualLocation = async (posteId) => {
+    try {
+      const res = await fetch(`${apiUrl}/api/train/position?mode=${mode}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position: posteId })
+      });
+      
+      if (res.ok) {
+        setCurrentTrainPoste(posteId);
+        console.log(`Train déplacé manuellement au poste ${posteId}`);
+      }
+    } catch (err) {
+      console.error("Erreur lors du déplacement manuel du train:", err);
+    }
+  };
+
   /**
    * Filtre les tâches à afficher dans la popup selon l'arrêt actuel du train.
    * Détermine si le train doit effectuer une récupération (si l'arrêt est un magasin)
@@ -568,36 +585,184 @@ return (
               }}
             >
               {/* --- LIGNE 1 : HAUT --- */}
-              <Paper sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>
-                {posteNames['7'] || '...'}
+              <Paper id="presse_emboutir" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>
+                {posteNames['7'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('7');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={1} col={2} symbol="←" />
-              <Paper sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>
-                {posteNames['6'] || '...'}
+              <Paper id="tour_cn" sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>
+                {posteNames['6'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('6');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={1} col={4} symbol="←" />
-              <Paper sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>
-                {posteNames['5'] || '...'}
+              <Paper id="magasin_externe" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>
+                {posteNames['5'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('5');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               
               <GridArrow row={2} col={5} symbol="↑" />
-              <Paper sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>
-                {posteNames['4'] || '...'}
+              <Paper id="presse_injection" sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>
+                {posteNames['4'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('4');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={4} col={5} symbol="↑" />
 
               <GridArrow row={2} col={1} symbol="↓" />
-              <Paper sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>
-                {posteNames['1'] || '...'}
+              <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>
+                {posteNames['1'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('1');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={4} col={1} symbol="↓" />
 
-              <Paper sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>
-                {posteNames['2'] || '...'}
+              {/* --- LIGNE 5 : BAS --- */}
+              <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>
+                {posteNames['2'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('2');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={5} col={2} symbol="→" />
-              <Paper sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>
-                {posteNames['3'] || '...'}
+              <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>
+                {posteNames['3'] || 'Chargement...'}
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="large"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualLocation('3');
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    bottom: 5,
+                    left: '5%',
+                    width: '90%',
+                    height: '50px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Aller ici
+                </Button>
               </Paper>
               <GridArrow row={5} col={4} symbol="→" />
 
