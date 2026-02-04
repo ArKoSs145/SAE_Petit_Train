@@ -113,6 +113,23 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
         return '#F4F5F7';
     };
 
+    const handleDownload = () => {
+        const type = currentView === 'dashboard' ? 'dashboard' : 'logs';
+        
+        if (type === 'logs' && (!selectedCycleId || selectedCycleId === 'Total')) {
+            alert("Veuillez sélectionner un cycle pour exporter ses logs.");
+            return;
+        }
+
+        const params = new URLSearchParams({
+            type: type,
+            mode: filtreMode,
+            cycle_id: selectedCycleId
+        });
+
+        // Déclenche le téléchargement du fichier CSV
+        window.location.href = `${apiUrl}/api/admin/export-csv?${params.toString()}`;
+    };
     const navButtonStyle = (active) => ({
         bgcolor: active ? '#0052CC' : 'white',
         color: active ? 'white' : '#42526E',
@@ -139,26 +156,66 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#F4F5F7', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
-
+      
             {/* HEADER */}
-            <Paper elevation={0} sx={{ 
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                p: 2, bgcolor: 'white', borderBottom: '1px solid #DFE1E6', borderRadius: 0 
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D', mr: 2 }}>Administration</Typography>
-                    
-                    <ToggleButtonGroup value={filtreMode} exclusive onChange={handleModeChange} size="small">
-                        <ToggleButton value="Normal" sx={{ textTransform: 'none', fontWeight: 600, px: 2 }}>Flux Normal</ToggleButton>
-                        <ToggleButton value="Personnalisé" sx={{ textTransform: 'none', fontWeight: 600, px: 2 }}>Flux Perso</ToggleButton>
-                    </ToggleButtonGroup>
-                    
-                    <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-                    
-                    <Button variant="outlined" size="small" startIcon={<DownloadIcon />} sx={{ textTransform: 'none', fontWeight: 600, color: '#42526E', borderColor: '#DFE1E6' }}>
-                        Exporter CSV
-                    </Button>
-                </Box>
+            <Paper
+              elevation={0}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                p: 2,
+                bgcolor: 'white',
+                borderBottom: '1px solid #DFE1E6',
+                borderRadius: 0,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D', mr: 2 }}>
+                  Administration
+                </Typography>
+
+                <Button 
+                  variant="contained" 
+                  onClick={handleDownload} 
+                  sx={headerBtnStyle(false)}
+                >
+                  Télécharger
+                </Button>
+
+                <ToggleButtonGroup
+                  value={filtreMode}
+                  exclusive
+                  onChange={handleModeChange}
+                  size="small"
+                  sx={{ border: 'none', borderRadius: 0, gap: 1 }}
+                >
+                  <ToggleButton
+                    value="Normal"
+                    sx={{
+                      ...headerBtnStyle(filtreMode === 'Normal'),
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      px: 2,
+                    }}
+                  >
+                    {currentView === 'dashboard' ? 'Historique Normal' : 'Logs Normaux'}
+                  </ToggleButton>
+
+                  <ToggleButton
+                    value="Personnalisé"
+                    sx={{
+                      ...headerBtnStyle(filtreMode === 'Personnalisé'),
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      px: 2,
+                    }}
+                  >
+                    {currentView === 'dashboard' ? 'Historique Perso' : 'Logs Perso'}
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </Paper>
 
                 {/* GROUPE BOUTONS DU MILIEU (CORRIGÉ) */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
