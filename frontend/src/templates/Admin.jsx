@@ -14,7 +14,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export default function Admin({ onParametre, onApprovisionnement, onRetourAccueil }) {
+export default function Admin({ onParametre, onApprovisionnement, onRetourAccueil, onGestionStock }) {
     const [currentView, setCurrentView] = useState('dashboard');
     const [filtreMode, setFiltreMode] = useState('Normal');
     const [dashboardData, setDashboardData] = useState({ stands: [], historique: [] });
@@ -145,7 +145,23 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                     <Button variant="outlined" size="small" startIcon={<DownloadIcon />} sx={{ textTransform: 'none', fontWeight: 600, color: '#42526E', borderColor: '#DFE1E6' }}>
                         Exporter CSV
                     </Button>
-                </Box>
+                    <Button
+                        variant="contained"
+                        onClick={() => setOpenClearDialog(true)}
+                        sx={headerBtnStyle(false)}
+                    >
+                        Vider la BD
+                    </Button>
+
+                    <Button 
+                        variant="contained" 
+                        onClick={onGestionStock}
+                        sx={headerBtnStyle(false)}
+                    >
+                        Gestion Pièces et Stock
+                    </Button>
+
+                    <Button variant="contained" onClick={onParametre} sx={headerBtnStyle(false)}>Échange</Button>
 
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                     <Button variant="contained" onClick={onApprovisionnement} sx={navButtonStyle(false)} startIcon={<LocalShippingIcon />}>Stock</Button>
