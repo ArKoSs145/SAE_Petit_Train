@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
 sender.py - Multi-zapettes vers serveur FastAPI (HTTP)
-Fonctionne sur un poste unique ou plusieurs Raspberry.
- - Détecte les zapettes USB-COM
- - Attribue un ID simple : 1, 2, 3...
- - Envoie les codes-barres au serveur FastAPI (endpoint /scan)
+Filtre les ports pour ignorer le port interne ttyS0.
 """
 
 import threading
@@ -13,6 +10,7 @@ import serial
 import serial.tools.list_ports
 import requests
 
+# Configuration
 SERVER_HOST = "http://127.0.0.1:8000"
 SCAN_ENDPOINT = f"{SERVER_HOST}/scan"
 READ_TIMEOUT = 1.0
@@ -33,80 +31,53 @@ def send_scan(barcode, device_id):
         print(f"[EXC] Erreur envoi (zapette {device_id}): {e}")
 
 def serial_reader_thread(port_info, device_id):
-    """Lit les scans sur un port série sans utiliser in_waiting (contournement bug driver)"""
+    """Lit les scans sur un port série"""
     port_name = port_info.device
     print(f"[INFO] Thread zapette {device_id} démarré sur {port_name}")
     
     while True:
         try:
-            # On garde la désactivation DTR/RTS par sécurité
             ser = serial.Serial()
             ser.port = port_name
             ser.baudrate = 9600
-            ser.timeout = 0.5  # Timeout court pour rendre la boucle réactive
+            ser.timeout = 0.5
             ser.dsrdtr = False
             ser.rtscts = False
-            
             ser.open()
             
             with ser:
                 print(f"[OPEN] {port_name} ouvert (zapette {device_id})")
                 buffer = b""
-                
                 while True:
-                    # --- MODIFICATION CRITIQUE ---
-                    # Au lieu de demander 'if ser.in_waiting:', on lit directement 1 octet.
-                    # Grâce au timeout, si rien n'arrive, cela renvoie b'' sans planter.
-                    try:
-                        chunk = ser.read(1) 
-                    except serial.SerialException:
-                        raise # On remonte l'erreur si la lecture plante vraiment (déconnexion)
-
+                    chunk = ser.read(1) 
                     if chunk:
                         buffer += chunk
-                        # Si on a reçu un caractère, on essaie d'en lire d'autres immédiatement
-                        # pour ne pas attendre le timeout entre chaque caractère.
-                        # On utilise un read safe s'il y a d'autres données qui suivent.
-                        while True:
-                            # Petite astuce : on tente de lire le reste sans timeout bloquant
-                            # mais sans utiliser in_waiting qui bug chez vous.
-                            ser.timeout = 0.05 
-                            more = ser.read(128)
-                            if not more:
-                                ser.timeout = 0.5 # On remet le timeout normal
-                                break
+                        ser.timeout = 0.05 
+                        more = ser.read(128)
+                        if more:
                             buffer += more
+                        ser.timeout = 0.5
 
-                        # Analyse du buffer
                         if b"\r" in buffer or b"\n" in buffer:
-                            try:
-                                barcode = buffer.decode("utf-8", errors="ignore").strip()
-                            except:
-                                barcode = ""
-                            
-                            buffer = b"" # Reset
-                            
+                            barcode = buffer.decode("utf-8", errors="ignore").strip()
+                            buffer = b""
                             if barcode:
                                 send_scan(barcode, device_id)
-                    
-                    # Pas de else/sleep ici, le ser.read(1) avec timeout fait office de sleep
-                    
-        except serial.SerialException as e:
-            print(f"[WARN] Erreur série sur {port_name}: {e}")
-            time.sleep(RECONNECT_DELAY)
-            
-        except Exception as e:
-            print(f"[EXC] Erreur inattendue sur {port_name}: {e}")
+        except Exception:
             time.sleep(RECONNECT_DELAY)
             
 def discover_and_start_listeners():
-    """Découvre les zapettes USB-COM et lance un thread par port détecté"""
-    ports = serial.tools.list_ports.comports()
+    """Découvre uniquement les zapettes USB (ACM ou USB) et ignore ttyS0"""
+    all_ports = serial.tools.list_ports.comports()
+    
+    # --- MODIFICATION ICI : On filtre pour ne garder que l'USB réel ---
+    ports = [p for p in all_ports if "ttyS0" not in p.device and ("ACM" in p.device or "USB" in p.device)]
+    
     if not ports:
-        print("[INFO] Aucune zapette détectée.")
+        print("[INFO] Aucune zapette USB détectée.")
         return []
 
-    print(f"[INFO] {len(ports)} zapette(s) détectée(s).")
+    print(f"[INFO] {len(ports)} zapette(s) physique(s) détectée(s).")
 
     threads = []
     for idx, p in enumerate(ports, start=1):
@@ -118,10 +89,10 @@ def discover_and_start_listeners():
     return threads
 
 def main():
-    print("[INFO] Sender démarré — détection des zapettes...")
+    print("[INFO] Sender démarré — détection des zapettes USB uniquement...")
     threads = discover_and_start_listeners()
     if not threads:
-        print("[INFO] Aucune zapette connectée. Fin du programme.")
+        print("[INFO] Fin du programme (aucune zapette).")
         return
 
     print("[INFO] En écoute. Ctrl+C pour arrêter.")
