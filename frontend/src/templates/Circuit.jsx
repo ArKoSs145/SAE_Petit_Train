@@ -467,22 +467,19 @@ const getBoxSx = (posteId) => {
     width: '100%',
     height: '100%', 
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'column', 
+
     p: 1,
-    textAlign: 'center',
-    cursor: 'pointer',
     borderRadius: '8px',
-    fontSize: '0.85rem',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
     backgroundColor: isActive ? '#0052CC' : '#FFFFFF',
     color: isActive ? '#FFFFFF' : '#172B4D',
     border: '2px solid',
     borderColor: isActive ? '#0052CC' : '#DFE1E6',
     boxShadow: isActive ? '0 4px 12px rgba(0, 82, 204, 0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
     transition: 'all 0.2s ease',
+    overflow: 'hidden',
+    cursor: 'pointer',
+
     '&:hover': {
       borderColor: '#0052CC',
       transform: 'translateY(-2px)'
@@ -586,75 +583,87 @@ return (
             >
               {/* --- LIGNE 1 : HAUT --- */}
               <Paper id="presse_emboutir" sx={{ ...getBoxSx('7'), gridArea: '1 / 1' }} onClick={() => handlePosteClick('7')}>
-                {posteNames['7'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['7'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('7');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>
               </Paper>
               <GridArrow row={1} col={2} symbol="←" />
               <Paper id="tour_cn" sx={{ ...getBoxSx('6'), gridArea: '1 / 3' }} onClick={() => handlePosteClick('6')}>
-                {posteNames['6'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['6'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('6');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>
               </Paper>
               <GridArrow row={1} col={4} symbol="←" />
               <Paper id="magasin_externe" sx={{ ...getBoxSx('5'), gridArea: '1 / 5' }} onClick={() => handlePosteClick('5')}>
-                {posteNames['5'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['5'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('5');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>
@@ -662,25 +671,29 @@ return (
               
               <GridArrow row={2} col={5} symbol="↑" />
               <Paper id="presse_injection" sx={{ ...getBoxSx('4'), gridArea: '3 / 5' }} onClick={() => handlePosteClick('4')}>
-                {posteNames['4'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['4'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('4');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>
@@ -689,25 +702,29 @@ return (
 
               <GridArrow row={2} col={1} symbol="↓" />
               <Paper id="poste-1" sx={{ ...getBoxSx('1'), gridArea: '3 / 1' }} onClick={() => handlePosteClick('1')}>
-                {posteNames['1'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['1'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('1');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>
@@ -716,50 +733,58 @@ return (
 
               {/* --- LIGNE 5 : BAS --- */}
               <Paper id="poste-2" sx={{ ...getBoxSx('2'), gridArea: '5 / 1' }} onClick={() => handlePosteClick('2')}>
-                {posteNames['2'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['2'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('2');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>
               </Paper>
               <GridArrow row={5} col={2} symbol="→" />
               <Paper id="poste-3" sx={{ ...getBoxSx('3'), gridArea: '5 / 3' }} onClick={() => handlePosteClick('3')}>
-                {posteNames['3'] || 'Chargement...'}
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                  <Typography sx={{ fontWeight: 'bold', fontSize: 'clamp(0.7rem, 1vw, 0.9rem)', lineHeight: 1.2 }}>
+                    {posteNames['3'] || '...'}
+                  </Typography>
+                </Box>
+
                 <Button
                   variant="contained"
                   color="info"
-                  size="large"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleManualLocation('3');
                   }}
                   sx={{
-                    position: 'absolute',
-                    bottom: 5,
-                    left: '5%',
-                    width: '90%',
-                    height: '50px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem'
+                    width: '100%',
+                    height: '40px',
+                    minHeight: '40px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    mt: 0.5
                   }}
-                  startIcon={<PlayArrowIcon />}
+                  startIcon={<PlayArrowIcon fontSize="small" />}
                 >
                   Aller ici
                 </Button>

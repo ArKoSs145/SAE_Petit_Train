@@ -8,10 +8,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import SettingsIcon from '@mui/icons-material/Settings';
-import DownloadIcon from '@mui/icons-material/Download';
 import HistoryIcon from '@mui/icons-material/History';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import InventoryIcon from '@mui/icons-material/Inventory'; // Icône suggérée pour le stock
+import InventoryIcon from '@mui/icons-material/Inventory';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -99,37 +98,20 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
     };
 
     const handleQuit = () => { 
-        if (onRetourAccueil) {
-            onRetourAccueil();
-        } else {
-            window.location.href = "/"; 
-        }
-    };
-
-    const getCardColor = (nom) => {
-        if (nom.includes('Poste 1')) return '#E3F2FD';
-        if (nom.includes('Poste 2')) return '#E8F5E9';
-        if (nom.includes('Poste 3')) return '#FFEBEE';
-        return '#F4F5F7';
+        if (onRetourAccueil) onRetourAccueil();
+        else window.location.href = "/"; 
     };
 
     const handleDownload = () => {
         const type = currentView === 'dashboard' ? 'dashboard' : 'logs';
-        
         if (type === 'logs' && (!selectedCycleId || selectedCycleId === 'Total')) {
             alert("Veuillez sélectionner un cycle pour exporter ses logs.");
             return;
         }
-
-        const params = new URLSearchParams({
-            type: type,
-            mode: filtreMode,
-            cycle_id: selectedCycleId
-        });
-
-        // Déclenche le téléchargement du fichier CSV
+        const params = new URLSearchParams({ type, mode: filtreMode, cycle_id: selectedCycleId });
         window.location.href = `${apiUrl}/api/admin/export-csv?${params.toString()}`;
     };
+
     const navButtonStyle = (active) => ({
         bgcolor: active ? '#0052CC' : 'white',
         color: active ? 'white' : '#42526E',
@@ -141,7 +123,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
         '&:hover': { bgcolor: active ? '#0747A6' : '#F4F5F7' }
     });
 
-    // --- CORRECTION : AJOUT DE LA FONCTION MANQUANTE ---
     const headerBtnStyle = (active) => ({
         bgcolor: active ? '#0052CC' : '#F4F5F7',
         color: active ? 'white' : '#172B4D',
@@ -154,108 +135,85 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
         '&:hover': { bgcolor: '#EBECF0', borderColor: '#DFE1E6' }
     });
 
+    const getCardColor = (nom) => {
+        if (nom.includes('Poste 1')) return '#E3F2FD';
+        if (nom.includes('Poste 2')) return '#E8F5E9';
+        if (nom.includes('Poste 3')) return '#FFEBEE';
+        return '#F4F5F7';
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#F4F5F7', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
       
-            {/* HEADER */}
+            {/* HEADER UNIQUE ET CORRIGÉ */}
             <Paper
-              elevation={0}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                p: 2,
-                bgcolor: 'white',
-                borderBottom: '1px solid #DFE1E6',
-                borderRadius: 0,
-              }}
+                elevation={0}
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 2,
+                    bgcolor: 'white',
+                    borderBottom: '1px solid #DFE1E6',
+                    borderRadius: 0,
+                    zIndex: 10
+                }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D', mr: 2 }}>
-                  Administration
-                </Typography>
+                {/* GAUCHE: Titre & Filtres */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B4D', mr: 2 }}>
+                        Administration
+                    </Typography>
 
-                <Button 
-                  variant="contained" 
-                  onClick={handleDownload} 
-                  sx={headerBtnStyle(false)}
-                >
-                  Télécharger
-                </Button>
+                    <Button variant="contained" onClick={handleDownload} sx={headerBtnStyle(false)}>
+                        Télécharger
+                    </Button>
 
-                <ToggleButtonGroup
-                  value={filtreMode}
-                  exclusive
-                  onChange={handleModeChange}
-                  size="small"
-                  sx={{ border: 'none', borderRadius: 0, gap: 1 }}
-                >
-                  <ToggleButton
-                    value="Normal"
-                    sx={{
-                      ...headerBtnStyle(filtreMode === 'Normal'),
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      px: 2,
-                    }}
-                  >
-                    {currentView === 'dashboard' ? 'Historique Normal' : 'Logs Normaux'}
-                  </ToggleButton>
+                    <ToggleButtonGroup value={filtreMode} exclusive onChange={handleModeChange} size="small" sx={{ border: 'none', gap: 1 }}>
+                        <ToggleButton value="Normal" sx={{ ...headerBtnStyle(filtreMode === 'Normal'), px: 2 }}>
+                            {currentView === 'dashboard' ? 'Historique Normal' : 'Logs Normaux'}
+                        </ToggleButton>
+                        <ToggleButton value="Personnalisé" sx={{ ...headerBtnStyle(filtreMode === 'Personnalisé'), px: 2 }}>
+                            {currentView === 'dashboard' ? 'Historique Perso' : 'Logs Perso'}
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Box>
 
-                  <ToggleButton
-                    value="Personnalisé"
-                    sx={{
-                      ...headerBtnStyle(filtreMode === 'Personnalisé'),
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      px: 2,
-                    }}
-                  >
-                    {currentView === 'dashboard' ? 'Historique Perso' : 'Logs Perso'}
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-            </Paper>
-
-                {/* GROUPE BOUTONS DU MILIEU (CORRIGÉ) */}
+                {/* MILIEU: Actions Base/Stock */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
                         variant="contained"
                         onClick={() => setOpenClearDialog(true)}
-                        color="error"
                         startIcon={<DeleteSweepIcon />}
-                        sx={{...headerBtnStyle(false), bgcolor: '#FFEBE6', color: '#DE350B', '&:hover': { bgcolor: '#FFBDAD' }}}
+                        sx={{ ...headerBtnStyle(false), bgcolor: '#FFEBE6', color: '#DE350B', '&:hover': { bgcolor: '#FFBDAD' } }}
                     >
                         Vider la BD
                     </Button>
 
-                    {/* Affichage conditionnel si la fonction est passée */}
                     {onGestionStock && (
-                        <Button 
-                            variant="contained" 
-                            onClick={onGestionStock}
-                            startIcon={<InventoryIcon />}
-                            sx={headerBtnStyle(false)}
-                        >
+                        <Button variant="contained" onClick={onGestionStock} startIcon={<InventoryIcon />} sx={headerBtnStyle(false)}>
                             Gestion Pièces
                         </Button>
                     )}
                 </Box>
 
-                {/* GROUPE NAVIGATION (DROITE) */}
-                <Box sx={{ display: 'flex', gap: 1.5 }}>
-                    <Button variant="contained" onClick={onApprovisionnement} sx={navButtonStyle(false)} startIcon={<LocalShippingIcon />}>Délais</Button>
-                    <Button variant="contained" onClick={onParametre} sx={navButtonStyle(false)} startIcon={<SettingsIcon />}>Config</Button>
-                    <Button variant="contained" onClick={() => setCurrentView(currentView === 'dashboard' ? 'logs' : 'dashboard')} sx={navButtonStyle(true)} startIcon={currentView === 'dashboard' ? <AssessmentIcon /> : <HistoryIcon />}>
+                {/* DROITE: Navigation */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button onClick={onApprovisionnement} sx={navButtonStyle(false)} startIcon={<LocalShippingIcon />}>Délais</Button>
+                    <Button onClick={onParametre} sx={navButtonStyle(false)} startIcon={<SettingsIcon />}>Config</Button>
+                    <Button 
+                        onClick={() => setCurrentView(currentView === 'dashboard' ? 'logs' : 'dashboard')} 
+                        sx={navButtonStyle(true)} 
+                        startIcon={currentView === 'dashboard' ? <AssessmentIcon /> : <HistoryIcon />}
+                    >
                         {currentView === 'dashboard' ? 'Voir Logs' : 'Voir Historique'}
                     </Button>
-                    <Button onClick={handleQuit} sx={{ bgcolor: '#DE350B', color: 'white', fontWeight: 800, borderRadius: '8px', px: 2, '&:hover': { bgcolor: '#BF2600' } }}>X</Button>
+                    <Button onClick={handleQuit} sx={{ bgcolor: '#DE350B', color: 'white', fontWeight: 800, borderRadius: '8px', minWidth: '40px', '&:hover': { bgcolor: '#BF2600' } }}>X</Button>
                 </Box>
             </Paper>
 
             {/* CONTENU PRINCIPAL */}
             <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-
                 {/* SIDEBAR CYCLES */}
                 <Box sx={{ width: '320px', bgcolor: 'white', borderRight: '1px solid #DFE1E6', display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #F4F5F7' }}>
@@ -264,8 +222,6 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                         </Typography>
                     </Box>
                     <List sx={{ p: 0, overflowY: 'auto', flexGrow: 1 }}>
-                        
-                        {/*On cache 'Total' si on est dans la vue Logs */}
                         {currentView !== 'logs' && (
                             <ListItemButton 
                                 onClick={() => handleSelectCycle({ id: 'Total', label: 'Total' })}
@@ -289,8 +245,7 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                 </Box>
 
                 {/* ZONE DE DONNÉES */}
-                <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto', bgcolor: '#F4F5F7' }}>
-                    
+                <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
                     {currentView === 'dashboard' ? (
                         <Grid container spacing={3}>
                             {dashboardData.stands.map((stand) => {
@@ -316,22 +271,22 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                                             
                                             <Box sx={{ mb: 2 }}>
                                                 <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#36B37E', mb: 1, textTransform: 'uppercase' }}>Arrivages</Typography>
-                                                {arrivages.map((i, idx) => (
+                                                {arrivages.length > 0 ? arrivages.map((i, idx) => (
                                                     <Typography key={idx} sx={{ fontSize: '0.85rem', color: '#42526E', mb: 0.5 }}>
                                                         • <strong>{i.count > 1 ? `x${i.count} ` : ''}{i.objet}</strong> <small>depuis {i.source_nom}</small>
                                                     </Typography>
-                                                ))}
+                                                )) : <Typography sx={{ fontSize: '0.8rem', color: '#B3BAC5', fontStyle: 'italic' }}>Aucun</Typography>}
                                             </Box>
                                             
                                             <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
                                             
                                             <Box>
                                                 <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#FF991F', mb: 1, textTransform: 'uppercase' }}>Départs</Typography>
-                                                {departs.map((i, idx) => (
+                                                {departs.length > 0 ? departs.map((i, idx) => (
                                                     <Typography key={idx} sx={{ fontSize: '0.85rem', color: '#42526E', mb: 0.5 }}>
                                                         → <strong>{i.count > 1 ? `x${i.count} ` : ''}{i.objet}</strong> <small>vers {i.dest_nom}</small>
                                                     </Typography>
-                                                ))}
+                                                )) : <Typography sx={{ fontSize: '0.8rem', color: '#B3BAC5', fontStyle: 'italic' }}>Aucun</Typography>}
                                             </Box>
                                         </Paper>
                                     </Grid>
@@ -346,16 +301,16 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
                                 </Typography>
                                 <IconButton onClick={() => setCurrentView('dashboard')} sx={{ bgcolor: '#F4F5F7' }}><ArrowBackIcon /></IconButton>
                             </Box>
-                            <Box sx={{ flexGrow: 1, p: 3, bgcolor: '#172B4D', overflowY: 'auto', fontFamily: "'Fira Code', 'Courier New', monospace" }}>
+                            <Box sx={{ flexGrow: 1, p: 3, bgcolor: '#172B4D', overflowY: 'auto', fontFamily: "'Fira Code', monospace" }}>
                                 {selectedCycleId !== 'Total' && cycleLogs.length > 0 ? (
                                     cycleLogs.map((line, index) => (
-                                        <Typography key={index} sx={{ color: '#36B37E', fontSize: '0.9rem', mb: 0.8, lineHeight: 1.4 }}>
+                                        <Typography key={index} sx={{ color: '#36B37E', fontSize: '0.85rem', mb: 0.5 }}>
                                             <span style={{ color: '#5E6C84' }}>[{index + 1}]</span> {line}
                                         </Typography>
                                     ))
                                 ) : (
                                     <Typography sx={{ color: '#5E6C84', fontStyle: 'italic', textAlign: 'center', mt: 4 }}>
-                                        {cyclesList.length === 0 ? "Aucun cycle enregistré." : "Sélectionnez un cycle à gauche pour voir les détails."}
+                                        Sélectionnez un cycle à gauche pour voir les logs.
                                     </Typography>
                                 )}
                             </Box>
@@ -365,17 +320,17 @@ export default function Admin({ onParametre, onApprovisionnement, onRetourAccuei
             </Box>
 
             {/* DIALOG PURGE */}
-            <Dialog open={openClearDialog} onClose={() => setOpenClearDialog(false)} PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}>
-                <DialogTitle sx={{ fontWeight: 800, color: '#DE350B' }}>Confirmer la purge des données</DialogTitle>
+            <Dialog open={openClearDialog} onClose={() => setOpenClearDialog(false)}>
+                <DialogTitle sx={{ fontWeight: 800, color: '#DE350B' }}>Confirmer la purge</DialogTitle>
                 <DialogContent>
-                    <DialogContentText sx={{ color: '#42526E' }}>
-                        Cette action est irréversible. Vous allez supprimer toutes les données relatives aux pièces, commandes et cycles pour le mode <strong>{filtreMode}</strong>.
+                    <DialogContentText>
+                        Action irréversible pour le mode <strong>{filtreMode}</strong>.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setOpenClearDialog(false)} sx={{ fontWeight: 700, color: '#5E6C84', textTransform: 'none' }}>Annuler</Button>
-                    <Button onClick={handleClearDatabase} variant="contained" disabled={clearing} sx={{ bgcolor: '#DE350B', fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#BF2600' } }}>
-                        {clearing ? "Suppression en cours..." : "Confirmer la purge complète"}
+                    <Button onClick={() => setOpenClearDialog(false)}>Annuler</Button>
+                    <Button onClick={handleClearDatabase} variant="contained" disabled={clearing} color="error">
+                        {clearing ? "Purger..." : "Confirmer"}
                     </Button>
                 </DialogActions>
             </Dialog>

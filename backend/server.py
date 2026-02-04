@@ -20,7 +20,6 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from update_grid import traiter_fichier_config
 from contextlib import asynccontextmanager
-from fpdf import FPDF
 import traceback
 import csv
 from io import StringIO
